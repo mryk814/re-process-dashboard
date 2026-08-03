@@ -55,6 +55,12 @@ from decision_workbench.task_composition.external_tasks import (  # noqa: E402
 from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "contracts" / "capability-atlas.json"
+DESIGN_PRIOR_REPLAY_REPORT = (
+    REPOSITORY_ROOT
+    / "docs"
+    / "research"
+    / "real-task-design-prior-replay-report.json"
+)
 
 
 def _profile_missingness_inputs(data: Any) -> list[dict[str, Any]]:
@@ -236,6 +242,30 @@ def _graph_capability() -> dict[str, Any]:
     }
 
 
+def _design_prior_promotion() -> dict[str, Any]:
+    report = json.loads(
+        DESIGN_PRIOR_REPLAY_REPORT.read_text(encoding="utf-8")
+    )
+    decisions = report["decisions"]
+    return {
+        "status": "evaluated_no_production_promotion",
+        "task_id": report["protocol"]["task_id"],
+        "report_schema_version": report["schema_version"],
+        "report_digest": report["result_digest"],
+        "design_prior_identity": report["protocol"]["design_prior"]["identity"],
+        "design_prior_manifest_digest": report["protocol"]["design_prior"][
+            "manifest_digest"
+        ],
+        "generator_decisions": {
+            "knn_local": decisions["knn_local"],
+            "gaussian_rank_copula": decisions["gaussian_rank_copula"],
+        },
+        "production_promotion": decisions["production_promotion"],
+        "proposal_registry_changed": decisions["proposal_registry_changed"],
+        "limitations": report["limitations"],
+    }
+
+
 def build_atlas() -> dict[str, Any]:
     resources = _bundled_resources()
     packages_by_task = {
@@ -256,6 +286,7 @@ def build_atlas() -> dict[str, Any]:
         decision_activities=[item.definition.model_dump(mode="json") for item in build_registry().values()],
         proposal_strategies=[item.model_dump(mode="json") for item in STRATEGIES],
         graph_capability=_graph_capability(),
+        design_prior_promotion=_design_prior_promotion(),
     )
 
 

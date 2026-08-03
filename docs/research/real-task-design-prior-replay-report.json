@@ -1,0 +1,2569 @@
+{
+  "schema_version": "real-task-design-prior-replay/v1",
+  "result_digest": "sha256:056d9f52f5b290d7255e903c0ff315cb3269a5670122f5e3dc1da745998ebcb6",
+  "protocol": {
+    "protocol_version": "mpea-room-tensile-design-prior-replay/v1",
+    "task_id": "mpea-room-tensile-v1",
+    "task_selection_reason": "public MPEA observations provide correlated composition, process categories, a composition total constraint, grouped literature holdout, and an allow-listed ridge Package fitted only on replay training groups",
+    "source": {
+      "path": "data/source/external/mpea_ground_truth_18021833.csv",
+      "digest": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476"
+    },
+    "profile": {
+      "path": "backend/src/decision_workbench/data/tabular-profile-mpea-room-tensile-v1.json",
+      "digest": "sha256:38ffb401a6d25bac3bd9f8a1d1dffca8dddae3ef91c8fb4619d82af608895f2f"
+    },
+    "training_snapshot": {
+      "training_data_id": "sha256:1e21d5f8f8d702706f162ea5cb6d049dcec75c7419ad71f9ea7ab6cc7a41f8d9",
+      "feature_dataset_id": "sha256:edf49b507e2a35999bd14a5a5942a8268105a00b6292e1981bd8def5af53b5f5",
+      "train_source_digest": "sha256:1e21d5f8f8d702706f162ea5cb6d049dcec75c7419ad71f9ea7ab6cc7a41f8d9",
+      "holdout_groups_excluded_from_fit_and_support": true
+    },
+    "task_contract_digest": "sha256:c3a1bf3096ed4cceec3c503c64d7501ce3672d46e9be2f79788733b5df04dd54",
+    "input_contract_digest": "sha256:8973d33d0c52b5ecda793b0fc5611697f60198cda21b0728340c28ca2002646f",
+    "feature_recipe": {
+      "id": "mpea-room-tensile-v1-profile-transform",
+      "version": "1.0.0",
+      "spec": "feature-pipeline/pipeline.json",
+      "canonical_input_paths": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min",
+        "process.aging_temp_c",
+        "process.aging_time_h",
+        "categorical.homogenized",
+        "categorical.rolled",
+        "categorical.recrystallized",
+        "categorical.aged"
+      ],
+      "output_features": [
+        "composition.Fe",
+        "composition.Ni",
+        "composition.Co",
+        "composition.Mn",
+        "composition.Cr",
+        "composition.Al",
+        "composition.Ti",
+        "composition.Cu",
+        "composition.Si",
+        "composition.V",
+        "composition.Nb",
+        "composition.B",
+        "composition.Mo",
+        "composition.Ta",
+        "categorical.homogenized__no",
+        "categorical.homogenized__yes",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h__log1p",
+        "categorical.rolled__no",
+        "categorical.rolled__yes",
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct",
+        "categorical.recrystallized__no",
+        "categorical.recrystallized__yes",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min__log1p",
+        "categorical.aged__no",
+        "categorical.aged__yes",
+        "process.aging_temp_c",
+        "process.aging_time_h__log1p"
+      ],
+      "artifacts": [
+        "reference/training_stats.json",
+        "reference/training-recipe.json"
+      ]
+    },
+    "validation_plan": [
+      {
+        "target": "TYS",
+        "plan": {
+          "schema_version": "validation-plan/v1",
+          "strategy": "grouped_kfold",
+          "folds": 5,
+          "holdout_fraction": null,
+          "seed": 20260730,
+          "group_key": "parent_key",
+          "time_key": null,
+          "gap": 0,
+          "minimum_train_size": 2,
+          "class_balance_policy": null
+        },
+        "digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+      },
+      {
+        "target": "UTS",
+        "plan": {
+          "schema_version": "validation-plan/v1",
+          "strategy": "grouped_kfold",
+          "folds": 5,
+          "holdout_fraction": null,
+          "seed": 20260730,
+          "group_key": "parent_key",
+          "time_key": null,
+          "gap": 0,
+          "minimum_train_size": 2,
+          "class_balance_policy": null
+        },
+        "digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+      },
+      {
+        "target": "EL",
+        "plan": {
+          "schema_version": "validation-plan/v1",
+          "strategy": "grouped_kfold",
+          "folds": 5,
+          "holdout_fraction": null,
+          "seed": 20260730,
+          "group_key": "parent_key",
+          "time_key": null,
+          "gap": 0,
+          "minimum_train_size": 2,
+          "class_balance_policy": null
+        },
+        "digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+      }
+    ],
+    "predictive_model_package": {
+      "package_id": "mpea-room-tensile-replay-ridge-v1",
+      "version": "1.0.0",
+      "manifest_digest": "sha256:e3ccd40d34b9d8845274e800f6dcf05e28767e427c89f2de5aa5cb5e3a6b7eaa",
+      "training_scope": "fixed non-holdout literature groups only",
+      "active_recipe_reference": {
+        "package_id": "mpea-room-tensile-ridge-v2",
+        "version": "2.0.0",
+        "manifest_digest": "sha256:a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
+        "ridge_alpha": 1000.0
+      }
+    },
+    "design_prior": {
+      "identity": "mpea-room-tensile-replay-observations/v1",
+      "manifest_digest": "sha256:535334f040fee9a5399479fea8725b3cad0e4cea36cca153d262d4a13f610619",
+      "artifact_kind": "data-only replay projection",
+      "train_rows": 75,
+      "holdout_rows": 24,
+      "train_groups": 30,
+      "holdout_groups": 9
+    },
+    "design_space": {
+      "numeric_bounds": "training min/max for every canonical numeric input",
+      "numeric_domains": [
+        {
+          "path": "composition.Fe",
+          "minimum": 0.0,
+          "maximum": 42.8
+        },
+        {
+          "path": "composition.Ni",
+          "minimum": 0.0,
+          "maximum": 50.0
+        },
+        {
+          "path": "composition.Co",
+          "minimum": 0.0,
+          "maximum": 37.5
+        },
+        {
+          "path": "composition.Mn",
+          "minimum": 0.0,
+          "maximum": 28.3
+        },
+        {
+          "path": "composition.Cr",
+          "minimum": 0.0,
+          "maximum": 33.3
+        },
+        {
+          "path": "composition.Al",
+          "minimum": 0.0,
+          "maximum": 16.67
+        },
+        {
+          "path": "composition.Ti",
+          "minimum": 0.0,
+          "maximum": 45.0
+        },
+        {
+          "path": "composition.Cu",
+          "minimum": 0.0,
+          "maximum": 36.0
+        },
+        {
+          "path": "composition.Si",
+          "minimum": 0.0,
+          "maximum": 4.5
+        },
+        {
+          "path": "composition.V",
+          "minimum": 0.0,
+          "maximum": 45.32
+        },
+        {
+          "path": "composition.Nb",
+          "minimum": 0.0,
+          "maximum": 6.0
+        },
+        {
+          "path": "composition.B",
+          "minimum": 0.0,
+          "maximum": 2.5
+        },
+        {
+          "path": "composition.Mo",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        {
+          "path": "composition.Ta",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        {
+          "path": "process.homogenization_temp_c",
+          "minimum": 0.0,
+          "maximum": 1200.0
+        },
+        {
+          "path": "process.homogenization_time_h",
+          "minimum": 0.0,
+          "maximum": 48.0
+        },
+        {
+          "path": "process.rolling_temp_c",
+          "minimum": 0.0,
+          "maximum": 1100.0
+        },
+        {
+          "path": "process.rolling_reduction_pct",
+          "minimum": 0.0,
+          "maximum": 90.0
+        },
+        {
+          "path": "process.recrystallization_temp_c",
+          "minimum": 0.0,
+          "maximum": 1200.0
+        },
+        {
+          "path": "process.recrystallization_time_min",
+          "minimum": 0.0,
+          "maximum": 5760.0
+        },
+        {
+          "path": "process.aging_temp_c",
+          "minimum": 0.0,
+          "maximum": 900.0
+        },
+        {
+          "path": "process.aging_time_h",
+          "minimum": 0.0,
+          "maximum": 144.0
+        }
+      ],
+      "categorical_paths": [
+        "categorical.homogenized",
+        "categorical.rolled",
+        "categorical.recrystallized",
+        "categorical.aged"
+      ],
+      "categorical_tuples": [
+        [
+          "no",
+          "no",
+          "no",
+          "no"
+        ],
+        [
+          "no",
+          "no",
+          "no",
+          "yes"
+        ],
+        [
+          "no",
+          "yes",
+          "no",
+          "no"
+        ],
+        [
+          "no",
+          "yes",
+          "yes",
+          "no"
+        ],
+        [
+          "no",
+          "yes",
+          "yes",
+          "yes"
+        ],
+        [
+          "yes",
+          "no",
+          "no",
+          "no"
+        ],
+        [
+          "yes",
+          "no",
+          "no",
+          "yes"
+        ],
+        [
+          "yes",
+          "yes",
+          "no",
+          "no"
+        ],
+        [
+          "yes",
+          "yes",
+          "no",
+          "yes"
+        ],
+        [
+          "yes",
+          "yes",
+          "yes",
+          "no"
+        ],
+        [
+          "yes",
+          "yes",
+          "yes",
+          "yes"
+        ]
+      ],
+      "composition_total": {
+        "minimum": 99.0,
+        "maximum": 101.0
+      },
+      "balance_path": "composition.Fe",
+      "digest": "sha256:43843c1a0dfb0901a49e09941f60673377ab6b407120e11cb75041fde6c37e55"
+    },
+    "holdout_oracle": {
+      "identity": "sha256-group-mod5/v1",
+      "digest": "sha256:dfc744b319e56dfc0dcc81774293c562b1ee9a98ad6a91477aa3090a05c83e72",
+      "outcome": "TYS",
+      "candidate_outcome_mapping": "nearest held-out mixed-distance observation",
+      "distance_contract": {
+        "id": "normalized-numeric-category-rms/v1",
+        "numeric": "mean squared distance after train-min/max normalization",
+        "categorical": "mean unequal-field indicator",
+        "combination": "sqrt((numeric + categorical) / 2)",
+        "tie_break": "first held-out source order"
+      }
+    },
+    "generators": [
+      "latin_hypercube",
+      "sobol",
+      "empirical_rows",
+      "knn_local",
+      "gaussian_rank_copula"
+    ],
+    "selection_policies": [
+      "direct_objective",
+      "conservative_diverse"
+    ],
+    "seeds": [
+      17,
+      41,
+      83
+    ],
+    "candidate_budget": 96,
+    "batch_size": 8,
+    "production_registry_changed": false
+  },
+  "runs": [
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:aa274909d8e1fc99c428fe1d3e589781048ccb11594690a689e8dafb6bdb5bd2",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.94791667,
+        "rejection_count": 91,
+        "repair_count": 0,
+        "selection_shortfall": 3
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42767355,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 5
+        },
+        "mean_prediction_holdout_gap": 257.83546,
+        "exploitation_rate": 0.4
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 458.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.56377482,
+        "selected_count": 5
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 6.042,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:bdea991d2ae1dd93162b4fb495b4ae412ef4bd63f2f4ec543211ded2d012faf5",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.96875,
+        "rejection_count": 93,
+        "repair_count": 0,
+        "selection_shortfall": 5
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42218899,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.27272727
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 472.7051,
+        "exploitation_rate": 1.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 293.0,
+        "median_realized_outcome": 289.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.47846131,
+        "selected_count": 3
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 4.236,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:f89aea05a459e3e780613857b860e1a3e8e4597e4ed8aa3654d33e9c7b9444e6",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.9375,
+        "rejection_count": 90,
+        "repair_count": 0,
+        "selection_shortfall": 2
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42103144,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.54545455,
+        "eligible_category_mode_coverage": 0.6
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 6
+        },
+        "mean_prediction_holdout_gap": 223.88708333,
+        "exploitation_rate": 0.33333333
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 855.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.59521589,
+        "selected_count": 6
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 5.136,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:aa274909d8e1fc99c428fe1d3e589781048ccb11594690a689e8dafb6bdb5bd2",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.94791667,
+        "rejection_count": 91,
+        "repair_count": 0,
+        "selection_shortfall": 3
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42767355,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 5
+        },
+        "mean_prediction_holdout_gap": 257.83546,
+        "exploitation_rate": 0.4
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 458.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.56377482,
+        "selected_count": 5
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 5.486,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:bdea991d2ae1dd93162b4fb495b4ae412ef4bd63f2f4ec543211ded2d012faf5",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.96875,
+        "rejection_count": 93,
+        "repair_count": 0,
+        "selection_shortfall": 5
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42218899,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.27272727
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 472.7051,
+        "exploitation_rate": 1.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 293.0,
+        "median_realized_outcome": 289.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.47846131,
+        "selected_count": 3
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 4.285,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "latin_hypercube",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "latin_hypercube",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:f89aea05a459e3e780613857b860e1a3e8e4597e4ed8aa3654d33e9c7b9444e6",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.9375,
+        "rejection_count": 90,
+        "repair_count": 0,
+        "selection_shortfall": 2
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42103144,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.54545455,
+        "eligible_category_mode_coverage": 0.6
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 6
+        },
+        "mean_prediction_holdout_gap": 223.88708333,
+        "exploitation_rate": 0.33333333
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 855.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.59521589,
+        "selected_count": 6
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 5.155,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:5e2981c0199e9fb5cfaaa9bf177a8cc5f096e2be1d48de98db66d650b41ff2f4",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.97916667,
+        "rejection_count": 94,
+        "repair_count": 0,
+        "selection_shortfall": 6
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42298251,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.18181818,
+        "eligible_category_mode_coverage": 0.2
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 2
+        },
+        "mean_prediction_holdout_gap": 90.913,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 827.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.45159505,
+        "selected_count": 2
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 14.058,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:62f26f17bae794bdc4f2263fb80821207453ef47388050fd759ec1d00ccf5de0",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.96875,
+        "rejection_count": 93,
+        "repair_count": 0,
+        "selection_shortfall": 5
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.4219297,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.27272727
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 133.6956,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 755.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.55045596,
+        "selected_count": 3
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 4.456,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:c557f90162c31c0835e30ee788a12b25c57f731001fa326c695a14221e6e2332",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.95833333,
+        "rejection_count": 92,
+        "repair_count": 0,
+        "selection_shortfall": 4
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42400567,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 1,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 226.194675,
+        "exploitation_rate": 0.25
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 656.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.56278101,
+        "selected_count": 4
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 5.315,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:5e2981c0199e9fb5cfaaa9bf177a8cc5f096e2be1d48de98db66d650b41ff2f4",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.97916667,
+        "rejection_count": 94,
+        "repair_count": 0,
+        "selection_shortfall": 6
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42298251,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.18181818,
+        "eligible_category_mode_coverage": 0.2
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 2
+        },
+        "mean_prediction_holdout_gap": 90.913,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 827.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.45159505,
+        "selected_count": 2
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 4.168,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:62f26f17bae794bdc4f2263fb80821207453ef47388050fd759ec1d00ccf5de0",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.96875,
+        "rejection_count": 93,
+        "repair_count": 0,
+        "selection_shortfall": 5
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.4219297,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.27272727
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 0,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 133.6956,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 899.0,
+        "median_realized_outcome": 755.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.55045596,
+        "selected_count": 3
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 4.363,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "sobol",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "unit_sampler": "sobol",
+            "composition_semantics": "declared-balance-remainder",
+            "category_policy": "empirical-joint-tuple"
+          }
+        },
+        "generator_parameter_digest": "sha256:c557f90162c31c0835e30ee788a12b25c57f731001fa326c695a14221e6e2332",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.95833333,
+        "rejection_count": 92,
+        "repair_count": 0,
+        "selection_shortfall": 4
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.42400567,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 0,
+          "caution": 1,
+          "extrapolated": 3
+        },
+        "mean_prediction_holdout_gap": 226.194675,
+        "exploitation_rate": 0.25
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 656.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.56278101,
+        "selected_count": 4
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "composition_semantics": "declared-balance-remainder",
+        "observed_runtime_ms": 5.011,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:34b756b85cbd419e7053bf0ba791084e93e9b499eccae7717a2e456518717ded",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.18181818,
+        "eligible_category_mode_coverage": 0.2
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 263.0022375,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 634.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.28724426,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 40.727,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:5abe937c8a85ce53301a885c868019c2a1ea0611540aec885fc5dd09c3fd0bdd",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.27272727
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 245.2256125,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 859.0,
+        "median_realized_outcome": 744.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.35099891,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 38.243,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:6d68ec50c26c8bb8587803abe628d18991df77e3a448781553b36ec3eb068d2e",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.18181818,
+        "eligible_category_mode_coverage": 0.2
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 329.0613125,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 461.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.28227687,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 39.077,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:34b756b85cbd419e7053bf0ba791084e93e9b499eccae7717a2e456518717ded",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.3
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 293.0694125,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 461.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.36118994,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 40.599,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:5abe937c8a85ce53301a885c868019c2a1ea0611540aec885fc5dd09c3fd0bdd",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.36363636
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 245.250775,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 859.0,
+        "median_realized_outcome": 634.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.41316762,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 46.354,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "empirical_rows",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "selection": "uniform-with-replacement"
+          }
+        },
+        "generator_parameter_digest": "sha256:6d68ec50c26c8bb8587803abe628d18991df77e3a448781553b36ec3eb068d2e",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.0,
+        "observed_duplicate_rate": 1.0,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.3
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 249.376825,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 634.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.39081849,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "observed_runtime_ms": 45.12,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:3a2965b0266f059cfb4f76eecf7977c1e9de1b91c88a0b1aa29071fe9cda73a5",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.01824962,
+        "observed_duplicate_rate": 0.10416667,
+        "training_category_mode_coverage": 0.18181818,
+        "eligible_category_mode_coverage": 0.2
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 413.6435625,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 289.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.20554177,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 45.07,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:9bc4b4e9079907e2eae6396bcf685b88ea52a31656826be6bd6edb69a63e6c3e",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.02232826,
+        "observed_duplicate_rate": 0.03125,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.3
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 308.0791,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 572.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.32456524,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 45.693,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:fe4bcf9f69ce914d38439d04b36a67c5f043e10b8baebabd12e7475d22619e71",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.01930365,
+        "observed_duplicate_rate": 0.16666667,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.3
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 145.8206875,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 859.0,
+        "median_realized_outcome": 855.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.27953634,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 42.417,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:3a2965b0266f059cfb4f76eecf7977c1e9de1b91c88a0b1aa29071fe9cda73a5",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.01824962,
+        "observed_duplicate_rate": 0.10416667,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 197.8661625,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 859.0,
+        "median_realized_outcome": 744.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.43082555,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 41.422,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:9bc4b4e9079907e2eae6396bcf685b88ea52a31656826be6bd6edb69a63e6c3e",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.02232826,
+        "observed_duplicate_rate": 0.03125,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.3
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 306.500775,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 461.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.34521056,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 42.491,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "knn_local",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "anchor": "uniform-observation-in-category-mode-with-at-least-two-rows",
+            "neighbor": "nearest-same-category-tuple",
+            "alpha_range": [
+              0.05,
+              0.55
+            ],
+            "singleton_mode_policy": "unavailable-for-knn"
+          }
+        },
+        "generator_parameter_digest": "sha256:fe4bcf9f69ce914d38439d04b36a67c5f043e10b8baebabd12e7475d22619e71",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.0,
+        "rejection_count": 0,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.01930365,
+        "observed_duplicate_rate": 0.16666667,
+        "training_category_mode_coverage": 0.36363636,
+        "eligible_category_mode_coverage": 0.4
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 246.622025,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 859.0,
+        "median_realized_outcome": 634.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.40298185,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": false,
+        "artifact_bytes": 0,
+        "excluded_singleton_category_modes": [
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 41.026,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:230683e965a4d83c82c94b37c63ded44e1a565a04875169e1118a568bd4650a2",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.88541667,
+        "rejection_count": 85,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06113569,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.45454545,
+        "eligible_category_mode_coverage": 0.55555556
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 194.563225,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 667.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.41672239,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 29.971,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:d3a19ef2337dead327bd64f6077cad20a2087cea9471ce09befd49f5fce16d34",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.86458333,
+        "rejection_count": 83,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06416292,
+        "observed_duplicate_rate": 0.01041667,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.33333333
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 159.339025,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 855.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.33130566,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 41.661,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "direct_objective",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:54a0e68ee75fac221ad1ef7097c249922040fb89aecdc206a35a35662eb04ab9",
+        "selection_parameters": {
+          "ranking": "predicted_TYS_descending"
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.91666667,
+        "rejection_count": 88,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06679981,
+        "observed_duplicate_rate": 0.01041667,
+        "training_category_mode_coverage": 0.54545455,
+        "eligible_category_mode_coverage": 0.66666667
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 187.1824875,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 727.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.53211335,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 28.238,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 17,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:230683e965a4d83c82c94b37c63ded44e1a565a04875169e1118a568bd4650a2",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 17,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.88541667,
+        "rejection_count": 85,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06113569,
+        "observed_duplicate_rate": 0.0,
+        "training_category_mode_coverage": 0.45454545,
+        "eligible_category_mode_coverage": 0.55555556
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 193.9256875,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 667.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.41624211,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 31.195,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 41,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:d3a19ef2337dead327bd64f6077cad20a2087cea9471ce09befd49f5fce16d34",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 41,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.86458333,
+        "rejection_count": 83,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06416292,
+        "observed_duplicate_rate": 0.01041667,
+        "training_category_mode_coverage": 0.27272727,
+        "eligible_category_mode_coverage": 0.33333333
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 159.862175,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 855.0,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.33252304,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 29.047,
+        "failure_reason": null
+      }
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "conservative_diverse",
+      "identity": {
+        "generator_parameters": {
+          "generator_id": "gaussian_rank_copula",
+          "version": "1.0.0",
+          "seed": 83,
+          "budget": 96,
+          "parameters": {
+            "category_policy": "empirical-joint-tuple-conditioned",
+            "minimum_mode_rows": 3,
+            "sparse_mode_policy": "unavailable-for-copula",
+            "rank_method": "average",
+            "correlation_shrinkage": 0.9,
+            "quantile_method": "linear"
+          }
+        },
+        "generator_parameter_digest": "sha256:54a0e68ee75fac221ad1ef7097c249922040fb89aecdc206a35a35662eb04ab9",
+        "selection_parameters": {
+          "support_penalty_mpa": {
+            "supported": 0.0,
+            "caution": 250.0,
+            "extrapolated": 750.0
+          },
+          "distance_penalty_mpa": 150.0,
+          "minimum_pair_distance": 0.02
+        }
+      },
+      "seed": 83,
+      "pool_budget": 96,
+      "batch_size": 8,
+      "feasibility": {
+        "hard_violation_rate": 0.91666667,
+        "rejection_count": 88,
+        "repair_count": 0,
+        "selection_shortfall": 0
+      },
+      "plausibility": {
+        "mean_nearest_training_distance": 0.06679981,
+        "observed_duplicate_rate": 0.01041667,
+        "training_category_mode_coverage": 0.54545455,
+        "eligible_category_mode_coverage": 0.66666667
+      },
+      "predictive_safety": {
+        "support_counts": {
+          "supported": 8,
+          "caution": 0,
+          "extrapolated": 0
+        },
+        "mean_prediction_holdout_gap": 187.1824875,
+        "exploitation_rate": 0.0
+      },
+      "decision_value": {
+        "best_realized_outcome": 855.0,
+        "median_realized_outcome": 727.5,
+        "holdout_median": 403.5,
+        "mean_pairwise_diversity": 0.53211335,
+        "selected_count": 8
+      },
+      "operation": {
+        "training_required": true,
+        "artifact_bytes": 3872,
+        "excluded_sparse_category_modes": [
+          [
+            "no",
+            "yes",
+            "no",
+            "no"
+          ],
+          [
+            "yes",
+            "yes",
+            "no",
+            "no"
+          ]
+        ],
+        "observed_runtime_ms": 28.517,
+        "failure_reason": null
+      }
+    }
+  ],
+  "summaries": [
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "direct_objective",
+      "mean_hard_violation_rate": 0.95138889,
+      "mean_selection_shortfall": 3.33333333,
+      "mean_nearest_training_distance": 0.42363133,
+      "mean_prediction_holdout_gap": 318.14254778,
+      "mean_exploitation_rate": 0.57777778,
+      "mean_best_realized_outcome": 682.33333333,
+      "mean_batch_diversity": 0.54581734,
+      "runtime_ms_range": [
+        4.236,
+        6.042
+      ]
+    },
+    {
+      "generator_id": "latin_hypercube",
+      "selection_policy": "conservative_diverse",
+      "mean_hard_violation_rate": 0.95138889,
+      "mean_selection_shortfall": 3.33333333,
+      "mean_nearest_training_distance": 0.42363133,
+      "mean_prediction_holdout_gap": 318.14254778,
+      "mean_exploitation_rate": 0.57777778,
+      "mean_best_realized_outcome": 682.33333333,
+      "mean_batch_diversity": 0.54581734,
+      "runtime_ms_range": [
+        4.285,
+        5.486
+      ]
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "direct_objective",
+      "mean_hard_violation_rate": 0.96875,
+      "mean_selection_shortfall": 5.0,
+      "mean_nearest_training_distance": 0.42297263,
+      "mean_prediction_holdout_gap": 150.26775833,
+      "mean_exploitation_rate": 0.08333333,
+      "mean_best_realized_outcome": 884.33333333,
+      "mean_batch_diversity": 0.52161067,
+      "runtime_ms_range": [
+        4.456,
+        14.058
+      ]
+    },
+    {
+      "generator_id": "sobol",
+      "selection_policy": "conservative_diverse",
+      "mean_hard_violation_rate": 0.96875,
+      "mean_selection_shortfall": 5.0,
+      "mean_nearest_training_distance": 0.42297263,
+      "mean_prediction_holdout_gap": 150.26775833,
+      "mean_exploitation_rate": 0.08333333,
+      "mean_best_realized_outcome": 884.33333333,
+      "mean_batch_diversity": 0.52161067,
+      "runtime_ms_range": [
+        4.168,
+        5.011
+      ]
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "direct_objective",
+      "mean_hard_violation_rate": 0.0,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.0,
+      "mean_prediction_holdout_gap": 279.0963875,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 856.33333333,
+      "mean_batch_diversity": 0.30684001,
+      "runtime_ms_range": [
+        38.243,
+        40.727
+      ]
+    },
+    {
+      "generator_id": "empirical_rows",
+      "selection_policy": "conservative_diverse",
+      "mean_hard_violation_rate": 0.0,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.0,
+      "mean_prediction_holdout_gap": 262.56567083,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 856.33333333,
+      "mean_batch_diversity": 0.38839202,
+      "runtime_ms_range": [
+        40.599,
+        46.354
+      ]
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "direct_objective",
+      "mean_hard_violation_rate": 0.0,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.01996051,
+      "mean_prediction_holdout_gap": 289.18111667,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 856.33333333,
+      "mean_batch_diversity": 0.26988112,
+      "runtime_ms_range": [
+        42.417,
+        45.693
+      ]
+    },
+    {
+      "generator_id": "knn_local",
+      "selection_policy": "conservative_diverse",
+      "mean_hard_violation_rate": 0.0,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.01996051,
+      "mean_prediction_holdout_gap": 250.32965417,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 857.66666667,
+      "mean_batch_diversity": 0.39300599,
+      "runtime_ms_range": [
+        41.026,
+        42.491
+      ]
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "direct_objective",
+      "mean_hard_violation_rate": 0.88888889,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.06403281,
+      "mean_prediction_holdout_gap": 180.36157917,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 855.0,
+      "mean_batch_diversity": 0.4267138,
+      "runtime_ms_range": [
+        28.238,
+        41.661
+      ]
+    },
+    {
+      "generator_id": "gaussian_rank_copula",
+      "selection_policy": "conservative_diverse",
+      "mean_hard_violation_rate": 0.88888889,
+      "mean_selection_shortfall": 0.0,
+      "mean_nearest_training_distance": 0.06403281,
+      "mean_prediction_holdout_gap": 180.32345,
+      "mean_exploitation_rate": 0.0,
+      "mean_best_realized_outcome": 855.0,
+      "mean_batch_diversity": 0.4269595,
+      "runtime_ms_range": [
+        28.517,
+        31.195
+      ]
+    }
+  ],
+  "decisions": {
+    "knn_local": {
+      "status": "experimental",
+      "reason": "composition-preserving local interpolation is feasible and plausible, but one public Task does not establish cross-Task production value"
+    },
+    "gaussian_rank_copula": {
+      "status": "no_adopt",
+      "reason": "rank dependence alone does not preserve the 14-component composition constraint; rejection/shortfall is material"
+    },
+    "production_promotion": false,
+    "proposal_registry_changed": false,
+    "ui_changed": false
+  },
+  "limitations": [
+    "nearest held-out outcome is an offline historical proxy, not a new experiment",
+    "one public Task cannot establish cross-domain generator safety",
+    "wall-clock measurements are environment-specific and excluded from result_digest",
+    "no saved Proposal Run or production registry was changed"
+  ]
+}

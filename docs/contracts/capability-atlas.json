@@ -6,7 +6,8 @@
     "docs/contracts/standard-estimator-readiness.json authority",
     "bundled Model Package manifests",
     "decision activity and proposal strategy registries",
-    "bundled Prediction Graph definitions"
+    "bundled Prediction Graph definitions",
+    "fixed real-Task Design Prior replay report"
   ],
   "project_modes": [
     {
@@ -362,6 +363,32 @@
       }
     ],
     "scope": "The reusable route authors new external single-table repeated observations; it does not rewrite bundled specialized Tasks."
+  },
+  "design_prior_promotion": {
+    "status": "evaluated_no_production_promotion",
+    "task_id": "mpea-room-tensile-v1",
+    "report_schema_version": "real-task-design-prior-replay/v1",
+    "report_digest": "sha256:056d9f52f5b290d7255e903c0ff315cb3269a5670122f5e3dc1da745998ebcb6",
+    "design_prior_identity": "mpea-room-tensile-replay-observations/v1",
+    "design_prior_manifest_digest": "sha256:535334f040fee9a5399479fea8725b3cad0e4cea36cca153d262d4a13f610619",
+    "generator_decisions": {
+      "knn_local": {
+        "status": "experimental",
+        "reason": "composition-preserving local interpolation is feasible and plausible, but one public Task does not establish cross-Task production value"
+      },
+      "gaussian_rank_copula": {
+        "status": "no_adopt",
+        "reason": "rank dependence alone does not preserve the 14-component composition constraint; rejection/shortfall is material"
+      }
+    },
+    "production_promotion": false,
+    "proposal_registry_changed": false,
+    "limitations": [
+      "nearest held-out outcome is an offline historical proxy, not a new experiment",
+      "one public Task cannot establish cross-domain generator safety",
+      "wall-clock measurements are environment-specific and excluded from result_digest",
+      "no saved Proposal Run or production registry was changed"
+    ]
   },
   "standard_estimator_catalog": {
     "schema_version": "standard-estimator-readiness/v1",

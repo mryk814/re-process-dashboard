@@ -151,6 +151,7 @@ def build_capability_atlas(
     decision_activities: Iterable[Mapping[str, Any]],
     proposal_strategies: Iterable[Mapping[str, Any]],
     graph_capability: Mapping[str, Any],
+    design_prior_promotion: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic, bundled-only projection of capability facts."""
 
@@ -233,6 +234,7 @@ def build_capability_atlas(
             "bundled Model Package manifests",
             "decision activity and proposal strategy registries",
             "bundled Prediction Graph definitions",
+            "fixed real-Task Design Prior replay report",
         ],
         "project_modes": [
             {
@@ -262,6 +264,14 @@ def build_capability_atlas(
             "support": ["supported", "sparse", "unseen", "incompatible"],
         },
         "complex_data_authoring": complex_data_authoring_capability(),
+        "design_prior_promotion": (
+            dict(design_prior_promotion)
+            if design_prior_promotion is not None
+            else {
+                "status": "not_evaluated",
+                "production_promotion": False,
+            }
+        ),
         "standard_estimator_catalog": standard_estimator_catalog,
         "global_catalogs": {
             "decision_activities": activities,

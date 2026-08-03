@@ -196,6 +196,24 @@ def test_generated_atlas_tracks_bundled_package_and_graph_authorities(
         "runtime_contract_not_exposed",
     }
     assert all(task["missingness_modes"]["policy_digest"].startswith("sha256:") for task in tasks.values())
+    promotion = atlas["design_prior_promotion"]
+    replay = json.loads(
+        (
+            ROOT
+            / "docs"
+            / "research"
+            / "real-task-design-prior-replay-report.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert promotion["status"] == "evaluated_no_production_promotion"
+    assert promotion["task_id"] == "mpea-room-tensile-v1"
+    assert promotion["report_digest"] == replay["result_digest"]
+    assert promotion["production_promotion"] is False
+    assert promotion["proposal_registry_changed"] is False
+    assert promotion["generator_decisions"] == {
+        "knn_local": replay["decisions"]["knn_local"],
+        "gaussian_rank_copula": replay["decisions"]["gaussian_rank_copula"],
+    }
 
 
 def test_source_scope_tracks_real_fixture_and_synthetic_authorities() -> None:
