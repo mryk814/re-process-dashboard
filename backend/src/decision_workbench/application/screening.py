@@ -552,6 +552,11 @@ class ScreeningService:
                 )
             else:
                 assert strategy is not None
+                sampling_request = sampling_request_for_operation(
+                    runtime,
+                    "screening_proposal",
+                    seed=payload.seed,
+                )
                 result = run_proposal(
                     runtime,
                     base,
@@ -563,6 +568,7 @@ class ScreeningService:
                     ),
                     design_space=design_space,
                     strategy=strategy,
+                    sampling_request=sampling_request,
                     batch_reference_candidates=batch_reference_candidates,
                     design_prior_package=design_prior_package,
                     design_prior_generator_id=(

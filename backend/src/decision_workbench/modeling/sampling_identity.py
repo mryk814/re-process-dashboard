@@ -68,6 +68,8 @@ def predict_with_sampling_identity(
     spec: PredictorSpec,
     values: dict[str, float],
     request: SamplingRequest | None,
+    *,
+    seed: int = 0,
 ) -> PredictiveSummary:
     if spec.runtime_type == "numpyro.dense_posterior.v1":
         if request is None:
@@ -78,4 +80,4 @@ def predict_with_sampling_identity(
             values,
             sampling_request=request,
         )
-    return predictor.predict(values)
+    return predictor.predict(values, seed=seed)

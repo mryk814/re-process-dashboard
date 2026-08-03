@@ -37,9 +37,6 @@ from decision_workbench.application.runtime_missingness import (
     require_candidate_operation_allowed,
 )
 from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
-from decision_workbench.modeling.sampling_identity import (
-    sampling_request_for_operation,
-)
 from decision_workbench.domain.proposal_selection import select_proposal_shortlist
 from decision_workbench.domain.screening_score import (
     evaluate_screening_goal,
@@ -333,6 +330,7 @@ def run_proposal(
     candidate_validator: Callable[[CandidateInput], None],
     design_space: DesignSpaceDefinition | None = None,
     strategy: ProposalStrategyDefinition,
+    sampling_request: SamplingRequest | None,
     batch_reference_candidates: dict[str, Candidate] | None = None,
     design_prior_package: VerifiedDesignPriorPackage | None = None,
     design_prior_generator_id: str | None = None,
@@ -366,9 +364,6 @@ def run_proposal(
         )
     points: list[dict[str, Any]] = []
     require_candidate_operation_allowed(runtime, base, operation="proposal")
-    sampling_request = sampling_request_for_operation(
-        runtime, "screening_proposal", seed=request.seed
-    )
     base_prediction = runtime.predict(
         base,
         detailed=False,

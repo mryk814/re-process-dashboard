@@ -14,6 +14,10 @@ from decision_workbench.modeling.packages.contracts import (
     validate_task_definition_canonical_inputs,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.sampling_identity import (
+    package_verification_sampling_request,
+    predict_with_sampling_identity,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +51,15 @@ def test_inactive_target_semantic_fixtures_reach_package_prediction_snapshot_and
     fixture = _fixture(kind)
     package = ModelPackageLoader().load(ROOT / "examples" / "model-packages" / "numpyro" / {"binary": "bernoulli_logit", "count": "poisson_log", "ordinal": "ordinal_logit"}[kind])
     validate_task_definition_canonical_inputs(fixture.task_definition, package.manifest)
-    summary = package.load_predictor("target").predict({"C": 0.08, "Mn": 1.5}, seed=7)
+    spec = package.manifest.predictors[0]
+    predictor = package.load_predictor("target")
+    summary = predict_with_sampling_identity(
+        predictor,
+        spec,
+        {"C": 0.08, "Mn": 1.5},
+        package_verification_sampling_request(predictor, spec, seed=7),
+        seed=7,
+    )
     snapshot_prediction = Prediction(
         value=summary.point_estimate, lower=min(summary.quantiles.values()), upper=max(summary.quantiles.values()),
         unit=summary.unit, target_kind=summary.target_kind, point_statistic=summary.point_statistic,

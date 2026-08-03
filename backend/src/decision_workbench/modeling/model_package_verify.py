@@ -268,6 +268,7 @@ def verify_model_package_example(package_root: str | Path) -> ExamplePackageVeri
         package_verification_sampling_request(
             predictor, spec, seed=smoke_input.seed
         ),
+        seed=smoke_input.seed,
     )
     validate_predictive_summary(actual, spec, expected.capability)
     if not _smoke_outputs_equivalent(actual, expected.summary):

@@ -145,7 +145,13 @@ def test_mixed_runtime_legacy_without_target_authority_is_snapshot_unknown() -> 
 
 def test_deterministic_predictor_does_not_receive_or_claim_sampling_identity() -> None:
     class DeterministicPredictor:
-        def predict(self, values: dict[str, float]) -> PredictiveSummary:
+        def predict(
+            self,
+            values: dict[str, float],
+            *,
+            seed: int = 0,
+        ) -> PredictiveSummary:
+            assert seed == 17
             return PredictiveSummary(
                 target="y",
                 target_kind="continuous",
@@ -177,6 +183,7 @@ def test_deterministic_predictor_does_not_receive_or_claim_sampling_identity() -
             seed=99,
             requested_sample_count=16,
         ),
+        seed=17,
     )
 
     assert summary.point_estimate == 2.0
