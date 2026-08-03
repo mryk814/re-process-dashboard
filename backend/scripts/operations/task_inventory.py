@@ -51,29 +51,26 @@ def _resolve_bundled_source(default_source: Path) -> Path:
     return repository_source if repository_source.exists() else default_source
 
 
-def build_inventory() -> dict[str, Any]:
-    with without_personal_task_discovery():
-        modules = BUILTIN_TASK_MODULES
-        contracts = load_task_contracts(root=TASK_DEFINITIONS_ROOT)
-        active = load_active_packages(ACTIVE_PACKAGES_PATH)
-        validate_active_package_task_set(active, set(modules))
-        if set(contracts) != set(modules):
-            raise ValueError("TaskDefinition and TaskModule task sets differ")
+def build_inventory_from_data(
+    data_by_task: dict[str, Any],
+    packages_by_task: dict[str, Any],
+) -> dict[str, Any]:
+    modules = BUILTIN_TASK_MODULES
+    contracts = load_task_contracts(root=TASK_DEFINITIONS_ROOT)
+    active = load_active_packages(ACTIVE_PACKAGES_PATH)
+    validate_active_package_task_set(active, set(modules))
+    if set(contracts) != set(modules):
+        raise ValueError("TaskDefinition and TaskModule task sets differ")
+    if set(data_by_task) != set(modules) or set(packages_by_task) != set(modules):
+        raise ValueError("Task inventory resources must exactly match bundled Tasks")
 
-        data_by_source: dict[str, Any] = {}
-        tasks = []
-        for task_id, module in modules.items():
-            if task_id not in data_by_source:
-                data_by_source[task_id] = module.data_loader(
-                    _resolve_bundled_source(module.default_source)
-                )
-            data = data_by_source[task_id]
-            contract = contracts[task_id]
-            package = ModelPackageLoader().load(
-                resolve_configured_package(task_id, config_path=ACTIVE_PACKAGES_PATH)
-            )
-            selection = active.tasks[task_id]
-            tasks.append({
+    tasks = []
+    for task_id, module in modules.items():
+        data = data_by_task[task_id]
+        contract = contracts[task_id]
+        package = packages_by_task[task_id]
+        selection = active.tasks[task_id]
+        tasks.append({
                 "task_id": task_id,
                 "label": contract.task_definition.label,
                 "outputs": [
@@ -120,6 +117,24 @@ def build_inventory() -> dict[str, Any]:
     }
 
 
+def build_inventory() -> dict[str, Any]:
+    with without_personal_task_discovery():
+        data_by_task = {
+            task_id: module.data_loader(
+                _resolve_bundled_source(module.default_source)
+            )
+            for task_id, module in BUILTIN_TASK_MODULES.items()
+        }
+        packages_by_task = {
+            task_id: ModelPackageLoader().load(
+                resolve_configured_package(
+                    task_id,
+                    config_path=ACTIVE_PACKAGES_PATH,
+                )
+            )
+            for task_id in BUILTIN_TASK_MODULES
+        }
+        return build_inventory_from_data(data_by_task, packages_by_task)
 def packaged_source_paths() -> list[str]:
     return sorted({
         _repository_path(REPOSITORY_ROOT / module.default_source)

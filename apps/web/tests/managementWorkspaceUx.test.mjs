@@ -27,6 +27,11 @@ test("developer overview uses a semantic staged flow and collapsible filtered pr
   assert.match(content, /filteredOverviewItems\.map\(\(item\) => <details/);
   assert.match(content, /条件に合うProjectはありません/);
   assert.doesNotMatch(content, /flow-down|flow-project-row|↘|↙/);
+  assert.match(content, /developerCapabilityAtlas/);
+  assert.match(content, /Bundled Capability Atlas/);
+  assert.match(content, /現在のWorkspaceを読むModel Libraryとは別のauthority/);
+  assert.match(content, /task\.missingness_policy_digest/);
+  assert.match(content, /role="alert"/);
 });
 
 test("training data distinguishes unopened, loading, empty, and loaded states", async () => {

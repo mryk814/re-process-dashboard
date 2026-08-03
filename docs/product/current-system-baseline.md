@@ -1,6 +1,6 @@
 <!--
 document-status: current
-verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+verified-commit: a200415e5fdf8789011052f0a3a8139324304bce
 owner: architecture
 source-of-truth: implemented v1 boundary and capability status
 -->
@@ -15,6 +15,7 @@ source-of-truth: implemented v1 boundary and capability status
 - 個別契約の詳細は各契約文書とコード上の型を正本とする。
 - 過去の設計判断は `docs/decisions/` に残す。ADRの背景説明を現在の機能一覧として読まない。
 - Task、source、Profile、active Model Packageの現在値は [生成済みTask inventory](../contracts/task-inventory.json) を正本とする。
+- Taskごとのsource shape、authoring、Package、runtime、Graph、候補provenanceの横断表示は [生成済みCapability Atlas](../contracts/capability-atlas.json) を正本とする。これはpersonal WorkspaceのModel Libraryを列挙しない。
 
 ## 状態の読み方
 
@@ -79,6 +80,10 @@ single_task
 chain
   Chain Revision ID
   Chain Revision digest
+
+prediction_graph
+  Graph Definition / Revision ID
+  Graph Revision digest
 ```
 
 `single_task` Projectでは一つのPrediction Taskを候補比較、予測、応答曲線、類似実績、Snapshot、実測照合、検討アクティビティへ接続する。

@@ -1,6 +1,6 @@
 <!--
 document-status: current
-verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+verified-commit: a200415e5fdf8789011052f0a3a8139324304bce
 owner: product architecture
 source-of-truth: product scope and safety boundary
 -->
@@ -84,7 +84,7 @@ FastAPIはloopbackだけで待ち受けるが、loopbackであることだけを
 
 ## Projectの科学的identity
 
-Projectは、ある時点の再現可能な検討単位である。現在は次の二種類を明示的に扱う。
+Projectは、ある時点の再現可能な検討単位である。現在は次の三種類を明示的に扱う。
 
 ### Single-task Project
 
@@ -109,11 +109,19 @@ Objective Definitionは、このProjectで達成したい目的、hard constrain
 
 段別実行、変更段以降だけの再計算、段単体／通し評価、中間実測を使う別analysis variant、明示的な不確かさ伝播を扱う。Task自身へChain固有bindingを埋め込まない。
 
+### Prediction Graph Project
+
+- Prediction Graph Definition / Revision ID
+- Graph Revision digest
+
+を固定する。明示的なstage依存とdecision outputを持ち、公開済みの不変RevisionをProjectへbindingする。同梱Graphは比較fixtureであり、任意pluginや一般的なworkflow実行基盤ではない。
+
 ## 予測Taskとモデルの構成
 
 production Taskは独立した縦スライスとして持ち、入力schema、特徴量Pipeline、Model Package、支持度参照、候補比較を混在させない。同じTaskはsingle-task ProjectでもChain Stageでも再利用できる。
 
-現行のTask登録内容、source、能力、active Packageは [生成済みTask inventory](../contracts/task-inventory.json) を唯一の件数・構成一覧とする。
+現行のTask登録内容、source、active Packageは [生成済みTask inventory](../contracts/task-inventory.json) を唯一の件数・構成一覧とする。
+Taskごとのauthoring、runtime、Graph、候補provenanceを横断して判断するときは、[生成済みCapability Atlas](../contracts/capability-atlas.json)を読む。Atlasは同梱contractから生成するauthorityであり、個人Workspaceを読むModel Libraryは動的なread modelとして混ぜない。
 
 Model Packageはdata-onlyであり、allow-list済みadapterだけが読み込む。新しいモデル手法はTaskやUIをモデル実装へ固定せず、共通Predictive Summaryへ変換する。
 

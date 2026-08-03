@@ -106,6 +106,7 @@ export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbench
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
 export type ApiProfileWorkbenchDraft = components["schemas"]["ProfileWorkbenchDraftSave"];
 export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
+export type ApiDeveloperCapabilityAtlas = components["schemas"]["DeveloperCapabilityAtlas"];
 export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
 export type ApiDeveloperCommand = components["schemas"]["DeveloperCommand"];
 export type ApiChangeGuideEntry = components["schemas"]["ChangeGuideEntry"];
@@ -411,6 +412,12 @@ export const workbenchApi = {
   },
   async developerOverview() {
     return requireData(await apiClient.GET("/api/developer/overview"), "Developer構成を取得できませんでした。");
+  },
+  async developerCapabilityAtlas() {
+    return requireData(
+      await apiClient.GET("/api/developer/capability-atlas"),
+      "Capability Atlasを取得できませんでした。",
+    );
   },
   async developerDiagnostics() {
     return requireData(await apiClient.GET("/api/developer/diagnostics"), "Developer診断を実行できませんでした。");

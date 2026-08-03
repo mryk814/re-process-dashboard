@@ -20,7 +20,13 @@ from decision_workbench.contracts.chain_contracts import (
     StageContractSurface,
     StageOutputBindingSource,
     build_prediction_graph_revision,
+    task_contract_surface,
 )
+from decision_workbench.contracts.task_contracts import (
+    TaskContractFixture,
+    persisted_task_definition_payload,
+)
+from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
 )
@@ -47,6 +53,14 @@ from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryErr
 
 WELDING_MULTI_OUTPUT_GRAPH_ID = "welding-material-multi-output-demo-v1"
 WELDING_SPLIT_OUTPUT_GRAPH_ID = "welding-material-split-output-demo-v1"
+WELDING_PREDICTION_GRAPH_TASK_IDS = (
+    STAGE_B_ID,
+    STAGE_C_ID,
+    WELDING_GRAPH_TENSILE_TASK_ID,
+    WELDING_GRAPH_TOUGHNESS_TASK_ID,
+    WELDING_GRAPH_CORROSION_TASK_ID,
+    WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
+)
 
 
 class WeldingPredictionGraphBootstrapError(ValueError):
@@ -483,6 +497,30 @@ def welding_prediction_graph_definitions(
     return multi, split
 
 
+def bundled_welding_prediction_graph_definitions(
+    *,
+    task_contracts: Mapping[str, TaskContractFixture],
+    transform_catalog: DeterministicTransformCatalog,
+) -> tuple[PredictionGraphDefinition, PredictionGraphDefinition]:
+    """Build bundled Graph definitions from the same contracts used at bootstrap."""
+
+    surfaces = {
+        STAGE_A_ID: _stage_a_surface(transform_catalog),
+        **{
+            task_id: task_contract_surface(
+                task_contracts[task_id].task_definition,
+                contract_digest=semantic_digest(
+                    persisted_task_definition_payload(
+                        task_contracts[task_id].task_definition
+                    )
+                ),
+            )
+            for task_id in WELDING_PREDICTION_GRAPH_TASK_IDS
+        },
+    }
+    return welding_prediction_graph_definitions(surfaces)
+
+
 def bootstrap_welding_prediction_graphs(
     *,
     store: Store,
@@ -491,21 +529,13 @@ def bootstrap_welding_prediction_graphs(
     transform_catalog: DeterministicTransformCatalog,
 ) -> tuple[str, str]:
     try:
-        task_ids = (
-            STAGE_B_ID,
-            STAGE_C_ID,
-            WELDING_GRAPH_TENSILE_TASK_ID,
-            WELDING_GRAPH_TOUGHNESS_TASK_ID,
-            WELDING_GRAPH_CORROSION_TASK_ID,
-            WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
-        )
-        for task_id in task_ids:
+        for task_id in WELDING_PREDICTION_GRAPH_TASK_IDS:
             task_registry.require_available(task_id)
         surfaces = {
             STAGE_A_ID: _stage_a_surface(transform_catalog),
             **{
                 task_id: _task_surface(task_registry, task_id)
-                for task_id in task_ids
+                for task_id in WELDING_PREDICTION_GRAPH_TASK_IDS
             },
         }
         contracts = {

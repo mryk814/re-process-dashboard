@@ -71,6 +71,8 @@ NavigationIntentへqueryを追加するときは、parse → serialize → parse
 - **`direct`**：比較画面で直接作成した候補
 - **`lineage`**：`entity_type`、`entity_key`、任意の `data_source_digest` から作成した候補
 - **`screening`**：`run_id`、`point_id`、`point_index` から作成した候補
+- **`historical_observation`**：適格なHistorical Observation recordから作成した候補
+- **`experiment_batch`**：適格なexperiment batchから作成した候補
 - **`copy`**：`project_id`、`candidate_id`、作成時の `candidate_revision` を持つ複製
 - **`snapshot`**：`snapshot_id` から復元した候補
 - **`manual`**：移行済みデータのうち、作成元を特定できない手入力候補

@@ -31,6 +31,7 @@ Migrationは任意実行する薄いCLIではなく、Workspace読込やshared-l
 
 | Command / entrypoint | Owner | Purpose / output | Docs / test | Retention |
 |---|---|---|---|---|
+| `operations/capability_atlas.py` | Developer experience | Task／Package／Project mode capability台帳の生成・drift検出 | `npm run capability:atlas`, `backend/tests/test_capability_atlas.py` | `operations/` |
 | `operations/profile_workbench.py` | Data/Profile contracts | Profile検証・登録、JSON／Dataset registration | `docs/operations/data-contributor-start-here.md` | `operations/` |
 | `operations/model_workflow.py` | Model lifecycle | Model診断・build・切替、外部Package／status JSON | `npm run model:*` | `operations/` |
 | `operations/task_scaffold.py` | Personal Task onboarding | data-only Task／Profile／recipe scaffold | `npm run task:scaffold` | `operations/` |
