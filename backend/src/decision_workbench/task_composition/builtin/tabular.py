@@ -220,6 +220,7 @@ def external_tabular_task_module(
     default_estimator_id: str,
     package_path: Path | None,
     project_creation: bool = True,
+    actual_measurement: bool = False,
 ) -> TaskModule:
     """Compose a reviewed data-only Task bundle without loading Python code."""
 
@@ -243,7 +244,7 @@ def external_tabular_task_module(
             default_estimator_id=default_estimator_id,
         ),
         application=_application_capability(
-            actual_measurement=False,
+            actual_measurement=actual_measurement,
             response_curve=True,
             similarity=True,
             project_creation=project_creation,

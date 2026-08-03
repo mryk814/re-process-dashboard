@@ -621,7 +621,7 @@ def create_task_scaffold(
                     "response_curve": True,
                     "similarity": True,
                     "snapshot": True,
-                    "actual_measurement": False,
+                    "actual_measurement": True,
                 },
             },
         }
