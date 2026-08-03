@@ -110,6 +110,35 @@ test("uses standard training metadata for model labels and decision wording", ()
   });
 });
 
+test("describes Bayesian additive uncertainty and interpretation limits", () => {
+  const modelPackage = {
+    package_id: "additive-package",
+    manifest_json: {
+      predictors: [{
+        runtime_type: "builtin.additive_terms.v1",
+        config: {
+          training: {
+            schema_version: "standard-training-metadata/v1",
+            estimator_id: "bayesian-additive-spline.v1",
+            training_unit: "replicate_context_mean",
+            uncertainty: "conditional empirical-Bayes Gaussian posterior",
+          },
+        },
+      }],
+    },
+  };
+
+  assert.equal(modelPackageDisplayName(modelPackage), "Bayesian加法スプライン");
+  assert.deepEqual(modelPackageDecisionSummary(modelPackage), {
+    label: "Bayesian加法スプライン",
+    useCase: "入力ごとの滑らかな非線形主効果を読みながら比較したいとき",
+    trainingUnit: "同一条件の反復平均",
+    uncertainty: "conditional empirical-Bayes Gaussian posterior",
+    experimental: false,
+    caution: "interactionは学習しません。相関した入力のterm形状は不安定になり得て、因果効果でも独立介入効果でもありません。",
+  });
+});
+
 test("shows Package versions and disambiguates repeated family/version labels", () => {
   const packages = [
     {

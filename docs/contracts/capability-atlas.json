@@ -424,7 +424,10 @@
           "min_rows": 4,
           "max_rows": 100000,
           "min_independent_groups": 4,
-          "max_features": 512
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -447,7 +450,9 @@
           "alpha": 1.0,
           "folds": 5,
           "seed": 20260730
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "exact-gp-rbf.v1",
@@ -466,7 +471,10 @@
           "min_rows": 3,
           "max_rows": 500,
           "min_independent_groups": 3,
-          "max_features": 64
+          "max_features": 64,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -492,7 +500,75 @@
           "folds": 5,
           "seed": 20260730,
           "max_rows": 500
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
+      },
+      {
+        "estimator_id": "bayesian-additive-spline.v1",
+        "label": "Bayesian additive spline",
+        "target_kinds": [
+          "continuous"
+        ],
+        "role": "interpretable_nonlinear_candidate",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "builtin.additive_terms.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 6,
+          "max_rows": 20000,
+          "min_independent_groups": 4,
+          "max_features": 48,
+          "max_smooth_terms": 48,
+          "max_basis_columns": 288,
+          "max_categorical_levels": 48
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "standard_deviation",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {
+          "spline_degree": 2,
+          "max_basis_per_feature": 6,
+          "min_unique_values_for_smooth": 6,
+          "smoothness_precision": 10.0,
+          "linear_precision": 1.0,
+          "intercept_precision": 1e-08,
+          "folds": 5,
+          "seed": 20260730,
+          "knot_policy": "training_quantiles",
+          "smoothing_policy": "fixed_gaussian_prior",
+          "noise_policy": "plugin_training_residual",
+          "categorical_term_policy": "feature_recipe_encoded_centered_linear_terms",
+          "term_centering_policy": "training_cohort_mean_to_intercept",
+          "extrapolation_policy": "constant_boundary_with_support_warning",
+          "capacity_policy_version": "bayesian-additive-capacity/v1"
+        },
+        "training_cost": "moderate",
+        "known_limitations": [
+          "P0 learns univariate main effects only; it does not model interactions.",
+          "Correlated inputs can leave individual term shapes unstable even when prediction remains useful.",
+          "Intervals are a conditional empirical-Bayes approximation with fixed basis and smoothing and plug-in observation noise.",
+          "Term contributions are associational model explanations, not causal or independent intervention effects."
+        ]
       },
       {
         "estimator_id": "numpyro-lognormal-external.v1",
@@ -511,7 +587,10 @@
           "min_rows": 4,
           "max_rows": 100000,
           "min_independent_groups": 4,
-          "max_features": 512
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -531,7 +610,9 @@
           "rmse",
           "interval_coverage_90"
         ],
-        "fixed_parameters": {}
+        "fixed_parameters": {},
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "lightgbm-regression.v1",
@@ -550,7 +631,10 @@
           "min_rows": 4,
           "max_rows": 1000000,
           "min_independent_groups": 4,
-          "max_features": 2048
+          "max_features": 2048,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -575,7 +659,9 @@
           "seed": 20260730,
           "predictive_family": "empirical_quantiles",
           "monotone_decreasing_features": []
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "logistic.v1",
@@ -594,7 +680,10 @@
           "min_rows": 6,
           "max_rows": 100000,
           "min_independent_groups": 4,
-          "max_features": 512
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -621,7 +710,9 @@
           "folds": 5,
           "seed": 20260730,
           "calibration": "intrinsic-logistic-link"
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "lightgbm-binary.v1",
@@ -640,7 +731,10 @@
           "min_rows": 6,
           "max_rows": 1000000,
           "min_independent_groups": 4,
-          "max_features": 2048
+          "max_features": 2048,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -665,7 +759,9 @@
           "num_boost_round": 100,
           "folds": 5,
           "seed": 20260730
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "poisson.v1",
@@ -684,7 +780,10 @@
           "min_rows": 4,
           "max_rows": 100000,
           "min_independent_groups": 4,
-          "max_features": 512
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -709,7 +808,9 @@
           "max_iter": 500,
           "folds": 5,
           "seed": 20260730
-        }
+        },
+        "training_cost": null,
+        "known_limitations": []
       },
       {
         "estimator_id": "numpyro-ordinal-external.v1",
@@ -728,7 +829,10 @@
           "min_rows": 4,
           "max_rows": 100000,
           "min_independent_groups": 4,
-          "max_features": 512
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
         },
         "categorical_support": "feature_recipe",
         "missing_support": "feature_recipe",
@@ -748,7 +852,9 @@
           "ranked_probability_score",
           "accuracy"
         ],
-        "fixed_parameters": {}
+        "fixed_parameters": {},
+        "training_cost": null,
+        "known_limitations": []
       }
     ]
   },

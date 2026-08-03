@@ -516,6 +516,14 @@ class ObservationRegressionRuntime:
                 goal_upper=goal_upper,
                 goal_probability=None,
                 goal_direction=direction,
+                uncertainty_components=summary.uncertainty_components,
+                latent_mean_credible_interval=(
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
             )
         manifest = self.model_package.manifest
         return {
@@ -662,6 +670,13 @@ class ObservationRegressionRuntime:
                 "quantiles": {"0.05": round(lower, 5), "0.95": round(upper, 5)},
                 "interval_method": interval_method,
                 "interval_coverage_level": interval_coverage_level,
+                "latent_mean_credible_interval": (
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
             })
         field = next(
             field

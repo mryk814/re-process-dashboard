@@ -8291,6 +8291,16 @@
             ],
             "title": "Interval Method"
           },
+          "latent_mean_credible_interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatentMeanCredibleInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "lower": {
             "title": "Lower",
             "type": "number"
@@ -10868,6 +10878,30 @@
       "EstimatorLimits": {
         "additionalProperties": false,
         "properties": {
+          "max_basis_columns": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Basis Columns"
+          },
+          "max_categorical_levels": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Categorical Levels"
+          },
           "max_features": {
             "minimum": 1.0,
             "title": "Max Features",
@@ -10877,6 +10911,18 @@
             "minimum": 1.0,
             "title": "Max Rows",
             "type": "integer"
+          },
+          "max_smooth_terms": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Smooth Terms"
           },
           "min_independent_groups": {
             "minimum": 2.0,
@@ -10940,6 +10986,18 @@
             "title": "Independent Group Count",
             "type": "integer"
           },
+          "maximum_categorical_levels": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Categorical Levels"
+          },
           "missing_policy": {
             "default": "ready",
             "enum": [
@@ -10977,6 +11035,18 @@
             "title": "Row Count",
             "type": "integer"
           },
+          "smooth_term_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smooth Term Count"
+          },
           "target_contract": {
             "enum": [
               "ready",
@@ -10997,6 +11067,18 @@
             ],
             "title": "Target Kind",
             "type": "string"
+          },
+          "total_basis_columns": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Basis Columns"
           },
           "validation_plan": {
             "enum": [
@@ -13020,6 +13102,43 @@
           "values"
         ],
         "title": "IntermediateActualRecord",
+        "type": "object"
+      },
+      "LatentMeanCredibleInterval": {
+        "properties": {
+          "coverage_level": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Coverage Level",
+            "type": "number"
+          },
+          "estimand": {
+            "const": "latent_mean",
+            "default": "latent_mean",
+            "title": "Estimand",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "method": {
+            "const": "bayesian",
+            "default": "bayesian",
+            "title": "Method",
+            "type": "string"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coverage_level",
+          "lower",
+          "upper"
+        ],
+        "title": "LatentMeanCredibleInterval",
         "type": "object"
       },
       "LegacySamplingIdentityUnavailable": {
@@ -17304,6 +17423,16 @@
               }
             ],
             "title": "Interval Wrapper Version"
+          },
+          "latent_mean_credible_interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatentMeanCredibleInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "lower": {
             "title": "Lower",
@@ -28750,6 +28879,14 @@
             "title": "Fixed Parameters",
             "type": "object"
           },
+          "known_limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Limitations",
+            "type": "array"
+          },
           "label": {
             "minLength": 1,
             "title": "Label",
@@ -28803,6 +28940,7 @@
           "role": {
             "enum": [
               "interpretable_baseline",
+              "interpretable_nonlinear_candidate",
               "nonlinear_candidate",
               "specialized_path"
             ],
@@ -28846,6 +28984,22 @@
             "minItems": 1,
             "title": "Target Kinds",
             "type": "array"
+          },
+          "training_cost": {
+            "anyOf": [
+              {
+                "enum": [
+                  "light",
+                  "moderate",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Cost"
           },
           "validation_strategies": {
             "items": {

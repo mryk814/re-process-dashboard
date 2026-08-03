@@ -646,6 +646,14 @@ class ModelRuntime:
                     name: round(float(component), 6)
                     for name, component in summary.uncertainty_components.items()
                 },
+                latent_mean_credible_interval=(
+                    None
+                    if summary is None
+                    or summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
                 sampling_identity=(
                     None if summary is None else summary.sampling_identity
                 ),
@@ -1026,6 +1034,14 @@ class ModelRuntime:
                 "quantiles": {"0.05": round(lower, 6), "0.95": round(upper, 6)} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 "interval_method": interval_method,
                 "interval_coverage_level": interval_coverage_level,
+                "latent_mean_credible_interval": (
+                    None
+                    if summary is None
+                    or summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
                 "categories": [] if summary is None else list(summary.distribution.get("categories", [])),
             })
         return curve

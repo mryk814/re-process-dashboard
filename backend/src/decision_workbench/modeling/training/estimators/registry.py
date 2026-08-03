@@ -43,6 +43,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=exact_gp.ARTIFACT_SUFFIX,
             artifact_format=exact_gp.ARTIFACT_FORMAT,
         )
+    if estimator_id == "bayesian-additive-spline.v1":
+        from . import bayesian_additive
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, bayesian_additive.train),
+            runtime_type=bayesian_additive.RUNTIME_TYPE,
+            artifact_suffix=bayesian_additive.ARTIFACT_SUFFIX,
+            artifact_format=bayesian_additive.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 

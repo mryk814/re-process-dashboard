@@ -5989,6 +5989,7 @@ export interface components {
             interval_coverage_level?: number | null;
             /** Interval Method */
             interval_method?: ("conformal" | "quantile" | "parametric" | "bayesian") | null;
+            latent_mean_credible_interval?: components["schemas"]["LatentMeanCredibleInterval"] | null;
             /** Lower */
             lower: number;
             /**
@@ -6981,10 +6982,16 @@ export interface components {
         };
         /** EstimatorLimits */
         EstimatorLimits: {
+            /** Max Basis Columns */
+            max_basis_columns?: number | null;
+            /** Max Categorical Levels */
+            max_categorical_levels?: number | null;
             /** Max Features */
             max_features: number;
             /** Max Rows */
             max_rows: number;
+            /** Max Smooth Terms */
+            max_smooth_terms?: number | null;
             /** Min Independent Groups */
             min_independent_groups: number;
             /** Min Rows */
@@ -7018,6 +7025,8 @@ export interface components {
             has_missing_features: boolean;
             /** Independent Group Count */
             independent_group_count: number;
+            /** Maximum Categorical Levels */
+            maximum_categorical_levels?: number | null;
             /**
              * Missing Policy
              * @default ready
@@ -7030,6 +7039,8 @@ export interface components {
             observed_targets_are_integers?: boolean | null;
             /** Row Count */
             row_count: number;
+            /** Smooth Term Count */
+            smooth_term_count?: number | null;
             /**
              * Target Contract
              * @enum {string}
@@ -7040,6 +7051,8 @@ export interface components {
              * @enum {string}
              */
             target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal" | "nominal_multiclass";
+            /** Total Basis Columns */
+            total_basis_columns?: number | null;
             /**
              * Validation Plan
              * @enum {string}
@@ -7825,6 +7838,27 @@ export interface components {
             values: {
                 [key: string]: number;
             };
+        };
+        /** LatentMeanCredibleInterval */
+        LatentMeanCredibleInterval: {
+            /** Coverage Level */
+            coverage_level: number;
+            /**
+             * Estimand
+             * @default latent_mean
+             * @constant
+             */
+            estimand: "latent_mean";
+            /** Lower */
+            lower: number;
+            /**
+             * Method
+             * @default bayesian
+             * @constant
+             */
+            method: "bayesian";
+            /** Upper */
+            upper: number;
         };
         /**
          * LegacySamplingIdentityUnavailable
@@ -9384,6 +9418,7 @@ export interface components {
             interval_wrapper_manifest_digest?: string | null;
             /** Interval Wrapper Version */
             interval_wrapper_version?: string | null;
+            latent_mean_credible_interval?: components["schemas"]["LatentMeanCredibleInterval"] | null;
             /** Lower */
             lower: number;
             /**
@@ -13832,6 +13867,11 @@ export interface components {
             fixed_parameters: {
                 [key: string]: number | string | boolean | string[];
             };
+            /**
+             * Known Limitations
+             * @default []
+             */
+            known_limitations: string[];
             /** Label */
             label: string;
             limits: components["schemas"]["EstimatorLimits"];
@@ -13850,7 +13890,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "interpretable_baseline" | "nonlinear_candidate" | "specialized_path";
+            role: "interpretable_baseline" | "interpretable_nonlinear_candidate" | "nonlinear_candidate" | "specialized_path";
             /**
              * Runtime Status
              * @enum {string}
@@ -13860,6 +13900,8 @@ export interface components {
             runtime_type: string | null;
             /** Target Kinds */
             target_kinds: ("continuous" | "continuous_positive" | "binary" | "count" | "ordinal" | "nominal_multiclass")[];
+            /** Training Cost */
+            training_cost?: ("light" | "moderate" | "high") | null;
             /** Validation Strategies */
             validation_strategies: ("kfold" | "grouped_kfold" | "stratified_kfold" | "stratified_grouped_kfold" | "temporal_holdout" | "grouped_temporal")[];
         };

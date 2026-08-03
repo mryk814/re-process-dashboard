@@ -96,3 +96,14 @@ test("the response curve controls wrap instead of widening the page", async () =
   assert.match(css, /\.response-curve-controls \{[^}]*flex-wrap: wrap/);
   assert.match(css, /\.response-curves-panel > \.panel-title \{[^}]*flex-wrap: wrap/);
 });
+
+test("Bayesian additive curves distinguish mean credibility from observation prediction", async () => {
+  const source = await readFile(
+    new URL("../src/features/workbench/ResponseCurvePanels.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /latent_mean_credible_interval/);
+  assert.match(source, /濃い帯: 平均の信用区間 · 薄い帯: 新しい観測の予測区間/);
+  assert.match(source, /credibleBand/);
+});

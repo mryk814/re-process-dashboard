@@ -20,6 +20,7 @@ from decision_workbench.contracts.chain_execution_contracts import (
 from decision_workbench.contracts.chain_uncertainty_contracts import ChainDistributionRun
 from decision_workbench.contracts.prediction_catalog_contracts import (
     ActualMeasurement,
+    LatentMeanCredibleInterval,
     ModelMetadata,
     Prediction,
     PredictionResponse,
@@ -135,6 +136,7 @@ class CurvePoint(BaseModel):
     quantiles: dict[str, float]
     interval_method: Literal["conformal", "quantile", "parametric", "bayesian"] | None = None
     interval_coverage_level: float | None = Field(default=None, gt=0, lt=1)
+    latent_mean_credible_interval: LatentMeanCredibleInterval | None = None
     categories: list[str] = Field(default_factory=list)
 
 

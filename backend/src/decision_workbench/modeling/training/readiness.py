@@ -70,6 +70,9 @@ class EstimatorLimits(ContractModel):
     max_rows: Annotated[int, Field(ge=1)]
     min_independent_groups: Annotated[int, Field(ge=2)]
     max_features: Annotated[int, Field(ge=1)]
+    max_smooth_terms: Annotated[int, Field(ge=1)] | None = None
+    max_basis_columns: Annotated[int, Field(ge=1)] | None = None
+    max_categorical_levels: Annotated[int, Field(ge=1)] | None = None
 
     @model_validator(mode="after")
     def limits_are_ordered(self) -> "EstimatorLimits":
@@ -82,7 +85,12 @@ class StandardEstimatorEntry(ContractModel):
     estimator_id: Annotated[str, Field(min_length=1)]
     label: Annotated[str, Field(min_length=1)]
     target_kinds: Annotated[tuple[TargetKind, ...], Field(min_length=1)]
-    role: Literal["interpretable_baseline", "nonlinear_candidate", "specialized_path"]
+    role: Literal[
+        "interpretable_baseline",
+        "interpretable_nonlinear_candidate",
+        "nonlinear_candidate",
+        "specialized_path",
+    ]
     builder_status: BuilderStatus
     runtime_status: RuntimeStatus
     runtime_type: Annotated[str, Field(min_length=1)] | None
@@ -105,6 +113,8 @@ class StandardEstimatorEntry(ContractModel):
     ]
     quality_metrics: Annotated[tuple[str, ...], Field(min_length=1)]
     fixed_parameters: dict[str, int | float | str | bool | tuple[str, ...]]
+    training_cost: Literal["light", "moderate", "high"] | None = None
+    known_limitations: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def builder_and_runtime_are_consistent(self) -> "StandardEstimatorEntry":
@@ -141,6 +151,9 @@ class EstimatorReadinessContext(ContractModel):
     row_count: Annotated[int, Field(ge=0)]
     independent_group_count: Annotated[int, Field(ge=0)]
     feature_count: Annotated[int, Field(ge=0)]
+    smooth_term_count: Annotated[int, Field(ge=0)] | None = None
+    total_basis_columns: Annotated[int, Field(ge=0)] | None = None
+    maximum_categorical_levels: Annotated[int, Field(ge=0)] | None = None
     has_categorical_features: bool = False
     has_missing_features: bool = False
     has_count_exposure: bool = False
@@ -285,6 +298,59 @@ _CATALOG = StandardEstimatorCatalog(
             ),
             quality_metrics=("mae", "rmse", "interval_coverage_90"),
             fixed_parameters=_fixed_parameters("exact-gp-rbf.v1"),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="bayesian-additive-spline.v1",
+            label="Bayesian additive spline",
+            target_kinds=("continuous",),
+            role="interpretable_nonlinear_candidate",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields(
+                "bayesian-additive-spline.v1"
+            )["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields(
+                "bayesian-additive-spline.v1"
+            )["artifact_format"],
+            limits=EstimatorLimits(
+                min_rows=6,
+                max_rows=20_000,
+                min_independent_groups=4,
+                max_features=48,
+                max_smooth_terms=48,
+                max_basis_columns=288,
+                max_categorical_levels=48,
+            ),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=(
+                "kfold",
+                "grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal",
+            ),
+            predictive_capabilities=(
+                "point",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution",
+            ),
+            quality_metrics=("mae", "rmse", "interval_coverage_90"),
+            fixed_parameters=_fixed_parameters(
+                "bayesian-additive-spline.v1"
+            ),
+            training_cost="moderate",
+            known_limitations=(
+                "P0 learns univariate main effects only; it does not model "
+                "interactions.",
+                "Correlated inputs can leave individual term shapes unstable "
+                "even when prediction remains useful.",
+                "Intervals are a conditional empirical-Bayes approximation "
+                "with fixed basis and smoothing and plug-in observation noise.",
+                "Term contributions are associational model explanations, not "
+                "causal or independent intervention effects.",
+            ),
         ),
         StandardEstimatorEntry(
             estimator_id="numpyro-lognormal-external.v1",
@@ -700,6 +766,34 @@ def resolve_estimator_readiness(
         limit_reasons.append(
             f"feature count {context.feature_count} exceeds {limits.max_features}"
         )
+    if (
+        limits.max_smooth_terms is not None
+        and context.smooth_term_count is not None
+        and context.smooth_term_count > limits.max_smooth_terms
+    ):
+        limit_reasons.append(
+            f"smooth terms {context.smooth_term_count} exceed "
+            f"{limits.max_smooth_terms}"
+        )
+    if (
+        limits.max_basis_columns is not None
+        and context.total_basis_columns is not None
+        and context.total_basis_columns > limits.max_basis_columns
+    ):
+        limit_reasons.append(
+            f"basis columns {context.total_basis_columns} exceed "
+            f"{limits.max_basis_columns}"
+        )
+    if (
+        limits.max_categorical_levels is not None
+        and context.maximum_categorical_levels is not None
+        and context.maximum_categorical_levels
+        > limits.max_categorical_levels
+    ):
+        limit_reasons.append(
+            f"categorical levels {context.maximum_categorical_levels} exceed "
+            f"{limits.max_categorical_levels}"
+        )
     if limit_reasons:
         return _resolution(
             context,
@@ -749,6 +843,9 @@ def resolve_estimator_contract_readiness(
     validation_plan: ValidationPlan | None,
     feature_recipe: FeatureRecipe | None,
     canonical_feature_count: int | None = None,
+    smooth_term_count: int | None = None,
+    total_basis_columns: int | None = None,
+    maximum_categorical_levels: int | None = None,
     has_categorical_features: bool | None = None,
     row_count: int,
     independent_group_count: int,
@@ -771,6 +868,9 @@ def resolve_estimator_contract_readiness(
                 if feature_recipe is not None
                 else canonical_feature_count or 0
             ),
+            smooth_term_count=smooth_term_count,
+            total_basis_columns=total_basis_columns,
+            maximum_categorical_levels=maximum_categorical_levels,
             has_categorical_features=(
                 any(operation.kind == "one_hot" for operation in feature_recipe.operations)
                 if feature_recipe is not None

@@ -509,6 +509,23 @@ def _build(
             validation_plan=training_set.validation_plan,
             feature_recipe=feature_recipe,
             canonical_feature_count=len(training_set.feature_names),
+            smooth_term_count=len(training_set.feature_names),
+            total_basis_columns=(
+                len(training_set.feature_names)
+                * int(getattr(recipe, "max_basis_per_feature", 1))
+            ),
+            maximum_categorical_levels=(
+                max(
+                    (
+                        len(operation.choices)
+                        for operation in feature_recipe.operations
+                        if operation.kind == "one_hot"
+                    ),
+                    default=0,
+                )
+                if feature_recipe is not None
+                else None
+            ),
             has_categorical_features=any(
                 group.key == "categorical" and group.fields
                 for group in contract.task_definition.input_groups

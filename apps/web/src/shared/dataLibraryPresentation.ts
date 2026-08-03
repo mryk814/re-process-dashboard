@@ -175,6 +175,8 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
     ? "LightGBM（二値分類）"
     : estimatorIds.has("lightgbm-regression.v1")
       ? "LightGBM回帰"
+      : estimatorIds.has("bayesian-additive-spline.v1")
+        ? "Bayesian加法スプライン"
       : estimatorIds.has("exact-gp-rbf.v1")
         ? "GP（Exact RBF）"
         : estimatorIds.has("ridge.v1")
@@ -300,6 +302,17 @@ export function modelPackageDecisionSummary(
       uncertainty: declaredUncertainty ?? "交差検証外残差に基づく区間",
       experimental,
       caution: "同じFeatureDataset・cohort・foldの結果だけを比較します。",
+    };
+  }
+  if (estimatorIds.has("bayesian-additive-spline.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "入力ごとの滑らかな非線形主効果を読みながら比較したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty
+        ?? "平均関数の信用区間と新しい観測値の予測区間",
+      experimental,
+      caution: "interactionは学習しません。相関した入力のterm形状は不安定になり得て、因果効果でも独立介入効果でもありません。",
     };
   }
   if (estimatorIds.has("exact-gp-rbf.v1")) {
