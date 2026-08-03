@@ -44,13 +44,6 @@ async function reloadSourceLifecycleAfterReady(
       && new URL(response.url()).pathname === connectorPath
       && response.status() === 200
     )),
-    page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return response.request().method() === "GET"
-        && url.pathname === "/api/data-library/datasets"
-        && url.searchParams.get("include_archived") === "true"
-        && response.status() === 200;
-    }),
   ];
   await Promise.all([...readyResponses, page.reload()]);
 
