@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import csv
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -96,6 +97,38 @@ class ObservationFamily(ProfileModel):
         return values
 
 
+class SingleTableObservationSource(ProfileModel):
+    """Typed layout for one table containing repeated measurement rows."""
+
+    group_column: str
+    source_sheet: str = "observations"
+
+
+class ObservationValidationPlan(ProfileModel):
+    strategy: Literal["grouped-k-fold"] = "grouped-k-fold"
+    folds: int = Field(default=5, ge=2, le=10)
+
+
+class ObservationFeatureRecipe(ProfileModel):
+    id: Literal["observation-identity-v1"] = "observation-identity-v1"
+    version: Literal["1.0.0"] = "1.0.0"
+
+
+class ObservationEstimatorChoice(ProfileModel):
+    id: Literal["ridge"] = "ridge"
+    alpha: float = Field(default=1.0, gt=0)
+
+
+class ObservationAuthoringContract(ProfileModel):
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    observation_grain: str
+    technical_metadata: tuple[str, ...] = ()
+    target_eligibility: Literal["non-missing-per-target"] = "non-missing-per-target"
+    validation_plan: ObservationValidationPlan = ObservationValidationPlan()
+    feature_recipe: ObservationFeatureRecipe = ObservationFeatureRecipe()
+    estimator: ObservationEstimatorChoice = ObservationEstimatorChoice()
+
+
 # This family reads source values as-is; it never rescales. A declared
 # source -> canonical pair may therefore only be a relabel, and every allowed
 # relabel is listed here. A pair that would need a numeric factor is rejected at
@@ -125,6 +158,12 @@ class ObservationDatasetProfile(ProfileModel):
     relation_sheet: str
     entities: tuple[EntitySource, ...]
     families: tuple[ObservationFamily, ...]
+    single_table: SingleTableObservationSource | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    authoring: ObservationAuthoringContract | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @property
     def profile_id(self) -> str:
@@ -166,11 +205,22 @@ class ObservationDatasetProfile(ProfileModel):
         known_roles = set(roles)
         errors = []
         for family in self.families:
-            if family.split_group_role not in known_roles:
+            if self.single_table is None and family.split_group_role not in known_roles:
                 errors.append(f"{family.id}: unknown split_group_role {family.split_group_role!r}")
             for mapping in family.inputs:
-                if mapping.role != family.id and mapping.role not in known_roles:
+                if self.single_table is not None and mapping.role != family.id:
+                    errors.append(
+                        f"{family.id}: single-table input must use its family role: {mapping.path}"
+                    )
+                elif mapping.role != family.id and mapping.role not in known_roles:
                     errors.append(f"{family.id}: input references unknown role {mapping.role!r}")
+        if self.single_table is not None:
+            if self.entities:
+                errors.append("single-table profile cannot declare entity tables")
+            if len(self.families) != 1:
+                errors.append("single-table profile requires exactly one observation family")
+            if self.authoring is None:
+                errors.append("single-table profile requires authoring contract")
         if errors:
             raise ValueError("; ".join(errors))
         return self
@@ -284,8 +334,13 @@ def load_observation_profile(path: str | Path) -> ObservationDatasetProfile:
 
 
 def observation_profile_digest(profile: ObservationDatasetProfile) -> str:
+    document = profile.model_dump(mode="json")
+    if document.get("single_table") is None:
+        document.pop("single_table", None)
+    if document.get("authoring") is None:
+        document.pop("authoring", None)
     payload = json.dumps(
-        profile.model_dump(mode="json"),
+        document,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -318,6 +373,35 @@ def _read_table(workbook: Any, sheet_name: str) -> _SheetTable:
         if any(value is not None and value != "" for value in row)
     )
     return _SheetTable(headers=headers, rows=rows)
+
+
+def _read_single_table(path: Path, source_sheet: str) -> _SheetTable:
+    if path.suffix.lower() == ".csv":
+        with path.open("r", encoding="utf-8-sig", newline="") as stream:
+            reader = csv.DictReader(stream)
+            headers = tuple(str(value).strip() for value in (reader.fieldnames or ()))
+            if not headers:
+                raise ObservationProfileError(["CSV header is required"])
+            if any(not header for header in headers) or len(headers) != len(set(headers)):
+                raise ObservationProfileError(["CSV headers must be non-empty and unique"])
+            rows = tuple(
+                dict(row)
+                for row in reader
+                if any(value not in (None, "") for value in row.values())
+            )
+            return _SheetTable(headers=headers, rows=rows)
+    if path.suffix.lower() != ".xlsx":
+        raise ObservationProfileError(["single-table observation source must be .csv or .xlsx"])
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        visible = tuple(sheet.title for sheet in workbook.worksheets if sheet.sheet_state == "visible")
+        if len(visible) != 1:
+            raise ObservationProfileError([
+                "single-table observation authoring requires exactly one visible worksheet"
+            ])
+        return _read_table(workbook, visible[0])
+    finally:
+        workbook.close()
 
 
 def _required_columns(
@@ -405,11 +489,125 @@ def _summarize(
     )
 
 
+def _build_single_table_training_dataset(
+    source_path: Path,
+    profile: ObservationDatasetProfile,
+) -> ObservationTrainingDataset:
+    assert profile.single_table is not None
+    assert profile.authoring is not None
+    actual_sha256 = _source_digest(source_path)
+    if actual_sha256 != profile.authoring.source_sha256:
+        raise ObservationProfileError(["source identity differs from the authored Profile"])
+    family = profile.families[0]
+    table = _read_single_table(source_path, profile.single_table.source_sheet)
+    required = {
+        family.observation_id_column,
+        profile.single_table.group_column,
+        *(mapping.column for mapping in family.inputs),
+        *(output.column for output in family.outputs),
+        *(item.column for item in family.metadata),
+        *(item.column for item in family.fixed_context),
+    }
+    missing = sorted(required - set(table.headers))
+    if missing:
+        raise ObservationProfileError([f"missing columns: {', '.join(missing)}"])
+
+    rows: list[ObservationTrainingRow] = []
+    seen_observations: set[str] = set()
+    for source_row_number, observation in enumerate(table.rows, start=2):
+        observation_id = _as_key(observation.get(family.observation_id_column))
+        if observation_id is None:
+            observation_id = f"{family.id}:row-{source_row_number}"
+        reasons: list[str] = []
+        if observation_id in seen_observations:
+            reasons.append("観測IDが重複")
+        seen_observations.add(observation_id)
+        split_group_key = _as_key(observation.get(profile.single_table.group_column))
+        if split_group_key is None:
+            reasons.append("分割groupなし")
+
+        inputs: dict[str, Scalar] = {}
+        for mapping in family.inputs:
+            raw = observation.get(mapping.column)
+            if mapping.kind == "numeric":
+                value = _numeric(raw)
+                if value is None:
+                    reasons.append(f"入力値なし: {mapping.path}")
+                inputs[mapping.path] = value
+            else:
+                value = _as_key(raw)
+                if value is None:
+                    reasons.append(f"入力値なし: {mapping.path}")
+                inputs[mapping.path] = value
+
+        fixed_context: dict[str, Scalar] = {}
+        for item in family.fixed_context:
+            actual = observation.get(item.column)
+            fixed_context[item.path] = _scalar(actual)
+            if not _same_fixed_value(actual, item.expected):
+                reasons.append(f"固定context不一致: {item.path}")
+        metadata = {item.key: _scalar(observation.get(item.column)) for item in family.metadata}
+
+        outputs: dict[str, float] = {}
+        target_status: dict[str, TargetCurationState] = {}
+        for output in family.outputs:
+            value = _numeric(observation.get(output.column))
+            if value is not None:
+                outputs[output.key] = value
+            output_reasons = tuple(dict.fromkeys([
+                *reasons,
+                *(("値なし",) if value is None else ()),
+            ]))
+            target_status[output.key] = TargetCurationState(
+                usable=not output_reasons,
+                reasons=output_reasons,
+            )
+
+        rows.append(ObservationTrainingRow(
+            family=family.id,
+            observation_id=observation_id,
+            split_group_key=split_group_key,
+            inputs=inputs,
+            outputs=outputs,
+            metadata=metadata,
+            fixed_context=fixed_context,
+            eligible=not reasons,
+            exclusion_reasons=tuple(dict.fromkeys(reasons)),
+            target_status=target_status,
+            provenance=ObservationRowProvenance(
+                source_sheet=profile.single_table.source_sheet,
+                source_row=source_row_number,
+                relation_sheet=profile.single_table.source_sheet,
+                relation_rows=(source_row_number,),
+                entity_keys={"group": split_group_key} if split_group_key else {},
+            ),
+        ))
+
+    digest = observation_profile_digest(profile)
+    view = ObservationTrainingView(
+        profile_id=profile.id,
+        profile_digest=digest,
+        source_sha256=actual_sha256,
+        family=family.id,
+        feature_names=tuple(mapping.path for mapping in family.inputs),
+        rows=tuple(rows),
+        summary=_summarize(family, rows),
+    )
+    return ObservationTrainingDataset(
+        profile_id=profile.id,
+        profile_digest=digest,
+        source_sha256=actual_sha256,
+        views={family.id: view},
+    )
+
+
 def build_observation_training_dataset(
     source: str | Path,
     profile: ObservationDatasetProfile,
 ) -> ObservationTrainingDataset:
     source_path = Path(source)
+    if profile.single_table is not None:
+        return _build_single_table_training_dataset(source_path, profile)
     workbook = load_workbook(source_path, read_only=True, data_only=True)
     try:
         sheet_names = {

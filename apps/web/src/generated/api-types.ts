@@ -952,6 +952,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile-workbench/observation-authoring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Author Repeated Measurement Profile */
+        post: operations["author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile-workbench/observation-authoring/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Observation Authoring Tasks */
+        get: operations["list_observation_authoring_tasks_api_profile_workbench_observation_authoring_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile-workbench/profiles": {
         parameters: {
             query?: never;
@@ -3835,6 +3869,13 @@ export interface components {
              * @enum {string}
              */
             status: "not_applicable" | "valid" | "invalid";
+        };
+        /** Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post */
+        Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post: {
+            /** Contract Json */
+            contract_json: string;
+            /** File */
+            file: string;
         };
         /** Body_import_candidates_api_projects__project_id__candidates_import_post */
         Body_import_candidates_api_projects__project_id__candidates_import_post: {
@@ -8693,6 +8734,49 @@ export interface components {
             /** Source Adapter Version */
             source_adapter_version?: string | null;
         };
+        /** ObservationAuthoringField */
+        ObservationAuthoringField: {
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** ObservationAuthoringResult */
+        ObservationAuthoringResult: {
+            /** Eligible Observations */
+            eligible_observations: number;
+            /** Groups */
+            groups: number;
+            /** Observations */
+            observations: number;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Locator */
+            profile_locator: string;
+            /** Quality Findings */
+            quality_findings: string[];
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Id */
+            task_id: string;
+        };
+        /** ObservationAuthoringTask */
+        ObservationAuthoringTask: {
+            /** Inputs */
+            inputs: components["schemas"]["ObservationAuthoringField"][];
+            /** Label */
+            label: string;
+            /** Targets */
+            targets: components["schemas"]["ObservationAuthoringField"][];
+            /** Task Id */
+            task_id: string;
+        };
         /** ObservationGroup */
         ObservationGroup: {
             /** Count */
@@ -11443,7 +11527,7 @@ export interface components {
              * Route
              * @enum {string}
              */
-            route: "standard_onboarding" | "profile_workbench" | "task_slice" | "unsupported";
+            route: "standard_onboarding" | "observation_authoring" | "profile_workbench" | "task_slice" | "unsupported";
             /**
              * Schema Version
              * @default data-readiness/v1
@@ -15451,6 +15535,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileWorkbenchInspection"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationAuthoringResult"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_observation_authoring_tasks_api_profile_workbench_observation_authoring_tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationAuthoringTask"][];
                 };
             };
             /** @description Conflict */

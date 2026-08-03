@@ -9,6 +9,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from decision_workbench.data.observation_authoring import (
+    complex_data_authoring_capability,
+)
+
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
 
@@ -257,6 +261,7 @@ def build_capability_atlas(
             "prediction_status": ["final", "provisional", "blocked"],
             "support": ["supported", "sparse", "unseen", "incompatible"],
         },
+        "complex_data_authoring": complex_data_authoring_capability(),
         "standard_estimator_catalog": standard_estimator_catalog,
         "global_catalogs": {
             "decision_activities": activities,

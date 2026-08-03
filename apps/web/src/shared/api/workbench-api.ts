@@ -105,6 +105,8 @@ export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbe
 export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
 export type ApiProfileWorkbenchDraft = components["schemas"]["ProfileWorkbenchDraftSave"];
+export type ApiObservationAuthoringTask = components["schemas"]["ObservationAuthoringTask"];
+export type ApiObservationAuthoringResult = components["schemas"]["ObservationAuthoringResult"];
 export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
 export type ApiDeveloperCapabilityAtlas = components["schemas"]["DeveloperCapabilityAtlas"];
 export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
@@ -555,6 +557,36 @@ export const workbenchApi = {
   },
   async listProfileWorkbenchProfiles() {
     return requireData(await apiClient.GET("/api/profile-workbench/profiles"), "Dataset Profileを取得できませんでした。");
+  },
+  async listObservationAuthoringTasks() {
+    return requireData(
+      await apiClient.GET("/api/profile-workbench/observation-authoring/tasks"),
+      "反復測定に対応する予測タスクを取得できませんでした。",
+    );
+  },
+  async authorObservationProfile(file: File, contract: {
+    task_id: string;
+    observation_grain: string;
+    observation_id_column: string;
+    group_column: string;
+    inputs: Array<{
+      path: string;
+      column: string;
+      source_unit?: string;
+    }>;
+    targets: Array<{ key: string; column: string; source_unit: string }>;
+    technical_metadata_columns: string[];
+    validation_folds: number;
+    ridge_alpha: number;
+  }) {
+    const form = new FormData();
+    const contractJson = JSON.stringify(contract);
+    form.append("file", file);
+    form.append("contract_json", contractJson);
+    return requireData(await apiClient.POST("/api/profile-workbench/observation-authoring", {
+      body: { file: file.name, contract_json: contractJson },
+      bodySerializer: () => form,
+    }), "反復測定Profileを作成できませんでした。");
   },
   async inspectProfileWorkbook(file: File, profileDigest?: string, signal?: AbortSignal) {
     const form = new FormData();

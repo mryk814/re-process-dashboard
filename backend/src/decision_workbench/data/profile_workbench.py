@@ -78,6 +78,8 @@ def validate_personal_profile_store_path(path: Path | None = None) -> Path:
 def personal_profile_paths(path: Path | None = None) -> tuple[Path, ...]:
     """List valid persisted effective Profiles without trusting sidecar files."""
 
+    from decision_workbench.data.profile_family_registry import load_profile_document
+
     store = validate_personal_profile_store_path(path)
     if not store.is_dir():
         return ()
@@ -87,9 +89,9 @@ def personal_profile_paths(path: Path | None = None) -> tuple[Path, ...]:
             continue
         try:
             raw = json.loads(candidate.read_text(encoding="utf-8"))
-            if raw.get("schema_version") != _PROFILE_SCHEMA_VERSION or "extends" in raw:
+            if "extends" in raw:
                 continue
-            load_dataset_profile(candidate)
+            load_profile_document(candidate)
             if dataset_profile_digest(candidate) != f"sha256:{candidate.stem}":
                 continue
         except (DatasetProfileError, json.JSONDecodeError, OSError, TypeError, ValueError):

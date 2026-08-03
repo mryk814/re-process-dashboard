@@ -80,7 +80,13 @@ class ReadinessPreflight(_ReadinessModel):
     state: ReadinessState
     available_profile_families: tuple[str, ...]
     standard_onboarding: bool
-    route: Literal["standard_onboarding", "profile_workbench", "task_slice", "unsupported"]
+    route: Literal[
+        "standard_onboarding",
+        "observation_authoring",
+        "profile_workbench",
+        "task_slice",
+        "unsupported",
+    ]
     reasons: tuple[str, ...]
     ambiguities: tuple[str, ...]
     columns: tuple[ReadinessColumn, ...]
@@ -90,7 +96,7 @@ class ReadinessPreflight(_ReadinessModel):
 
 _CATALOG = ReadinessCatalog(entries=(
     CatalogEntry(source_shape="independent_rows", state="ready", profile_families=("tabular-dataset-profile/v1",), standard_onboarding=True, reason="1行=1独立観測を人が確認できれば標準Tabular onboardingへ進めます。"),
-    CatalogEntry(source_shape="repeated_measurements", state="profile_needed", profile_families=("observation-dataset-profile/v1", "tabular-dataset-profile/v1"), standard_onboarding=False, reason="conditionごとの反復はgroup splitと観測粒度をProfileで固定します。"),
+    CatalogEntry(source_shape="repeated_measurements", state="profile_needed", profile_families=("observation-dataset-profile/v1",), standard_onboarding=False, reason="conditionごとの反復はObservation authoringでgroup splitと観測粒度をProfileへ固定します。"),
     CatalogEntry(source_shape="longitudinal_curve", state="profile_needed", profile_families=("tabular-dataset-profile/v1", "observation-dataset-profile/v1"), standard_onboarding=False, reason="entity/run/cell内の軸順序とgroup splitをProfileで固定します。"),
     CatalogEntry(source_shape="wide_multi_target", state="ready", profile_families=("tabular-dataset-profile/v1",), standard_onboarding=True, reason="全targetが同じ観測行にある場合だけ、targetを明示して標準Tabular onboardingへ進めます。"),
     CatalogEntry(source_shape="relational_workbook", state="profile_needed", profile_families=("dataset-input-profile/v2",), standard_onboarding=False, reason="複数表とrelationは標準onboardingで自動結合せず、Profile Workbenchでkeyとjoinを確認します。"),
@@ -295,6 +301,10 @@ def preflight_source(
         ambiguities.append("目的変数は未宣言です。候補入力へ自動採用せず、Data Libraryで明示してください。")
     if shape == "independent_rows":
         ambiguities.append("1行=1独立観測であり、同一conditionの反復ではないことを確認してください。")
+    if shape == "repeated_measurements":
+        ambiguities.append(
+            "1行の観測粒度、観測IDの一意性、同一条件を表すgroup列を確認してください。"
+        )
     if any_target_missing:
         state = "profile_needed"
         reasons.append("目的変数に欠損があります。標準onboardingで暗黙に行を落とさず、Profileで欠損方針を明示します。")
@@ -304,10 +314,20 @@ def preflight_source(
     if missing_inputs:
         state = "profile_needed"
         reasons.append("候補入力に欠損があります。補完・除外・fixed contextの扱いをProfileで明示します。")
-    route: Literal["standard_onboarding", "profile_workbench", "task_slice", "unsupported"] = {
-        "ready": "standard_onboarding", "profile_needed": "profile_workbench",
-        "task_slice_needed": "task_slice", "unsupported": "unsupported",
-    }[state]
+    route: Literal[
+        "standard_onboarding",
+        "observation_authoring",
+        "profile_workbench",
+        "task_slice",
+        "unsupported",
+    ] = (
+        "observation_authoring"
+        if shape == "repeated_measurements"
+        else {
+            "ready": "standard_onboarding", "profile_needed": "profile_workbench",
+            "task_slice_needed": "task_slice", "unsupported": "unsupported",
+        }[state]
+    )
     return ReadinessPreflight(
         source_filename=source.name, source_sha256=digest, source_shape=shape, state=state,
         available_profile_families=entry.profile_families,

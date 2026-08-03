@@ -426,6 +426,19 @@
 }
 @media (max-width: 760px) { .profile-workbench-inputs, .profile-registration-panel { grid-template-columns: 1fr; } .profile-inspect-button { min-height: 40px; } .profile-inspection-summary > header, .profile-validation-metrics { grid-template-columns: 1fr 1fr; } .profile-registration-success { align-items: stretch; flex-direction: column; } }
 .profile-workbench-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0 0 14px; padding: 0; list-style: none; }
+.observation-authoring-panel { margin: 0 0 18px; padding: 18px; border: 1px solid #cbd9e7; border-radius: 12px; background: #f8fbfe; }
+.observation-authoring-panel > p { margin: 6px 0 14px; color: #526173; }
+.observation-authoring-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.observation-authoring-grid label, .observation-binding-review label { display: grid; gap: 5px; color: #526173; font-size: 12px; }
+.observation-estimator-choice { display: grid; grid-template-columns: 1fr 90px; align-items: center; gap: 6px; }
+.observation-grain-field { grid-column: span 2; }
+.observation-binding-review { margin: 14px 0; padding: 10px 12px; border: 1px solid #dce4ed; border-radius: 8px; background: #fff; }
+.observation-binding-review summary { cursor: pointer; font-weight: 700; }
+.observation-binding-review label { grid-template-columns: minmax(220px, 1fr) minmax(180px, .8fr) 72px; align-items: center; padding: 7px 0; border-bottom: 1px solid #edf1f5; }
+.observation-binding-review label:last-child { border-bottom: 0; }
+.observation-binding-review label span { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.observation-binding-review code { overflow: hidden; text-overflow: ellipsis; }
+.observation-authoring-confirm { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0; }
 .profile-workbench-steps li { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 8px; border-top: 2px solid #dce4ed; color: #78869a; font-size: 11px; }
 .profile-workbench-steps li b { display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 auto; border-radius: 50%; background: #e6ebf1; }
 .profile-workbench-steps li.complete { border-color: #5b9b82; color: #2f6e56; }
@@ -485,4 +498,7 @@
   .profile-binding-arrow { display: none; }
   .profile-binding-state { text-align: left; }
   .profile-binding-actions, .profile-draft-saved { align-items: stretch; flex-direction: column; }
+  .observation-authoring-grid { grid-template-columns: 1fr; }
+  .observation-grain-field { grid-column: auto; }
+  .observation-binding-review label { grid-template-columns: 1fr; }
 }
