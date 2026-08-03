@@ -99,6 +99,18 @@ export type ApiPredictionGraphDecisionOutputActual =
   components["schemas"]["PredictionGraphDecisionOutputActual"];
 export type ApiPredictionGraphDecisionOutputActualInput =
   components["schemas"]["PredictionGraphDecisionOutputActualInput"];
+export type ApiPredictionGraphDesignSpace =
+  components["schemas"]["PredictionGraphDesignSpace"];
+export type ApiPredictionGraphObjective =
+  components["schemas"]["PredictionGraphObjective"];
+export type ApiPredictionGraphObjectiveInput =
+  components["schemas"]["PredictionGraphObjectiveInput"];
+export type ApiPredictionGraphGoalSearchRun =
+  components["schemas"]["PredictionGraphGoalSearchRun"];
+export type ApiPredictionGraphGoalSearchRequest =
+  components["schemas"]["PredictionGraphGoalSearchRequest"];
+export type ApiPredictionGraphPromotionRequest =
+  components["schemas"]["PredictionGraphPromotionRequest"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
 export type ApiActualConditionedVariant = components["schemas"]["ActualConditionedVariant"];
 export type ApiActualConditionedVariantInput = components["schemas"]["ActualConditionedVariantRequest"];
@@ -360,6 +372,46 @@ export const workbenchApi = {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
       body,
     }), "Decision Output Actualを保存できませんでした。");
+  },
+  async predictionGraphGoalSearchDesignSpace(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/goal-search/design-space", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Graph探索範囲を取得できませんでした。");
+  },
+  async listPredictionGraphObjectives(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/objectives", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Graph Objectiveを取得できませんでした。");
+  },
+  async createPredictionGraphObjective(projectId: string, body: ApiPredictionGraphObjectiveInput) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/objectives", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Graph Objectiveを保存できませんでした。");
+  },
+  async listPredictionGraphGoalSearchRuns(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/goal-search-runs", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Graph goal-search Runを取得できませんでした。");
+  },
+  async createPredictionGraphGoalSearchRun(projectId: string, body: ApiPredictionGraphGoalSearchRequest) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/goal-search-runs", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Graph goal-searchを実行できませんでした。");
+  },
+  async promotePredictionGraphGoalSearchResult(
+    projectId: string,
+    runId: string,
+    body: ApiPredictionGraphPromotionRequest,
+  ) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/goal-search-runs/{run_id}/promotions", {
+      params: { path: { project_id: projectId, run_id: runId } },
+      body,
+    }), "Graph goal-search結果を候補へ昇格できませんでした。");
   },
   async chainGraph(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/graph", {

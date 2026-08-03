@@ -11,6 +11,9 @@ from pydantic import ValidationError
 from decision_workbench.application.chain.graph_execution import (
     PredictionGraphExecutionUseCase,
 )
+from decision_workbench.application.chain.graph_goal_search import (
+    PredictionGraphGoalSearchUseCase,
+)
 from decision_workbench.application.chain.graph_plan import (
     PredictionGraphPlanningUseCase,
 )
@@ -75,6 +78,14 @@ from decision_workbench.contracts.prediction_graph_draft_contracts import (
     PredictionGraphDraftCreateRequest,
     PredictionGraphDraftDocument,
     PredictionGraphDraftUpdateRequest,
+)
+from decision_workbench.contracts.prediction_graph_planning_contracts import (
+    PredictionGraphDesignSpace,
+    PredictionGraphGoalSearchRequest,
+    PredictionGraphGoalSearchRun,
+    PredictionGraphObjective,
+    PredictionGraphObjectiveInput,
+    PredictionGraphPromotionRequest,
 )
 from decision_workbench.contracts.subsystem_availability import (
     WELDING_TRANSFORM_RESOURCE_ID,
@@ -253,6 +264,12 @@ class PredictionGraphUseCases:
         self.task_registry = task_registry
         self.transform_catalog = transform_catalog
         self.drafts = PredictionGraphDraftUseCases(store)
+        self.goal_search = PredictionGraphGoalSearchUseCase(
+            store,
+            planning,
+            execution,
+            task_registry,
+        )
 
     def create_draft(
         self,
@@ -989,3 +1006,76 @@ class PredictionGraphUseCases:
             project_id,
             candidate_id,
         )
+
+    def graph_design_space(
+        self,
+        project_id: str,
+    ) -> PredictionGraphDesignSpace:
+        try:
+            return self.goal_search.design_space(project_id)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+
+    def create_graph_objective(
+        self,
+        project_id: str,
+        payload: PredictionGraphObjectiveInput,
+    ) -> PredictionGraphObjective:
+        try:
+            return self.goal_search.create_objective(project_id, payload)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+
+    def list_graph_objectives(
+        self,
+        project_id: str,
+    ) -> list[PredictionGraphObjective]:
+        try:
+            self.planning._resolve_project(project_id)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+        return self.store.list_prediction_graph_objectives(project_id)
+
+    def run_graph_goal_search(
+        self,
+        project_id: str,
+        payload: PredictionGraphGoalSearchRequest,
+    ) -> PredictionGraphGoalSearchRun:
+        try:
+            return self.goal_search.run(project_id, payload)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+
+    def graph_goal_search_run(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> PredictionGraphGoalSearchRun:
+        run = self.store.get_prediction_graph_goal_search_run(
+            project_id,
+            run_id,
+        )
+        if run is None:
+            raise ChainNotFoundError("Graph goal-search Runが見つかりません")
+        return run
+
+    def list_graph_goal_search_runs(
+        self,
+        project_id: str,
+    ) -> list[PredictionGraphGoalSearchRun]:
+        try:
+            self.planning._resolve_project(project_id)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+        return self.store.list_prediction_graph_goal_search_runs(project_id)
+
+    def promote_graph_goal_search_result(
+        self,
+        project_id: str,
+        run_id: str,
+        payload: PredictionGraphPromotionRequest,
+    ) -> Candidate:
+        try:
+            return self.goal_search.promote(project_id, run_id, payload)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc

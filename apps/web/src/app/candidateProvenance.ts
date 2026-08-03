@@ -32,6 +32,8 @@ export function provenanceNavigation(
         candidateId: provenance.source_ref.base_candidate_id,
         activityRunId: provenance.source_ref.run_id,
       };
+    case "prediction_graph_goal_search":
+      return null;
     case "snapshot":
       return { view: "project", projectId, snapshotId: provenance.source_ref.snapshot_id };
     case "direct":

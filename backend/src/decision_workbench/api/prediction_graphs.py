@@ -43,6 +43,14 @@ from decision_workbench.contracts.prediction_graph_draft_contracts import (
     PredictionGraphDraftDocument,
     PredictionGraphDraftUpdateRequest,
 )
+from decision_workbench.contracts.prediction_graph_planning_contracts import (
+    PredictionGraphDesignSpace,
+    PredictionGraphGoalSearchRequest,
+    PredictionGraphGoalSearchRun,
+    PredictionGraphObjective,
+    PredictionGraphObjectiveInput,
+    PredictionGraphPromotionRequest,
+)
 from decision_workbench.contracts.evidence_contracts import ApiError
 from decision_workbench.persistence.prediction_graph_draft_repository import (
     PredictionGraphDraftConflictError,
@@ -360,5 +368,103 @@ def list_decision_output_actuals(
         lambda: use_cases.list_decision_output_actuals(
             project_id,
             candidate_id,
+        )
+    )
+
+
+@router.get(
+    "/projects/{project_id}/goal-search/design-space",
+    response_model=PredictionGraphDesignSpace,
+    operation_id="getPredictionGraphGoalSearchDesignSpace",
+)
+def get_goal_search_design_space(
+    project_id: str,
+    use_cases: GraphDependency,
+) -> PredictionGraphDesignSpace:
+    return _call(lambda: use_cases.graph_design_space(project_id))
+
+
+@router.post(
+    "/projects/{project_id}/objectives",
+    response_model=PredictionGraphObjective,
+    status_code=201,
+    operation_id="createPredictionGraphObjective",
+)
+def create_objective(
+    project_id: str,
+    payload: PredictionGraphObjectiveInput,
+    use_cases: GraphDependency,
+) -> PredictionGraphObjective:
+    return _call(lambda: use_cases.create_graph_objective(project_id, payload))
+
+
+@router.get(
+    "/projects/{project_id}/objectives",
+    response_model=list[PredictionGraphObjective],
+    operation_id="listPredictionGraphObjectives",
+)
+def list_objectives(
+    project_id: str,
+    use_cases: GraphDependency,
+) -> list[PredictionGraphObjective]:
+    return _call(lambda: use_cases.list_graph_objectives(project_id))
+
+
+@router.post(
+    "/projects/{project_id}/goal-search-runs",
+    response_model=PredictionGraphGoalSearchRun,
+    status_code=201,
+    operation_id="createPredictionGraphGoalSearchRun",
+)
+def create_goal_search_run(
+    project_id: str,
+    payload: PredictionGraphGoalSearchRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphGoalSearchRun:
+    return _call(lambda: use_cases.run_graph_goal_search(project_id, payload))
+
+
+@router.get(
+    "/projects/{project_id}/goal-search-runs",
+    response_model=list[PredictionGraphGoalSearchRun],
+    operation_id="listPredictionGraphGoalSearchRuns",
+)
+def list_goal_search_runs(
+    project_id: str,
+    use_cases: GraphDependency,
+) -> list[PredictionGraphGoalSearchRun]:
+    return _call(lambda: use_cases.list_graph_goal_search_runs(project_id))
+
+
+@router.get(
+    "/projects/{project_id}/goal-search-runs/{run_id}",
+    response_model=PredictionGraphGoalSearchRun,
+    operation_id="getPredictionGraphGoalSearchRun",
+)
+def get_goal_search_run(
+    project_id: str,
+    run_id: str,
+    use_cases: GraphDependency,
+) -> PredictionGraphGoalSearchRun:
+    return _call(lambda: use_cases.graph_goal_search_run(project_id, run_id))
+
+
+@router.post(
+    "/projects/{project_id}/goal-search-runs/{run_id}/promotions",
+    response_model=Candidate,
+    status_code=201,
+    operation_id="promotePredictionGraphGoalSearchResult",
+)
+def promote_goal_search_result(
+    project_id: str,
+    run_id: str,
+    payload: PredictionGraphPromotionRequest,
+    use_cases: GraphDependency,
+) -> Candidate:
+    return _call(
+        lambda: use_cases.promote_graph_goal_search_result(
+            project_id,
+            run_id,
+            payload,
         )
     )

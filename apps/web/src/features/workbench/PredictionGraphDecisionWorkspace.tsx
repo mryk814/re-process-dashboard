@@ -16,6 +16,7 @@ import {
   isPredictionGraphActualWritable,
   resolvePredictionGraphActualOutputId,
 } from "./predictionGraphActualState";
+import { GraphGoalSearchPanel } from "./GraphGoalSearchPanel";
 
 type ExecutionResource =
   | { status: "loading" }
@@ -420,6 +421,15 @@ export function PredictionGraphDecisionWorkspace({
               })}</tbody>
             </table></div>
           </section>
+
+          {graphDefinition && <GraphGoalSearchPanel
+            projectId={projectId}
+            candidate={selected}
+            decisionOutputs={graphDefinition.decision_outputs}
+            onPromoted={async (promoted) => {
+              await refresh(promoted.id);
+            }}
+          />}
 
           <section className="graph-decision-card">
             <div className="graph-decision-card-heading">

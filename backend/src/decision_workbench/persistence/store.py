@@ -65,6 +65,9 @@ from decision_workbench.persistence.prediction_graph_draft_repository import (
 from decision_workbench.persistence.prediction_graph_actual_migration import (
     migrate_prediction_graph_actuals,
 )
+from decision_workbench.persistence.prediction_graph_planning_migration import (
+    migrate_prediction_graph_planning,
+)
 from decision_workbench.persistence.proposal_lab_migration import (
     migrate_proposal_lab_reports,
 )
@@ -134,6 +137,7 @@ class Store(
         migrate_chain_catalog(self.path)
         migrate_prediction_graph_drafts(self.path)
         migrate_prediction_graph_actuals(self.path)
+        migrate_prediction_graph_planning(self.path)
         migrate_chain_graph_surfaces(self.path)
         migrate_chain_analysis_variant(self.path)
         migrate_chain_execution_cas(self.path)
