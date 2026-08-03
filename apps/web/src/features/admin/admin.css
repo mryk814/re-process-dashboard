@@ -34,10 +34,16 @@
 .developer-capability-atlas { margin: 10px 0; border: 1px solid #d8e0ea; border-radius: 5px; background: #fff; }
 .developer-capability-atlas > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; cursor: pointer; }
 .developer-capability-atlas > summary strong { color: #29445f; font-size: 12px; }
-.developer-capability-atlas > summary span,
-.developer-capability-atlas > p { color: #526276; font-size: 10px; }
-.developer-capability-atlas > p { margin: 0; border-top: 1px solid #e4e9ef; padding: 8px 11px; }
-.developer-capability-atlas-table { max-height: 360px; overflow: auto; border-top: 1px solid #e4e9ef; }
+  .developer-capability-atlas > summary span,
+  .developer-capability-atlas > p { color: #526276; font-size: 10px; }
+  .developer-capability-atlas > p { margin: 0; border-top: 1px solid #e4e9ef; padding: 8px 11px; }
+  .developer-capability-atlas-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; border-top: 1px solid #e4e9ef; padding: 8px 11px; }
+  .developer-capability-atlas-summary div { min-width: 0; }
+  .developer-capability-atlas-summary dt { color: #526276; font-size: 10px; font-weight: 700; }
+  .developer-capability-atlas-summary dd { margin: 2px 0 0; color: #29445f; font-size: 11px; }
+  .developer-capability-atlas-summary code { overflow-wrap: anywhere; }
+  .developer-capability-atlas-summary ul { margin: 0; padding-left: 16px; }
+  .developer-capability-atlas-table { max-height: 360px; overflow: auto; border-top: 1px solid #e4e9ef; }
 .developer-capability-atlas table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .developer-capability-atlas th,
 .developer-capability-atlas td { padding: 7px 9px; border-bottom: 1px solid #e4e9ef; text-align: left; vertical-align: top; }
@@ -245,6 +251,7 @@
 @media (max-width: 760px) {
   .admin-workspace { display: block; margin: 10px; }
   .admin-navigation { position: static; margin-bottom: 10px; }
+  .developer-capability-atlas-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .training-data-flow { grid-template-columns: 1fr; }

@@ -20,6 +20,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.contracts.task_contracts import (
     persisted_task_definition_payload,
 )
@@ -47,6 +48,10 @@ from decision_workbench.modeling.packages.contracts import (
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.ports import LoadedBatchPredictor
+from decision_workbench.modeling.sampling_identity import (
+    package_verification_sampling_request,
+    predict_with_sampling_identity,
+)
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
 from decision_workbench.modeling.training.feature_recipe import (
     canonical_recipe_inputs,
@@ -90,6 +95,8 @@ def _with_imputation_note(message: str, missing_paths: Sequence[str]) -> str:
 
 
 class TabularRegressionRuntime:
+    supports_effective_sampling_identity = True
+
     support_policy_id = "tabular-row-knn-v1"
     missing_policy_inputs: tuple[Any, ...] = ()
 
@@ -334,7 +341,14 @@ class TabularRegressionRuntime:
         values = self._feature_bundle(candidate).as_dict()
         specs = {item.target: item for item in self.model_package.manifest.predictors}
         for target, predictor in self.predictors.items():
-            summary = predictor.predict(values)
+            summary = predict_with_sampling_identity(
+                predictor,
+                specs[target],
+                values,
+                package_verification_sampling_request(
+                    predictor, specs[target], seed=0
+                ),
+            )
             validate_predictive_summary(
                 summary,
                 specs[target],
@@ -559,6 +573,7 @@ class TabularRegressionRuntime:
         _prepared_values: dict[str, float] | None = None,
         _summaries: dict[str, PredictiveSummary] | None = None,
         _missingness_operation: str | None = None,
+        sampling_request: SamplingRequest | None = None,
         **_: Any,
     ) -> dict[str, Any]:
         missingness = assess_input_missingness(
@@ -579,7 +594,12 @@ class TabularRegressionRuntime:
             summary = (
                 _summaries[target]
                 if _summaries is not None
-                else predictor.predict(values)
+                else predict_with_sampling_identity(
+                    predictor,
+                    self.predictor_specs[target],
+                    values,
+                    sampling_request,
+                )
             )
             lower, upper = predictive_interval(summary)
             output_profile = next(item for item in self.profile.outputs if item.key == target)
@@ -659,6 +679,7 @@ class TabularRegressionRuntime:
                         for name, component in summary.uncertainty_components.items()
                     }
                 ),
+                sampling_identity=summary.sampling_identity,
             )
             warnings.extend(summary.warnings)
         runtime_types = sorted({
@@ -740,6 +761,10 @@ class TabularRegressionRuntime:
                     "version": self.model_package.manifest.package_version,
                     "manifest_sha256": self.model_package.manifest_sha256,
                     "runtime_types": runtime_types,
+                    "predictor_runtime_types": {
+                        item.target: item.runtime_type
+                        for item in self.model_package.manifest.predictors
+                    },
                 },
                 "feature_pipeline": {
                     "id": pipeline.id,
@@ -851,6 +876,7 @@ class TabularRegressionRuntime:
     ) -> list[dict[str, Any]]:
         kwargs.pop("include_curve", None)
         missingness_operation = kwargs.pop("_missingness_operation", None)
+        sampling_request = kwargs.pop("sampling_request", None)
         if not candidates:
             return []
         if not self.supports_batch_prediction:
@@ -866,8 +892,20 @@ class TabularRegressionRuntime:
         for target, predictor in self.predictors.items():
             summaries = (
                 predictor.predict_batch(value_rows)
-                if isinstance(predictor, LoadedBatchPredictor)
-                else [predictor.predict(values) for values in value_rows]
+                if (
+                    isinstance(predictor, LoadedBatchPredictor)
+                    and self.predictor_specs[target].runtime_type
+                    != "numpyro.dense_posterior.v1"
+                )
+                else [
+                    predict_with_sampling_identity(
+                        predictor,
+                        self.predictor_specs[target],
+                        values,
+                        sampling_request,
+                    )
+                    for values in value_rows
+                ]
             )
             if len(summaries) != len(candidates):
                 raise ValueError(
@@ -891,6 +929,7 @@ class TabularRegressionRuntime:
                     for target, summaries in summaries_by_target.items()
                 },
                 _missingness_operation=missingness_operation,
+                sampling_request=sampling_request,
             )
             support = support_rows[index]
             result["support"] = support

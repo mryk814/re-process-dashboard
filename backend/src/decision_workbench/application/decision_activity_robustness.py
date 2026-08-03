@@ -192,7 +192,10 @@ def compute(
     definition = context.task_definition
     outputs = {item.key: item for item in definition.outputs}
     base_result = runtime.predict_core(
-        candidate, detailed=False, target_values=project.target_values
+        candidate,
+        detailed=False,
+        target_values=project.target_values,
+        **context.prediction_sampling_kwargs(),
     )
     base_predictions = {
         key: Prediction.model_validate(value)
@@ -220,7 +223,10 @@ def compute(
             rejected += 1
             continue
         result = runtime.predict_core(
-            sample_candidate, detailed=False, target_values=project.target_values
+            sample_candidate,
+            detailed=False,
+            target_values=project.target_values,
+            **context.prediction_sampling_kwargs(),
         )
         point_outputs = {
             key: Prediction.model_validate(value).value

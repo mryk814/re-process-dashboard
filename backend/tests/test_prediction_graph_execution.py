@@ -312,6 +312,10 @@ class _StageExecutor:
         )
 
     @staticmethod
+    def input_digest(stage, canonical_input):
+        return semantic_digest(canonical_input)
+
+    @staticmethod
     def _assert_runtime_identity(stage, candidate, adapter):
         return None
 

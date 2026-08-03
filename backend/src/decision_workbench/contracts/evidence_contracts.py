@@ -27,6 +27,9 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Support,
 )
 from decision_workbench.contracts.subsystem_availability import SubsystemAvailability
+from decision_workbench.contracts.sampling_identity_contracts import (
+    LegacySamplingIdentityUnavailable,
+)
 from decision_workbench.contracts.task_contracts import ResolvedTaskDefinition
 
 class SnapshotPayload(BaseModel):
@@ -37,6 +40,36 @@ class SnapshotPayload(BaseModel):
     project_design_space_binding_provenance: Literal[
         "explicit", "generated_default", "inherited_predecessor", "unbound_legacy"
     ] = "unbound_legacy"
+    sampling_identity_status: LegacySamplingIdentityUnavailable | None = None
+
+    @model_validator(mode="after")
+    def mark_unrecorded_sample_based_legacy_evidence(self) -> "SnapshotPayload":
+        if self.prediction is None or self.provenance is None:
+            return self
+        runtime_types = (
+            self.provenance.package.runtime_types
+            if self.provenance.package is not None
+            else []
+        )
+        if "numpyro.dense_posterior.v1" not in runtime_types:
+            return self
+        target_runtime_types = self.provenance.package.predictor_runtime_types
+        unavailable = LegacySamplingIdentityUnavailable()
+        if target_runtime_types:
+            for target, prediction in self.prediction.predictions.items():
+                if (
+                    target_runtime_types.get(target)
+                    == "numpyro.dense_posterior.v1"
+                    and prediction.sampling_identity is None
+                ):
+                    prediction.sampling_identity = unavailable
+        elif set(runtime_types) == {"numpyro.dense_posterior.v1"}:
+            for prediction in self.prediction.predictions.values():
+                if prediction.sampling_identity is None:
+                    prediction.sampling_identity = unavailable
+        else:
+            self.sampling_identity_status = unavailable
+        return self
 
 
 class SnapshotResponse(BaseModel):

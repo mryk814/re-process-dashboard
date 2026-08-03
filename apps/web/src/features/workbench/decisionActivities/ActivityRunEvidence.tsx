@@ -1,8 +1,45 @@
 import type { ReactNode } from "react";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
+import {
+  SamplingIdentityDetails,
+  type SamplingPredictionEntry,
+} from "../../../shared/SamplingIdentityDetails";
 
 function recorded(value: string | number | null | undefined): string {
   return value === null || value === undefined || value === "" ? "記録なし" : String(value);
+}
+
+function activitySamplingPredictions(
+  run: ApiDecisionActivityRun,
+): SamplingPredictionEntry[] {
+  const result = run.result;
+  if (result.schema_version === "robustness-summary/v1") {
+    return result.target_summaries.map((summary) => ({
+      target: summary.target,
+      prediction: summary.base_prediction,
+    }));
+  }
+  if (result.schema_version === "candidate-difference-summary/v1") {
+    return result.target_summaries.flatMap((summary) => [
+      {
+        target: summary.target,
+        label: `${summary.target}（基準候補）`,
+        prediction: summary.base_prediction,
+      },
+      {
+        target: summary.target,
+        label: `${summary.target}（比較候補）`,
+        prediction: summary.comparison_prediction,
+      },
+    ]);
+  }
+  return result.proposals.flatMap((proposal) => (
+    proposal.target_evaluations.map((evaluation) => ({
+      target: evaluation.target,
+      label: `${evaluation.target}（提案 ${proposal.rank}）`,
+      prediction: evaluation.prediction,
+    }))
+  ));
 }
 
 export function ActivityRunHistory({
@@ -97,6 +134,12 @@ export function ActivityRunProvenance({ run }: { run: ApiDecisionActivityRun }) 
         <dd><code>{value}</code></dd>
       </div>)}
     </dl>
+    <SamplingIdentityDetails
+      entries={activitySamplingPredictions(run)}
+      runtimeTypesByTarget={model.package?.predictor_runtime_types}
+      packageRuntimeTypes={model.package?.runtime_types}
+      unknownScopeLabel="Activity全体"
+    />
     <small>Run ID <code>{recorded(run.id)}</code> · identity <code>{recorded(run.semantic_identity)}</code></small>
   </details>;
 }

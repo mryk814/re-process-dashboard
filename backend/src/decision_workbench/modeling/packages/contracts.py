@@ -15,6 +15,7 @@ from decision_workbench.contracts.missingness_contracts import (
     MissingnessOperationCapability,
 )
 from decision_workbench.contracts.series_contracts import SeriesFeatureContract
+from decision_workbench.contracts.sampling_identity_contracts import SamplingIdentity
 
 if TYPE_CHECKING:
     from decision_workbench.contracts.task_contracts import (
@@ -559,6 +560,7 @@ class PredictiveSummary(PackageModel):
     distribution: dict[str, Any]
     uncertainty_components: dict[str, float] | None = None
     prediction_interval: PredictionInterval | None = None
+    sampling_identity: SamplingIdentity | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -678,6 +680,18 @@ def validate_predictive_summary(
             value < 0 or value > len(categories) - 1 for _, value in ordered_quantiles
         ):
             raise PackageContractError(f"predictor {spec.id!r} returned values outside ordinal support")
+    if spec.runtime_type == "numpyro.dense_posterior.v1":
+        if (
+            summary.sampling_identity is None
+            or summary.sampling_identity.runtime_type != spec.runtime_type
+        ):
+            raise PackageContractError(
+                f"predictor {spec.id!r} did not return its effective sampling identity"
+            )
+    elif summary.sampling_identity is not None:
+        raise PackageContractError(
+            f"deterministic predictor {spec.id!r} must not claim a sampling identity"
+        )
     if capability is None:
         return
     if capability.target != spec.target:

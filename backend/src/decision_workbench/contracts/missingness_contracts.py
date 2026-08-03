@@ -4,6 +4,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from decision_workbench.contracts.sampling_identity_contracts import (
+    SamplingIdentity,
+    SamplingRequest,
+)
 
 MissingKind = Literal[
     "structural_not_applicable",
@@ -120,6 +124,7 @@ class MissingCompletionLabReport(BaseModel):
     generator_id: Literal["empirical_rows", "knn_local"]
     sample_count: Annotated[int, Field(ge=2, le=256)]
     seed: Annotated[int, Field(ge=0)]
+    prediction_sampling_request: SamplingRequest | None = None
     task_id: Annotated[str, Field(min_length=1)]
     task_contract_digest: Annotated[
         str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -139,4 +144,7 @@ class MissingCompletionLabReport(BaseModel):
     ]
     missing_paths: Annotated[tuple[str, ...], Field(min_length=1)]
     summaries: tuple[MissingCompletionSummary, ...]
+    prediction_sampling_identities: dict[str, SamplingIdentity] = Field(
+        default_factory=dict
+    )
     completion_evidence: tuple[dict[str, object], ...]

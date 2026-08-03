@@ -27,8 +27,28 @@ from decision_workbench.modeling.packages.contracts import (
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.contracts.task_contracts import TaskContractFixture
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
 from decision_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
+
+
+def _numpyro_request(
+    predictor: object,
+    *,
+    seed: int,
+    sample_count: int | None = None,
+) -> SamplingRequest:
+    posterior_draw_count = int(getattr(predictor, "draws"))
+    if sample_count is None:
+        return SamplingRequest.for_package_verification(
+            seed=seed, posterior_draw_count=posterior_draw_count
+        )
+    return SamplingRequest.create(
+        operation="detailed_prediction",
+        policy_id="test-explicit-sample-budget/v1",
+        seed=seed,
+        requested_sample_count=sample_count,
+    )
 
 
 def test_stage_c_builder_bootstraps_backend_src_outside_repository(tmp_path: Path) -> None:
@@ -121,7 +141,11 @@ def test_verified_package_consumes_an_immutable_artifact_snapshot(tmp_path: Path
 
     assert package.artifact_path(relative).read_bytes() == verified_bytes
     assert package.manifest_sha256 == manifest_digest
-    assert package.load_predictor("target").predict({"C": 0.1, "Mn": 1.4}, seed=19)
+    predictor = package.load_predictor("target")
+    assert predictor.predict(
+        {"C": 0.1, "Mn": 1.4},
+        sampling_request=_numpyro_request(predictor, seed=19),
+    )
 
 
 def test_model_package_rejects_an_excessive_aggregate_artifact_size(tmp_path: Path) -> None:
@@ -142,8 +166,9 @@ def test_model_package_rejects_an_excessive_aggregate_artifact_size(tmp_path: Pa
 def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_path: Path, family: str, target_kind: str, output_width: int) -> None:
     package = ModelPackageLoader().load(_write_package(tmp_path, family=family, target_kind=target_kind, output_width=output_width))
     predictor = package.load_predictor("target")
-    first = predictor.predict({"C": 0.1, "Mn": 1.4}, seed=19)
-    second = predictor.predict({"C": 0.1, "Mn": 1.4}, seed=19)
+    request = _numpyro_request(predictor, seed=19)
+    first = predictor.predict({"C": 0.1, "Mn": 1.4}, sampling_request=request)
+    second = predictor.predict({"C": 0.1, "Mn": 1.4}, sampling_request=request)
     assert first == second
     assert first.target_kind == target_kind
     assert first.quantiles["0.05"] <= first.quantiles["0.50"] <= first.quantiles["0.95"]
@@ -152,6 +177,17 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
     assert first.prediction_interval.coverage_level == pytest.approx(0.9)
     assert first.prediction_interval.lower == first.quantiles["0.05"]
     assert first.prediction_interval.upper == first.quantiles["0.95"]
+    assert first.sampling_identity is not None
+    assert first.sampling_identity.seed == 19
+    assert first.sampling_identity.requested_sample_count == 12
+    assert first.sampling_identity.effective_sample_count == 12
+    assert first.sampling_identity.posterior_draw_count == 12
+    assert first.sampling_identity.draw_selection_policy == "all_posterior_draws"
+    assert first.sampling_identity.predictive_resampling_policy == (
+        "none-posterior-probability-summary/v1"
+        if family == "bernoulli_logit"
+        else "numpy-default-rng-likelihood/v1"
+    )
     if family == "bernoulli_logit":
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:
@@ -160,6 +196,78 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
         assert all(float(value).is_integer() for value in first.quantiles.values())
     if family == "ordinal_logit":
         assert 0 <= first.point_estimate <= 2
+
+
+@pytest.mark.parametrize(
+    ("sample_count", "selection_policy"),
+    [
+        (6, "seeded_without_replacement"),
+        (18, "seeded_with_replacement"),
+    ],
+)
+def test_zero_inflated_poisson_resampling_uses_effective_draw_count(
+    tmp_path: Path,
+    sample_count: int,
+    selection_policy: str,
+) -> None:
+    package = ModelPackageLoader().load(
+        _write_package(
+            tmp_path,
+            family="zero_inflated_poisson_log",
+            target_kind="count",
+            output_width=2,
+        )
+    )
+    predictor = package.load_predictor("target")
+
+    summary = predictor.predict(
+        {"C": 0.1, "Mn": 1.4},
+        sampling_request=_numpyro_request(
+            predictor,
+            seed=31,
+            sample_count=sample_count,
+        ),
+    )
+
+    assert summary.sampling_identity is not None
+    assert summary.sampling_identity.effective_sample_count == sample_count
+    assert summary.sampling_identity.draw_selection_policy == selection_policy
+    assert all(float(value).is_integer() for value in summary.quantiles.values())
+
+
+def test_numpyro_sampling_identity_distinguishes_seed_and_sample_budget(
+    tmp_path: Path,
+) -> None:
+    package = ModelPackageLoader().load(_write_package(tmp_path, family="normal"))
+    predictor = package.load_predictor("target")
+    values = {"C": 0.1, "Mn": 1.4}
+
+    first = predictor.predict(
+        values, sampling_request=_numpyro_request(predictor, seed=17, sample_count=6)
+    )
+    repeated = predictor.predict(
+        values, sampling_request=_numpyro_request(predictor, seed=17, sample_count=6)
+    )
+    other_seed = predictor.predict(
+        values, sampling_request=_numpyro_request(predictor, seed=23, sample_count=6)
+    )
+    other_budget = predictor.predict(
+        values, sampling_request=_numpyro_request(predictor, seed=17, sample_count=8)
+    )
+
+    assert first == repeated
+    assert first.sampling_identity is not None
+    assert first.sampling_identity.draw_selection_policy == (
+        "seeded_without_replacement"
+    )
+    assert first.sampling_identity.parameter_digest != (
+        other_seed.sampling_identity.parameter_digest
+    )
+    assert first.sampling_identity.parameter_digest != (
+        other_budget.sampling_identity.parameter_digest
+    )
+    assert first.quantiles != other_seed.quantiles
+    assert first.quantiles != other_budget.quantiles
 
 
 @pytest.mark.parametrize(
@@ -533,7 +641,11 @@ def test_checked_in_numpyro_examples_are_all_loadable() -> None:
     assert len(package_roots) == 8
     for root in package_roots:
         package = ModelPackageLoader().load(root)
-        result = package.load_predictor("target").predict({"C": 0.08, "Mn": 1.5}, seed=7)
+        predictor = package.load_predictor("target")
+        result = predictor.predict(
+            {"C": 0.08, "Mn": 1.5},
+            sampling_request=_numpyro_request(predictor, seed=7),
+        )
         report = verify_model_package_example(root)
         assert np.isfinite(result.point_estimate)
         assert result.quantiles["0.05"] <= result.quantiles["0.50"] <= result.quantiles["0.95"]

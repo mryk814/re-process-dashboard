@@ -181,7 +181,7 @@ class ChainExecutionUseCase:
                     request_id,
                     self.store.get_chain_execution(project_id, candidate_id),
                 )
-            input_digest = semantic_digest(canonical_input)
+            input_digest = self.stage_executor.input_digest(stage, canonical_input)
             previous = previous_by_stage.get(stage.stage_id)
             running = self.stage_executor._retained(
                 previous,
@@ -420,7 +420,7 @@ class ChainExecutionUseCase:
             canonical_input = self.stage_executor._canonical_input(
                 definition, stage.stage_id, external, upstream_outputs
             )
-            input_digest = semantic_digest(canonical_input)
+            input_digest = self.stage_executor.input_digest(stage, canonical_input)
             if (
                 previous is not None
                 and previous.result is not None

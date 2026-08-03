@@ -189,7 +189,24 @@ export function DeveloperControlCenter({
         </summary>
         <p>同梱contractの技術詳細です。現在のWorkspaceを読むModel Libraryとは別のauthorityです。</p>
         {capabilityAtlasError && <p className="panel-error" role="alert">{capabilityAtlasError}</p>}
-        {capabilityAtlas && <div className="developer-capability-atlas-table">
+        {capabilityAtlas && <>
+          <dl className="developer-capability-atlas-summary">
+            <div><dt>Sample-based prediction</dt><dd>
+              {capabilityAtlas.stochastic_reproducibility.status === "effective_sampling_identity_recorded"
+                ? "実効Sampling Identityを記録"
+                : "Sampling Identity未対応"}
+            </dd></div>
+            <div><dt>対象Runtime</dt><dd><code>{capabilityAtlas.stochastic_reproducibility.runtime_types.join(", ")}</code></dd></div>
+            <div><dt>記録schema</dt><dd><code>{capabilityAtlas.stochastic_reproducibility.identity_schema_version}</code></dd></div>
+            <div><dt>制約</dt><dd><ul>
+              {capabilityAtlas.stochastic_reproducibility.limitations.map((limitation) => <li key={limitation}>
+                {limitation === "response_curve_sampling_identity_unavailable"
+                  ? "Response Curveはsample-based Runtimeに未対応"
+                  : "Legacy evidenceはsampling条件が未記録"}
+              </li>)}
+            </ul></dd></div>
+          </dl>
+          <div className="developer-capability-atlas-table">
           <table>
             <thead><tr><th>Task</th><th>Runtime</th><th>Packages</th><th>Graph</th><th>Missingness policy</th></tr></thead>
             <tbody>{capabilityAtlas.tasks.map((task) => <tr key={task.task_id}>
@@ -200,7 +217,8 @@ export function DeveloperControlCenter({
               <td><span>{task.missingness_status}</span><ShortDigest value={task.missingness_policy_digest} /></td>
             </tr>)}</tbody>
           </table>
-        </div>}
+          </div>
+        </>}
       </details>
       {overview && <div className="developer-overview-toolbar">
         <label className="developer-overview-search">検索<input type="search" value={overviewQuery} placeholder="Project / Dataset / Package" onChange={(event) => setOverviewQuery(event.target.value)} /></label>

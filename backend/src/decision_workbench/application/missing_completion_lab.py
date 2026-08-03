@@ -17,6 +17,9 @@ from decision_workbench.design_priors.sampling import (
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.missingness import missing_pattern
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 
 
 def _model_uncertainty(prediction: object) -> float:
@@ -116,6 +119,9 @@ def run_missing_completion_lab(
         observed=observed,
         missing_paths=missing_paths,
     )
+    sampling_request = sampling_request_for_operation(
+        runtime, "missing_completion", seed=seed
+    )
     results = []
     for sample in samples:
         completed = candidate.model_copy(deep=True)
@@ -127,12 +133,31 @@ def run_missing_completion_lab(
                 completed,
                 detailed=False,
                 _missingness_operation="completion_lab",
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
             )
         )
 
     summaries: list[MissingCompletionSummary] = []
+    prediction_sampling_identities = {}
     for target in results[0]["predictions"]:
         predictions = [result["predictions"][target] for result in results]
+        sampling_identities = {
+            item.sampling_identity.parameter_digest: item.sampling_identity
+            for item in predictions
+            if item.sampling_identity is not None
+        }
+        if len(sampling_identities) > 1:
+            raise ValueError(
+                "Completion Lab内でprediction sampling identityが一致しません"
+            )
+        if sampling_identities:
+            prediction_sampling_identities[target] = next(
+                iter(sampling_identities.values())
+            )
         points = np.asarray([item.value for item in predictions], dtype=float)
         model_stds = np.asarray(
             [_model_uncertainty(item) for item in predictions],
@@ -158,6 +183,7 @@ def run_missing_completion_lab(
         generator_id=generator_id,
         sample_count=sample_count,
         seed=seed,
+        prediction_sampling_request=sampling_request,
         task_id=str(runtime.task_id),  # type: ignore[attr-defined]
         task_contract_digest=str(  # type: ignore[attr-defined]
             runtime.task_contract_digest
@@ -176,6 +202,7 @@ def run_missing_completion_lab(
         }),
         missing_paths=missing_paths,
         summaries=tuple(summaries),
+        prediction_sampling_identities=prediction_sampling_identities,
         completion_evidence=tuple(
             sample.evidence.model_dump(mode="json")
             for sample in samples

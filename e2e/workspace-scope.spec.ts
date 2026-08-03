@@ -8,6 +8,10 @@ test("legacy workspace administration link resolves outside Project navigation",
   await expect(page.getByText("WORKSPACE 全体")).toBeVisible();
   await expect(page.getByText("Bundled Capability Atlas")).toBeVisible();
   await expect(page.getByText(/3 modes · 17 Tasks · \d+ Packages · 2 Graphs/)).toBeVisible();
+  await page.getByText("Bundled Capability Atlas").click();
+  await expect(page.getByText("実効Sampling Identityを記録")).toBeVisible();
+  await expect(page.getByText("Response Curveはsample-based Runtimeに未対応")).toBeVisible();
+  await expect(page.getByText("Legacy evidenceはsampling条件が未記録")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" })).toHaveCount(0);
 });
 

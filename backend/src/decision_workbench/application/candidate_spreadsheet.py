@@ -15,6 +15,9 @@ from decision_workbench.data.profiles.loading import load_dataset_profile
 from decision_workbench.data.profiles.schema import DatasetInputProfile
 from decision_workbench.task_composition.ports import PredictionRuntime
 from decision_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 
 
 def _candidate_xlsx_names(
@@ -396,11 +399,22 @@ def candidates_xlsx(candidates: list[Candidate], runtime: PredictionRuntime, tas
         duplicates = sorted({header for header in headers if headers.count(header) > 1})
         raise ValueError(f"候補XLSXの見出しが重複しています: {', '.join(duplicates)}")
     sheet.append(headers)
+    sampling_request = sampling_request_for_operation(
+        runtime, "candidate_export"
+    )
     for candidate in candidates:
         result = (
             None
             if candidate.blend_validation.status == "invalid"
-            else runtime.predict(candidate, detailed=False)
+            else runtime.predict(
+                candidate,
+                detailed=False,
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
+            )
         )
         heat_values = [
             item

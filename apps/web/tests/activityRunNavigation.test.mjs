@@ -129,6 +129,8 @@ test("all saved activity runs and their provenance stay reachable", async () => 
   assert.match(evidence, /Feature pipeline/);
   assert.match(evidence, /Training Snapshot digest/);
   assert.match(evidence, /Canonical Dataset digest/);
+  assert.match(evidence, /SamplingIdentityDetails/);
+  assert.match(evidence, /activitySamplingPredictions/);
   assert.doesNotMatch(evidence, /slice\(0,\s*12\)/);
   assert.match(evidence, /記録なし/);
 });

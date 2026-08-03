@@ -16,6 +16,9 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
     ResponseCurveTrainingRangeUnavailableError,
@@ -57,9 +60,24 @@ class InferenceService:
         candidate = self.candidates.at_revision(project_id, candidate_id, revision)
         self.require_operation(project.task_id, "preview")
         runtime = self.resolver.runtime_for(project)
+        sampling_request = sampling_request_for_operation(runtime, "preview")
+        parameters: dict[str, Any] = {
+            "target_values": serialize_target_values(project.target_values)
+        }
+        if sampling_request is not None:
+            parameters["sampling_request"] = sampling_request.model_dump(mode="json")
         prediction = self.graph.execute(
-            self.key(project, candidate, "preview", parameters={"target_values": serialize_target_values(project.target_values)}, uses_package=True),
-            lambda: runtime.predict_core(candidate, detailed=False, target_values=project.target_values),
+            self.key(project, candidate, "preview", parameters=parameters, uses_package=True),
+            lambda: runtime.predict_core(
+                candidate,
+                detailed=False,
+                target_values=project.target_values,
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
+            ),
         )
         support = self.graph.execute(
             self.key(project, candidate, "support", uses_support=True),
@@ -80,9 +98,28 @@ class InferenceService:
     def detailed_for(self, project: Project, candidate: Candidate) -> dict[str, Any]:
         self.require_operation(project.task_id, "detailed_prediction")
         runtime = self.resolver.runtime_for(project)
+        sampling_request = sampling_request_for_operation(
+            runtime, "detailed_prediction"
+        )
+        parameters: dict[str, Any] = {
+            "target_values": serialize_target_values(project.target_values),
+            "policy_id": "detailed-v1",
+        }
+        if sampling_request is not None:
+            parameters["sampling_request"] = sampling_request.model_dump(mode="json")
         result = self.graph.execute(
-            self.key(project, candidate, "detailed", parameters={"target_values": serialize_target_values(project.target_values), "policy_id": "detailed-v1"}, uses_package=True, uses_support=True),
-            lambda: runtime.predict(candidate, detailed=True, include_curve=False, target_values=project.target_values),
+            self.key(project, candidate, "detailed", parameters=parameters, uses_package=True, uses_support=True),
+            lambda: runtime.predict(
+                candidate,
+                detailed=True,
+                include_curve=False,
+                target_values=project.target_values,
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
+            ),
         )
         result["candidate_id"] = candidate.id
         result["model_support"] = runtime.support_by_target(candidate)  # type: ignore[attr-defined]
@@ -119,6 +156,14 @@ class InferenceService:
             axis_range = (range_min, range_max)
         try:
             runtime = self.resolver.runtime_for(project)
+            sampling_request = sampling_request_for_operation(
+                runtime, "response_surface"
+            )
+            if sampling_request is not None:
+                raise InferenceValidationError(
+                    "sample-based response curveはSampling Identityを"
+                    "curve handlerへ渡せないため現在は実行できません"
+                )
             handler = self.registry.response_curve_for(project.task_id)
             field = next(
                 (
@@ -162,6 +207,14 @@ class InferenceService:
             raise InferenceValidationError("この予測タスクは曲線ビューに対応していません")
         try:
             runtime = self.resolver.runtime_for(project)
+            sampling_request = sampling_request_for_operation(
+                runtime, "response_surface"
+            )
+            if sampling_request is not None:
+                raise InferenceValidationError(
+                    "sample-based curve familyはSampling Identityを"
+                    "curve handlerへ渡せないため現在は実行できません"
+                )
             handler = self.registry.curve_family_for(project.task_id)
             axis_field = next(
                 (
@@ -269,6 +322,9 @@ class InferenceService:
             y_values = self._domain_grid(y_axis["min"], y_axis["max"], points, y_field)
             if len(x_values) < 2 or len(y_values) < 2:
                 raise InferenceValidationError("コンター軸の数値domainに異なる候補値が2点以上必要です")
+            sampling_request = sampling_request_for_operation(
+                runtime, "response_surface"
+            )
 
             def compute() -> dict[str, Any]:
                 cells: list[dict[str, Any]] = []
@@ -297,6 +353,11 @@ class InferenceService:
                             adjusted,
                             detailed=False,
                             target_values=project.target_values,
+                            **(
+                                {"sampling_request": sampling_request}
+                                if sampling_request is not None
+                                else {}
+                            ),
                         )
                         prediction = Prediction.model_validate(
                             result["predictions"][target]
@@ -347,6 +408,11 @@ class InferenceService:
                         "points": points,
                         "candidate_revision": candidate.revision,
                         "policy_id": "training-range-supported-grid-v1",
+                        "sampling_request": (
+                            None
+                            if sampling_request is None
+                            else sampling_request.model_dump(mode="json")
+                        ),
                     },
                     uses_package=True,
                     uses_support=True,

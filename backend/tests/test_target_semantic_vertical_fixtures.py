@@ -14,6 +14,10 @@ from decision_workbench.modeling.packages.contracts import (
     validate_task_definition_canonical_inputs,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.sampling_identity import (
+    package_verification_sampling_request,
+    predict_with_sampling_identity,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,14 +51,38 @@ def test_inactive_target_semantic_fixtures_reach_package_prediction_snapshot_and
     fixture = _fixture(kind)
     package = ModelPackageLoader().load(ROOT / "examples" / "model-packages" / "numpyro" / {"binary": "bernoulli_logit", "count": "poisson_log", "ordinal": "ordinal_logit"}[kind])
     validate_task_definition_canonical_inputs(fixture.task_definition, package.manifest)
-    summary = package.load_predictor("target").predict({"C": 0.08, "Mn": 1.5}, seed=7)
+    spec = package.manifest.predictors[0]
+    predictor = package.load_predictor("target")
+    summary = predict_with_sampling_identity(
+        predictor,
+        spec,
+        {"C": 0.08, "Mn": 1.5},
+        package_verification_sampling_request(predictor, spec, seed=7),
+        seed=7,
+    )
     snapshot_prediction = Prediction(
         value=summary.point_estimate, lower=min(summary.quantiles.values()), upper=max(summary.quantiles.values()),
         unit=summary.unit, target_kind=summary.target_kind, point_statistic=summary.point_statistic,
         predictive_family=summary.distribution["family"], quantiles=summary.quantiles,
         categories=summary.distribution.get("categories", []),
+        sampling_identity=summary.sampling_identity,
     )
     assert snapshot_prediction.target_kind == kind
+    assert snapshot_prediction.sampling_identity is not None
+    assert snapshot_prediction.sampling_identity.seed == 7
+    assert snapshot_prediction.sampling_identity.request_policy_id == (
+        "package-verification-all-posterior-draws/v1"
+    )
+    assert snapshot_prediction.sampling_identity.operation == "package_verification"
+    assert snapshot_prediction.sampling_identity.draw_selection_policy == (
+        "all_posterior_draws"
+    )
+    assert snapshot_prediction.sampling_identity.request_policy_digest.startswith(
+        "sha256:"
+    )
+    assert snapshot_prediction.sampling_identity.parameter_digest.startswith(
+        "sha256:"
+    )
     observed = {"binary": "fail", "count": 2, "ordinal": "high"}[kind]
     actual = normalize_actual_measurement(
         ActualMeasurementInput(property="example", value=observed, std=0, replicates=1, unit="1"),
