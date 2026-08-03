@@ -38,6 +38,11 @@ export const suiteInventory = {
     cleanupOwner: "seeded DB disposal",
     reason: "比較基準の選択をdefault Projectへ保存する。",
   },
+  "candidate-provenance-handoff.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "専用Project、Screening Run、Candidateを作成して来歴handoffを確認する。",
+  },
   "candidate-save-safety.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "fresh DB disposal",
@@ -132,6 +137,11 @@ export const suiteInventory = {
     kind: "serial-journey",
     cleanupOwner: "seeded DB disposal",
     reason: "専用ProjectとCandidateを作成して数値domainのAPI／UI契約を確認する。",
+  },
+  "observation-authoring.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB and personal store disposal",
+    reason: "外部CSVからObservation Profile、Dataset Revision、Model Packageを作成する。",
   },
   "prediction-graph-material-fixture.spec.ts": {
     kind: "serial-journey",
