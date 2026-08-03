@@ -159,7 +159,7 @@ class _DensePosteriorPredictor:
                 raise PackageContractError("zero_inflated_poisson_log requires a two-output dense network")
             rate, zero_probability = np.exp(np.clip(output[:, 0], -30, 30)), _sigmoid(output[:, 1])
             samples = rng.poisson(rate)
-            samples[rng.random(self.draws) < zero_probability] = 0
+            samples[rng.random(len(draw_indices)) < zero_probability] = 0
             point, distribution = float(np.mean((1 - zero_probability) * rate)), {"family": family, "support": "nonnegative_integers"}
         elif family == "ordinal_logit":
             thresholds = self.spec.config.get("thresholds")

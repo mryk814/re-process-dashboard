@@ -198,6 +198,43 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
         assert 0 <= first.point_estimate <= 2
 
 
+@pytest.mark.parametrize(
+    ("sample_count", "selection_policy"),
+    [
+        (6, "seeded_without_replacement"),
+        (18, "seeded_with_replacement"),
+    ],
+)
+def test_zero_inflated_poisson_resampling_uses_effective_draw_count(
+    tmp_path: Path,
+    sample_count: int,
+    selection_policy: str,
+) -> None:
+    package = ModelPackageLoader().load(
+        _write_package(
+            tmp_path,
+            family="zero_inflated_poisson_log",
+            target_kind="count",
+            output_width=2,
+        )
+    )
+    predictor = package.load_predictor("target")
+
+    summary = predictor.predict(
+        {"C": 0.1, "Mn": 1.4},
+        sampling_request=_numpyro_request(
+            predictor,
+            seed=31,
+            sample_count=sample_count,
+        ),
+    )
+
+    assert summary.sampling_identity is not None
+    assert summary.sampling_identity.effective_sample_count == sample_count
+    assert summary.sampling_identity.draw_selection_policy == selection_policy
+    assert all(float(value).is_integer() for value in summary.quantiles.values())
+
+
 def test_numpyro_sampling_identity_distinguishes_seed_and_sample_budget(
     tmp_path: Path,
 ) -> None:

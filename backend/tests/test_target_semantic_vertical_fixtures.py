@@ -65,8 +65,24 @@ def test_inactive_target_semantic_fixtures_reach_package_prediction_snapshot_and
         unit=summary.unit, target_kind=summary.target_kind, point_statistic=summary.point_statistic,
         predictive_family=summary.distribution["family"], quantiles=summary.quantiles,
         categories=summary.distribution.get("categories", []),
+        sampling_identity=summary.sampling_identity,
     )
     assert snapshot_prediction.target_kind == kind
+    assert snapshot_prediction.sampling_identity is not None
+    assert snapshot_prediction.sampling_identity.seed == 7
+    assert snapshot_prediction.sampling_identity.request_policy_id == (
+        "package-verification-all-posterior-draws/v1"
+    )
+    assert snapshot_prediction.sampling_identity.operation == "package_verification"
+    assert snapshot_prediction.sampling_identity.draw_selection_policy == (
+        "all_posterior_draws"
+    )
+    assert snapshot_prediction.sampling_identity.request_policy_digest.startswith(
+        "sha256:"
+    )
+    assert snapshot_prediction.sampling_identity.parameter_digest.startswith(
+        "sha256:"
+    )
     observed = {"binary": "fail", "count": 2, "ordinal": "high"}[kind]
     actual = normalize_actual_measurement(
         ActualMeasurementInput(property="example", value=observed, std=0, replicates=1, unit="1"),
