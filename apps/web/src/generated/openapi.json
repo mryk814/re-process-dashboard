@@ -3157,6 +3157,7 @@
                 "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
+                "prediction_graph_goal_search": "#/components/schemas/PredictionGraphGoalSearchSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
                 "snapshot": "#/components/schemas/SnapshotSourceRef"
               },
@@ -3189,6 +3190,9 @@
               },
               {
                 "$ref": "#/components/schemas/DecisionActivitySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphGoalSearchSourceRef"
               }
             ],
             "title": "Provenance"
@@ -3546,6 +3550,7 @@
                 "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
+                "prediction_graph_goal_search": "#/components/schemas/PredictionGraphGoalSearchSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
                 "snapshot": "#/components/schemas/SnapshotSourceRef"
               },
@@ -3578,6 +3583,9 @@
               },
               {
                 "$ref": "#/components/schemas/DecisionActivitySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphGoalSearchSourceRef"
               }
             ],
             "title": "Provenance"
@@ -3755,6 +3763,7 @@
                 "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
+                "prediction_graph_goal_search": "#/components/schemas/PredictionGraphGoalSearchSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
                 "snapshot": "#/components/schemas/SnapshotSourceRef"
               },
@@ -3787,6 +3796,9 @@
               },
               {
                 "$ref": "#/components/schemas/DecisionActivitySourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphGoalSearchSourceRef"
               }
             ],
             "title": "Provenance"
@@ -11765,6 +11777,35 @@
         "title": "FixedGraphInputSource",
         "type": "object"
       },
+      "GraphGoalTermInput": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "at_least",
+              "at_most"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "output_id",
+          "direction",
+          "threshold"
+        ],
+        "title": "GraphGoalTermInput",
+        "type": "object"
+      },
       "GraphInput": {
         "additionalProperties": false,
         "properties": {
@@ -17916,6 +17957,124 @@
         "title": "PredictionGraphDefinition",
         "type": "object"
       },
+      "PredictionGraphDesignSpace": {
+        "additionalProperties": false,
+        "properties": {
+          "graph_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Revision Digest",
+            "type": "string"
+          },
+          "graph_revision_id": {
+            "minLength": 1,
+            "title": "Graph Revision Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-design-space/v1",
+            "default": "prediction-graph-design-space/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphDesignVariable"
+            },
+            "minItems": 1,
+            "title": "Variables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "graph_revision_id",
+          "graph_revision_digest",
+          "variables"
+        ],
+        "title": "PredictionGraphDesignSpace",
+        "type": "object"
+      },
+      "PredictionGraphDesignVariable": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_output_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Output Ids",
+            "type": "array"
+          },
+          "candidate_path": {
+            "minLength": 1,
+            "title": "Candidate Path",
+            "type": "string"
+          },
+          "choices": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "input_id": {
+            "minLength": 1,
+            "title": "Input Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "number",
+              "categorical"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "numeric_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sampling_policy": {
+            "enum": [
+              "continuous_linear",
+              "categorical_uniform"
+            ],
+            "title": "Sampling Policy",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "input_id",
+          "candidate_path",
+          "label",
+          "kind",
+          "sampling_policy",
+          "affected_output_ids"
+        ],
+        "title": "PredictionGraphDesignVariable",
+        "type": "object"
+      },
       "PredictionGraphDraftConflictResponse": {
         "additionalProperties": false,
         "properties": {
@@ -18409,6 +18568,618 @@
         "title": "PredictionGraphExecution",
         "type": "object"
       },
+      "PredictionGraphGoalSearchOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_by_stage_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocked By Stage Ids",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "prediction": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prediction"
+          },
+          "status": {
+            "enum": [
+              "latest",
+              "failed",
+              "blocked_by_upstream",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PredictionGraphGoalSearchOutput",
+        "type": "object"
+      },
+      "PredictionGraphGoalSearchPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/CandidateInput"
+          },
+          "feasible": {
+            "title": "Feasible",
+            "type": "boolean"
+          },
+          "hard_constraint_achieved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hard Constraint Achieved"
+          },
+          "input_values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Input Values",
+            "type": "object"
+          },
+          "outputs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PredictionGraphGoalSearchOutput"
+            },
+            "title": "Outputs",
+            "type": "object"
+          },
+          "point_index": {
+            "minimum": 0.0,
+            "title": "Point Index",
+            "type": "integer"
+          },
+          "primary_achieved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Achieved"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "point_index",
+          "candidate",
+          "input_values",
+          "outputs",
+          "primary_achieved",
+          "hard_constraint_achieved",
+          "feasible",
+          "score"
+        ],
+        "title": "PredictionGraphGoalSearchPoint",
+        "type": "object"
+      },
+      "PredictionGraphGoalSearchReference": {
+        "additionalProperties": false,
+        "properties": {
+          "design_space_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Design Space Digest",
+            "type": "string"
+          },
+          "objective_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Objective Digest",
+            "type": "string"
+          },
+          "point_index": {
+            "minimum": 0.0,
+            "title": "Point Index",
+            "type": "integer"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "point_index",
+          "objective_digest",
+          "design_space_digest"
+        ],
+        "title": "PredictionGraphGoalSearchReference",
+        "type": "object"
+      },
+      "PredictionGraphGoalSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_candidate_id": {
+            "minLength": 1,
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Base Candidate Revision",
+            "type": "integer"
+          },
+          "objective_id": {
+            "minLength": 1,
+            "title": "Objective Id",
+            "type": "string"
+          },
+          "sample_count": {
+            "default": 8,
+            "maximum": 32.0,
+            "minimum": 2.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 20260803,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objective_id",
+          "base_candidate_id",
+          "base_candidate_revision"
+        ],
+        "title": "PredictionGraphGoalSearchRequest",
+        "type": "object"
+      },
+      "PredictionGraphGoalSearchRun": {
+        "additionalProperties": false,
+        "properties": {
+          "base_candidate_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Base Candidate Digest",
+            "type": "string"
+          },
+          "base_candidate_id": {
+            "minLength": 1,
+            "title": "Base Candidate Id",
+            "type": "string"
+          },
+          "base_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Base Candidate Revision",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "design_space": {
+            "$ref": "#/components/schemas/PredictionGraphDesignSpace"
+          },
+          "design_space_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Design Space Digest",
+            "type": "string"
+          },
+          "generator_id": {
+            "const": "latin_hypercube",
+            "default": "latin_hypercube",
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "generator_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Generator Version",
+            "type": "string"
+          },
+          "graph_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Revision Digest",
+            "type": "string"
+          },
+          "graph_revision_id": {
+            "minLength": 1,
+            "title": "Graph Revision Id",
+            "type": "string"
+          },
+          "objective": {
+            "$ref": "#/components/schemas/PredictionGraphObjective"
+          },
+          "objective_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Objective Digest",
+            "type": "string"
+          },
+          "package_manifest_digests": {
+            "additionalProperties": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "minProperties": 1,
+            "title": "Package Manifest Digests",
+            "type": "object"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphGoalSearchPoint"
+            },
+            "minItems": 2,
+            "title": "Points",
+            "type": "array"
+          },
+          "project_binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Project Binding Digest",
+            "type": "string"
+          },
+          "project_binding_revision": {
+            "minimum": 1.0,
+            "title": "Project Binding Revision",
+            "type": "integer"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-goal-search-run/v1",
+            "default": "prediction-graph-goal-search-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selected_point_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Selected Point Indices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "graph_revision_id",
+          "graph_revision_digest",
+          "project_binding_revision",
+          "project_binding_digest",
+          "base_candidate_id",
+          "base_candidate_revision",
+          "base_candidate_digest",
+          "objective",
+          "objective_digest",
+          "design_space",
+          "design_space_digest",
+          "package_manifest_digests",
+          "seed",
+          "points",
+          "selected_point_indices",
+          "created_at"
+        ],
+        "title": "PredictionGraphGoalSearchRun",
+        "type": "object"
+      },
+      "PredictionGraphGoalSearchSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "prediction_graph_goal_search",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/PredictionGraphGoalSearchReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "PredictionGraphGoalSearchSourceRef",
+        "type": "object"
+      },
+      "PredictionGraphObjective": {
+        "additionalProperties": false,
+        "properties": {
+          "branch_availability_policy": {
+            "const": "objective_outputs_latest",
+            "default": "objective_outputs_latest",
+            "title": "Branch Availability Policy",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "graph_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Revision Digest",
+            "type": "string"
+          },
+          "graph_revision_id": {
+            "minLength": 1,
+            "title": "Graph Revision Id",
+            "type": "string"
+          },
+          "hard_constraint": {
+            "$ref": "#/components/schemas/PredictionGraphObjectiveTerm"
+          },
+          "incumbent_candidate_id": {
+            "minLength": 1,
+            "title": "Incumbent Candidate Id",
+            "type": "string"
+          },
+          "incumbent_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Incumbent Candidate Revision",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "objective_id": {
+            "minLength": 1,
+            "title": "Objective Id",
+            "type": "string"
+          },
+          "primary": {
+            "$ref": "#/components/schemas/PredictionGraphObjectiveTerm"
+          },
+          "project_binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Project Binding Digest",
+            "type": "string"
+          },
+          "project_binding_revision": {
+            "minimum": 1.0,
+            "title": "Project Binding Revision",
+            "type": "integer"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "required_output_policy": {
+            "const": "all_required_latest",
+            "default": "all_required_latest",
+            "title": "Required Output Policy",
+            "type": "string"
+          },
+          "revision": {
+            "const": 1,
+            "default": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "prediction-graph-objective/v1",
+            "default": "prediction-graph-objective/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "use_context": {
+            "enum": [
+              "production",
+              "demonstration"
+            ],
+            "title": "Use Context",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objective_id",
+          "project_id",
+          "name",
+          "graph_revision_id",
+          "graph_revision_digest",
+          "project_binding_revision",
+          "project_binding_digest",
+          "primary",
+          "hard_constraint",
+          "incumbent_candidate_id",
+          "incumbent_candidate_revision",
+          "use_context",
+          "created_at"
+        ],
+        "title": "PredictionGraphObjective",
+        "type": "object"
+      },
+      "PredictionGraphObjectiveInput": {
+        "additionalProperties": false,
+        "properties": {
+          "hard_constraint": {
+            "$ref": "#/components/schemas/GraphGoalTermInput"
+          },
+          "incumbent_candidate_id": {
+            "minLength": 1,
+            "title": "Incumbent Candidate Id",
+            "type": "string"
+          },
+          "incumbent_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Incumbent Candidate Revision",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "primary": {
+            "$ref": "#/components/schemas/GraphGoalTermInput"
+          },
+          "use_context": {
+            "default": "production",
+            "enum": [
+              "production",
+              "demonstration"
+            ],
+            "title": "Use Context",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "primary",
+          "hard_constraint",
+          "incumbent_candidate_id",
+          "incumbent_candidate_revision"
+        ],
+        "title": "PredictionGraphObjectiveInput",
+        "type": "object"
+      },
+      "PredictionGraphObjectiveTerm": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "at_least",
+              "at_most"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "evidence_kind": {
+            "enum": [
+              "measured",
+              "synthetic_demonstration",
+              "unverified"
+            ],
+            "title": "Evidence Kind",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "source_output_key": {
+            "minLength": 1,
+            "title": "Source Output Key",
+            "type": "string"
+          },
+          "source_stage_id": {
+            "minLength": 1,
+            "title": "Source Stage Id",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output_id",
+          "direction",
+          "threshold",
+          "source_stage_id",
+          "source_output_key",
+          "unit",
+          "evidence_kind"
+        ],
+        "title": "PredictionGraphObjectiveTerm",
+        "type": "object"
+      },
       "PredictionGraphProjectBinding": {
         "additionalProperties": false,
         "properties": {
@@ -18585,6 +19356,28 @@
           "decision_outputs"
         ],
         "title": "PredictionGraphProjection",
+        "type": "object"
+      },
+      "PredictionGraphPromotionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "point_index": {
+            "minimum": 0.0,
+            "title": "Point Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "point_index",
+          "name"
+        ],
+        "title": "PredictionGraphPromotionRequest",
         "type": "object"
       },
       "PredictionGraphPublishRequest": {
@@ -31960,6 +32753,352 @@
           }
         },
         "summary": "Create Snapshot",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs": {
+      "get": {
+        "operationId": "listPredictionGraphGoalSearchRuns",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PredictionGraphGoalSearchRun"
+                  },
+                  "title": "Response Listpredictiongraphgoalsearchruns",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Goal Search Runs",
+        "tags": [
+          "prediction-graphs"
+        ]
+      },
+      "post": {
+        "operationId": "createPredictionGraphGoalSearchRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphGoalSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphGoalSearchRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Goal Search Run",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs/{run_id}": {
+      "get": {
+        "operationId": "getPredictionGraphGoalSearchRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphGoalSearchRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Goal Search Run",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs/{run_id}/promotions": {
+      "post": {
+        "operationId": "promotePredictionGraphGoalSearchResult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphPromotionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Goal Search Result",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/goal-search/design-space": {
+      "get": {
+        "operationId": "getPredictionGraphGoalSearchDesignSpace",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDesignSpace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Goal Search Design Space",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/objectives": {
+      "get": {
+        "operationId": "listPredictionGraphObjectives",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PredictionGraphObjective"
+                  },
+                  "title": "Response Listpredictiongraphobjectives",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Objectives",
+        "tags": [
+          "prediction-graphs"
+        ]
+      },
+      "post": {
+        "operationId": "createPredictionGraphObjective",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphObjectiveInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphObjective"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Objective",
         "tags": [
           "prediction-graphs"
         ]

@@ -537,6 +537,18 @@ class DecisionActivitySourceRef(ContractModel):
     source_ref: DecisionActivityReference
 
 
+class PredictionGraphGoalSearchReference(ContractModel):
+    run_id: Annotated[str, Field(min_length=1)]
+    point_index: Annotated[int, Field(ge=0)]
+    objective_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    design_space_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
+class PredictionGraphGoalSearchSourceRef(ContractModel):
+    source_kind: Literal["prediction_graph_goal_search"]
+    source_ref: PredictionGraphGoalSearchReference
+
+
 CandidateProvenance = Annotated[
     ManualSourceRef
     | DirectSourceRef
@@ -546,7 +558,8 @@ CandidateProvenance = Annotated[
     | SnapshotSourceRef
     | CopySourceRef
     | BlendOptimizationSourceRef
-    | DecisionActivitySourceRef,
+    | DecisionActivitySourceRef
+    | PredictionGraphGoalSearchSourceRef,
     Field(discriminator="source_kind"),
 ]
 

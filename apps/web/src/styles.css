@@ -805,6 +805,76 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   font-weight: 700;
 }
 
+.graph-goal-search details,
+.graph-goal-results {
+  display: grid;
+  gap: 10px;
+}
+
+.graph-goal-search-count {
+  color: #667085;
+  font-size: 13px;
+}
+
+.graph-goal-design-space,
+.graph-goal-result-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.graph-goal-design-space > div,
+.graph-goal-result-list article {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #d9e0e8;
+  border-radius: 9px;
+}
+
+.graph-goal-design-space small,
+.graph-goal-run-meta span {
+  color: #667085;
+}
+
+.graph-goal-form,
+.graph-goal-run-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: 10px;
+}
+
+.graph-goal-form label,
+.graph-goal-run-controls label {
+  display: grid;
+  gap: 4px;
+}
+
+.graph-goal-run-meta,
+.graph-goal-result-list article > div,
+.graph-goal-result-list dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.graph-goal-result-list article.selected {
+  border-color: #1f5fc4;
+  background: #f5f8ff;
+}
+
+.graph-goal-result-list dl {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.graph-goal-result-list dt,
+.graph-goal-result-list dd {
+  margin: 0;
+}
+
 .graph-actual-form {
   flex-wrap: wrap;
 }

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { apiBaseUrl } from "./helpers";
 
-test("material Graph fixtures expose split Packages and synthetic evidence", async ({ page }) => {
+test("material Graph fixtures support evidence review and explicit goal-search promotion", async ({ page }) => {
   await page.goto("/?view=chain-studio");
 
   const catalog = page.getByRole("group", { name: "Node一覧" }).locator("select");
@@ -195,7 +195,7 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
   await expect(page.getByText("Prediction Graphを実行しました。")).toBeVisible();
   await page.getByRole("button", { name: "Snapshotを固定" }).click();
   await expect(page.getByText("現在のPrediction Graph結果をSnapshotとして固定しました。")).toBeVisible();
-  await page.getByLabel("Output").selectOption("tensile-strength");
+  await page.locator(".graph-actual-form select").selectOption("tensile-strength");
   await page.getByLabel("実測値").fill("720");
   await expect(page.getByLabel("単位")).toHaveValue("MPa");
   await page.getByLabel("測定ID").fill("fixture-actual-001");
@@ -217,4 +217,19 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
   await page.getByRole("button", { name: "最新revisionを再読込" }).click();
   await expect(page.getByText(/過去のcandidate revision/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Actualを記録" })).toBeDisabled();
+
+  await expect(page.getByRole("heading", { name: "Objectiveから候補を探索" })).toBeVisible();
+  await expect(page.getByText("安全なDesign Space")).toBeVisible();
+  await expect(page.getByText(/scenario context・fixed parameter・疎配合は自動探索しません/)).toBeVisible();
+  await page.getByLabel("Primary threshold").fill("10000");
+  await page.getByLabel("Constraint threshold").fill("1000000");
+  await page.getByRole("button", { name: "Objectiveを保存" }).click();
+  await expect(page.getByText("Objectiveを現在のCandidate revisionへ固定しました。")).toBeVisible();
+  await page.getByRole("button", { name: "Goal searchを実行" }).click();
+  await expect(page.getByText(/Goal searchを保存しました。選択候補 2件。/)).toBeVisible();
+  await expect(page.getByText(/Run [0-9a-f]{8}/)).toBeVisible();
+  await expect(page.getByText("昇格候補", { exact: true })).toHaveCount(2);
+  await page.getByRole("button", { name: "候補へ昇格" }).first().click();
+  await expect(page.getByText("選択結果を通常のGraph Candidateへ昇格しました。")).toBeVisible();
+  await expect(page.getByRole("button", { name: /強度と制約の探索 候補1/ })).toBeVisible();
 });

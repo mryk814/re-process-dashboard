@@ -919,6 +919,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Goal Search Runs */
+        get: operations["listPredictionGraphGoalSearchRuns"];
+        put?: never;
+        /** Create Goal Search Run */
+        post: operations["createPredictionGraphGoalSearchRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goal Search Run */
+        get: operations["getPredictionGraphGoalSearchRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/goal-search-runs/{run_id}/promotions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Promote Goal Search Result */
+        post: operations["promotePredictionGraphGoalSearchResult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/goal-search/design-space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goal Search Design Space */
+        get: operations["getPredictionGraphGoalSearchDesignSpace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Objectives */
+        get: operations["listPredictionGraphObjectives"];
+        put?: never;
+        /** Create Objective */
+        post: operations["createPredictionGraphObjective"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graphs/projects/{project_id}/snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -4046,7 +4133,7 @@ export interface components {
             /** Project Id */
             project_id: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"] | components["schemas"]["PredictionGraphGoalSearchSourceRef"];
             /** Revision */
             revision: number;
             /**
@@ -4174,7 +4261,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"] | components["schemas"]["PredictionGraphGoalSearchSourceRef"];
         };
         /** CandidateInputs */
         CandidateInputs: {
@@ -4236,7 +4323,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"] | components["schemas"]["PredictionGraphGoalSearchSourceRef"];
         };
         /** CanonicalDatasetRevision */
         CanonicalDatasetRevision: {
@@ -7240,6 +7327,18 @@ export interface components {
             /** Value */
             value: number | string;
         };
+        /** GraphGoalTermInput */
+        GraphGoalTermInput: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "at_least" | "at_most";
+            /** Output Id */
+            output_id: string;
+            /** Threshold */
+            threshold: number;
+        };
         /** GraphInput */
         GraphInput: {
             /** Default Presentation Group */
@@ -9526,6 +9625,50 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
         };
+        /** PredictionGraphDesignSpace */
+        PredictionGraphDesignSpace: {
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-design-space/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-design-space/v1";
+            /** Variables */
+            variables: components["schemas"]["PredictionGraphDesignVariable"][];
+        };
+        /** PredictionGraphDesignVariable */
+        PredictionGraphDesignVariable: {
+            /** Affected Output Ids */
+            affected_output_ids: string[];
+            /** Candidate Path */
+            candidate_path: string;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: string[];
+            /** Input Id */
+            input_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "number" | "categorical";
+            /** Label */
+            label: string;
+            numeric_range?: components["schemas"]["NumericRange"] | null;
+            /**
+             * Sampling Policy
+             * @enum {string}
+             */
+            sampling_policy: "continuous_linear" | "categorical_uniform";
+            /** Unit */
+            unit?: string | null;
+        };
         /** PredictionGraphDraftConflictResponse */
         PredictionGraphDraftConflictResponse: {
             /**
@@ -9744,6 +9887,251 @@ export interface components {
              */
             updated_at: string;
         };
+        /** PredictionGraphGoalSearchOutput */
+        PredictionGraphGoalSearchOutput: {
+            /**
+             * Blocked By Stage Ids
+             * @default []
+             */
+            blocked_by_stage_ids: string[];
+            /** Error */
+            error?: string | null;
+            /** Prediction */
+            prediction?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "latest" | "failed" | "blocked_by_upstream" | "unavailable";
+            /** Support */
+            support?: {
+                [key: string]: unknown;
+            } | null;
+            /** Value */
+            value?: unknown | null;
+        };
+        /** PredictionGraphGoalSearchPoint */
+        PredictionGraphGoalSearchPoint: {
+            candidate: components["schemas"]["CandidateInput"];
+            /** Feasible */
+            feasible: boolean;
+            /** Hard Constraint Achieved */
+            hard_constraint_achieved: boolean | null;
+            /** Input Values */
+            input_values: {
+                [key: string]: number | string;
+            };
+            /** Outputs */
+            outputs: {
+                [key: string]: components["schemas"]["PredictionGraphGoalSearchOutput"];
+            };
+            /** Point Index */
+            point_index: number;
+            /** Primary Achieved */
+            primary_achieved: boolean | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+            /** Score */
+            score: number | null;
+        };
+        /** PredictionGraphGoalSearchReference */
+        PredictionGraphGoalSearchReference: {
+            /** Design Space Digest */
+            design_space_digest: string;
+            /** Objective Digest */
+            objective_digest: string;
+            /** Point Index */
+            point_index: number;
+            /** Run Id */
+            run_id: string;
+        };
+        /** PredictionGraphGoalSearchRequest */
+        PredictionGraphGoalSearchRequest: {
+            /** Base Candidate Id */
+            base_candidate_id: string;
+            /** Base Candidate Revision */
+            base_candidate_revision: number;
+            /** Objective Id */
+            objective_id: string;
+            /**
+             * Sample Count
+             * @default 8
+             */
+            sample_count: number;
+            /**
+             * Seed
+             * @default 20260803
+             */
+            seed: number;
+        };
+        /** PredictionGraphGoalSearchRun */
+        PredictionGraphGoalSearchRun: {
+            /** Base Candidate Digest */
+            base_candidate_digest: string;
+            /** Base Candidate Id */
+            base_candidate_id: string;
+            /** Base Candidate Revision */
+            base_candidate_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            design_space: components["schemas"]["PredictionGraphDesignSpace"];
+            /** Design Space Digest */
+            design_space_digest: string;
+            /**
+             * Generator Id
+             * @default latin_hypercube
+             * @constant
+             */
+            generator_id: "latin_hypercube";
+            /**
+             * Generator Version
+             * @default 1.0.0
+             * @constant
+             */
+            generator_version: "1.0.0";
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            objective: components["schemas"]["PredictionGraphObjective"];
+            /** Objective Digest */
+            objective_digest: string;
+            /** Package Manifest Digests */
+            package_manifest_digests: {
+                [key: string]: string;
+            };
+            /** Points */
+            points: components["schemas"]["PredictionGraphGoalSearchPoint"][];
+            /** Project Binding Digest */
+            project_binding_digest: string;
+            /** Project Binding Revision */
+            project_binding_revision: number;
+            /** Project Id */
+            project_id: string;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-goal-search-run/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-goal-search-run/v1";
+            /** Seed */
+            seed: number;
+            /** Selected Point Indices */
+            selected_point_indices: number[];
+        };
+        /** PredictionGraphGoalSearchSourceRef */
+        PredictionGraphGoalSearchSourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "prediction_graph_goal_search";
+            source_ref: components["schemas"]["PredictionGraphGoalSearchReference"];
+        };
+        /** PredictionGraphObjective */
+        PredictionGraphObjective: {
+            /**
+             * Branch Availability Policy
+             * @default objective_outputs_latest
+             * @constant
+             */
+            branch_availability_policy: "objective_outputs_latest";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            hard_constraint: components["schemas"]["PredictionGraphObjectiveTerm"];
+            /** Incumbent Candidate Id */
+            incumbent_candidate_id: string;
+            /** Incumbent Candidate Revision */
+            incumbent_candidate_revision: number;
+            /** Name */
+            name: string;
+            /** Objective Id */
+            objective_id: string;
+            primary: components["schemas"]["PredictionGraphObjectiveTerm"];
+            /** Project Binding Digest */
+            project_binding_digest: string;
+            /** Project Binding Revision */
+            project_binding_revision: number;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Required Output Policy
+             * @default all_required_latest
+             * @constant
+             */
+            required_output_policy: "all_required_latest";
+            /**
+             * Revision
+             * @default 1
+             * @constant
+             */
+            revision: 1;
+            /**
+             * Schema Version
+             * @default prediction-graph-objective/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-objective/v1";
+            /**
+             * Use Context
+             * @enum {string}
+             */
+            use_context: "production" | "demonstration";
+        };
+        /** PredictionGraphObjectiveInput */
+        PredictionGraphObjectiveInput: {
+            hard_constraint: components["schemas"]["GraphGoalTermInput"];
+            /** Incumbent Candidate Id */
+            incumbent_candidate_id: string;
+            /** Incumbent Candidate Revision */
+            incumbent_candidate_revision: number;
+            /** Name */
+            name: string;
+            primary: components["schemas"]["GraphGoalTermInput"];
+            /**
+             * Use Context
+             * @default production
+             * @enum {string}
+             */
+            use_context: "production" | "demonstration";
+        };
+        /** PredictionGraphObjectiveTerm */
+        PredictionGraphObjectiveTerm: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "at_least" | "at_most";
+            /**
+             * Evidence Kind
+             * @enum {string}
+             */
+            evidence_kind: "measured" | "synthetic_demonstration" | "unverified";
+            /** Output Id */
+            output_id: string;
+            /** Source Output Key */
+            source_output_key: string;
+            /** Source Stage Id */
+            source_stage_id: string;
+            /** Threshold */
+            threshold: number;
+            /** Unit */
+            unit: string;
+        };
         /** PredictionGraphProjectBinding */
         PredictionGraphProjectBinding: {
             /** Digest */
@@ -9819,6 +10207,13 @@ export interface components {
              */
             source_schema_version: "chain-definition/v1" | "prediction-graph-definition/v1";
             topology: components["schemas"]["PredictionGraphTopology"];
+        };
+        /** PredictionGraphPromotionRequest */
+        PredictionGraphPromotionRequest: {
+            /** Name */
+            name: string;
+            /** Point Index */
+            point_index: number;
         };
         /** PredictionGraphPublishRequest */
         PredictionGraphPublishRequest: {
@@ -15872,6 +16267,237 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionGraphSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listPredictionGraphGoalSearchRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphGoalSearchRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphGoalSearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphGoalSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphGoalSearchRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphGoalSearchRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphGoalSearchRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    promotePredictionGraphGoalSearchResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphPromotionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphGoalSearchDesignSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDesignSpace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listPredictionGraphObjectives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphObjective"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphObjective: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphObjectiveInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphObjective"];
                 };
             };
             /** @description Validation Error */

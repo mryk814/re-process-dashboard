@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from typing import Any, Callable, Mapping
+
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
@@ -29,6 +30,10 @@ from decision_workbench.contracts.chain_execution_contracts import (
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
 )
+from decision_workbench.contracts.prediction_graph_planning_contracts import (
+    PredictionGraphGoalSearchRun,
+    PredictionGraphObjective,
+)
 from decision_workbench.persistence.store_support import (
     ChainCatalogConflictError,
     StoreDataIntegrityError,
@@ -37,6 +42,106 @@ from decision_workbench.persistence.store_support import (
 
 
 class ChainRepository:
+    def insert_prediction_graph_objective(
+        self, objective: PredictionGraphObjective
+    ) -> PredictionGraphObjective:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO prediction_graph_objectives("
+                "id,project_id,payload_json,created_at) "
+                "VALUES (?,?,?,?)",
+                (
+                    objective.objective_id,
+                    objective.project_id,
+                    objective.model_dump_json(),
+                    objective.created_at.isoformat(),
+                ),
+            )
+        return objective
+
+    def get_prediction_graph_objective(
+        self, project_id: str, objective_id: str
+    ) -> PredictionGraphObjective | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM prediction_graph_objectives "
+                "WHERE id=? AND project_id=?",
+                (objective_id, project_id),
+            ).fetchone()
+        return (
+            PredictionGraphObjective.model_validate_json(row["payload_json"])
+            if row
+            else None
+        )
+
+    def list_prediction_graph_objectives(
+        self,
+        project_id: str,
+    ) -> list[PredictionGraphObjective]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM prediction_graph_objectives "
+                "WHERE project_id=? ORDER BY created_at DESC,id DESC",
+                (project_id,),
+            ).fetchall()
+        return [
+            PredictionGraphObjective.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+
+    def insert_prediction_graph_goal_search_run(
+        self, run: PredictionGraphGoalSearchRun
+    ) -> PredictionGraphGoalSearchRun:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO prediction_graph_goal_search_runs("
+                "id,project_id,objective_id,payload_json,created_at) VALUES (?,?,?,?,?)",
+                (
+                    run.run_id,
+                    run.project_id,
+                    run.objective.objective_id,
+                    run.model_dump_json(),
+                    run.created_at.isoformat(),
+                ),
+            )
+        return run
+
+    def get_prediction_graph_goal_search_run(
+        self, project_id: str, run_id: str
+    ) -> PredictionGraphGoalSearchRun | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json "
+                "FROM prediction_graph_goal_search_runs "
+                "WHERE id=? AND project_id=?",
+                (run_id, project_id),
+            ).fetchone()
+        return (
+            PredictionGraphGoalSearchRun.model_validate_json(
+                row["payload_json"]
+            )
+            if row
+            else None
+        )
+
+    def list_prediction_graph_goal_search_runs(
+        self,
+        project_id: str,
+    ) -> list[PredictionGraphGoalSearchRun]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json "
+                "FROM prediction_graph_goal_search_runs "
+                "WHERE project_id=? ORDER BY created_at DESC,id DESC",
+                (project_id,),
+            ).fetchall()
+        return [
+            PredictionGraphGoalSearchRun.model_validate_json(
+                row["payload_json"]
+            )
+            for row in rows
+        ]
+
     @staticmethod
     def _validate_revision_pair(
         definition: GraphDefinitionRef,
