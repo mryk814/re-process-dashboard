@@ -43,6 +43,9 @@ from decision_workbench.data.profile_family_registry import (
     load_inspection_descriptor,
 )
 from decision_workbench.developer_experience.change_guide import change_guide_entries
+from decision_workbench.developer_experience.capability_atlas import (
+    capability_atlas_read_model,
+)
 from decision_workbench.developer_experience.readiness import (
     ReadinessCatalog,
     ReadinessPreflight,
@@ -54,6 +57,7 @@ from decision_workbench.developer_experience.runtime_diagnostics import (
 )
 from decision_workbench.developer_experience.schemas import (
     ChangeGuideEntry,
+    DeveloperCapabilityAtlas,
     DeveloperOverview,
     DeveloperOverviewItem,
     FeatureRecipeInspectRequest,
@@ -135,6 +139,21 @@ def _resource_root() -> Path:
 
 def _source_path(registration: _ObservationProfileRegistration) -> Path:
     return _resource_root() / registration.source_relative
+
+
+@router.get("/capability-atlas", response_model=DeveloperCapabilityAtlas)
+def get_capability_atlas() -> DeveloperCapabilityAtlas:
+    atlas_path = _resource_root() / "docs" / "contracts" / "capability-atlas.json"
+    try:
+        atlas = json.loads(atlas_path.read_text(encoding="utf-8"))
+        return DeveloperCapabilityAtlas.model_validate(
+            capability_atlas_read_model(atlas)
+        )
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"bundled Capability Atlasを読み取れません: {exc}",
+        ) from exc
 
 
 @lru_cache(maxsize=8)

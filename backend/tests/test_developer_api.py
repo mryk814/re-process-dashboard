@@ -87,6 +87,32 @@ def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> N
     assert all(isinstance(item["active_package"], bool) for item in items)
 
 
+def test_capability_atlas_exposes_bundled_technical_detail(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/developer/capability-atlas")
+    assert response.status_code == 200, response.text
+    atlas = response.json()
+    assert atlas["schema_version"] == "capability-atlas/v1"
+    assert atlas["authority"] == "bundled"
+    assert atlas["project_modes"] == [
+        "single_task",
+        "chain",
+        "prediction_graph",
+    ]
+    assert atlas["task_count"] == len(atlas["tasks"]) == 17
+    assert atlas["graph_count"] == 2
+    assert atlas["available_package_count"] >= atlas["task_count"]
+    assert {task["missingness_status"] for task in atlas["tasks"]} == {
+        "reject_only",
+        "runtime_contract_not_exposed",
+    }
+    assert all(
+        task["missingness_policy_digest"].startswith("sha256:")
+        for task in atlas["tasks"]
+    )
+
+
 def test_overview_lists_chain_projects_instead_of_failing_on_their_empty_task(
     client: TestClient,
 ) -> None:

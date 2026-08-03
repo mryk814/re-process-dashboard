@@ -6,6 +6,8 @@ test("legacy workspace administration link resolves outside Project navigation",
   await expect(page).toHaveURL(/view=workspace/);
   await expect(page.getByRole("heading", { name: "ワークスペース", exact: true })).toBeVisible();
   await expect(page.getByText("WORKSPACE 全体")).toBeVisible();
+  await expect(page.getByText("Bundled Capability Atlas")).toBeVisible();
+  await expect(page.getByText(/3 modes · 17 Tasks · \d+ Packages · 2 Graphs/)).toBeVisible();
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" })).toHaveCount(0);
 });
 

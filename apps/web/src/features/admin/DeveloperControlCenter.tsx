@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   workbenchApi,
   type ApiChangeGuideEntry,
+  type ApiDeveloperCapabilityAtlas,
   type ApiDeveloperOverview,
   type ApiModelPackage,
   type ApiRuntimeDiagnostics,
@@ -72,6 +73,8 @@ export function DeveloperControlCenter({
 }) {
   const [tab, setTab] = useState<DeveloperTab>(initialTab ?? "overview");
   const [overview, setOverview] = useState<ApiDeveloperOverview | null>(null);
+  const [capabilityAtlas, setCapabilityAtlas] = useState<ApiDeveloperCapabilityAtlas | null>(null);
+  const [capabilityAtlasError, setCapabilityAtlasError] = useState("");
   const [guide, setGuide] = useState<ApiChangeGuideEntry[]>([]);
   const [doctor, setDoctor] = useState<ApiRuntimeDiagnostics | null>(null);
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
@@ -93,6 +96,21 @@ export function DeveloperControlCenter({
         setSelectedGuide((current) => current || nextGuide[0]?.id || "");
       })
       .catch((cause) => { if (live) setError(cause instanceof Error ? cause.message : "Developer情報を取得できませんでした。"); });
+    return () => { live = false; };
+  }, []);
+  useEffect(() => {
+    let live = true;
+    workbenchApi.developerCapabilityAtlas()
+      .then((atlas) => {
+        if (live) setCapabilityAtlas(atlas);
+      })
+      .catch((cause) => {
+        if (live) {
+          setCapabilityAtlasError(
+            cause instanceof Error ? cause.message : "Capability Atlasを取得できませんでした。",
+          );
+        }
+      });
     return () => { live = false; };
   }, []);
   useEffect(() => setTab(initialTab ?? "overview"), [initialTab]);
@@ -162,6 +180,28 @@ export function DeveloperControlCenter({
         <li><b>4</b><div><small>予測を実行</small><strong>Runtime</strong><span>固定した参照から予測Snapshotを作る</span></div></li>
       </ol>
       <p className="developer-note">Projectごとに固定された参照です。Dataset Revision・Package・Snapshotは上書きしません。</p>
+      <details className="developer-capability-atlas">
+        <summary>
+          <strong>Bundled Capability Atlas</strong>
+          {capabilityAtlas
+            ? <span>{capabilityAtlas.project_modes.length} modes · {capabilityAtlas.task_count} Tasks · {capabilityAtlas.available_package_count} Packages · {capabilityAtlas.graph_count} Graphs</span>
+            : <span>{capabilityAtlasError ? "取得失敗" : "読み込み中"}</span>}
+        </summary>
+        <p>同梱contractの技術詳細です。現在のWorkspaceを読むModel Libraryとは別のauthorityです。</p>
+        {capabilityAtlasError && <p className="panel-error" role="alert">{capabilityAtlasError}</p>}
+        {capabilityAtlas && <div className="developer-capability-atlas-table">
+          <table>
+            <thead><tr><th>Task</th><th>Runtime</th><th>Packages</th><th>Graph</th><th>Missingness policy</th></tr></thead>
+            <tbody>{capabilityAtlas.tasks.map((task) => <tr key={task.task_id}>
+              <td><code>{task.task_id}</code></td>
+              <td>{task.runtime_available ? "available" : "unavailable"}</td>
+              <td>{task.available_package_count}</td>
+              <td>{task.graph_compatible ? "compatible" : "—"}</td>
+              <td><span>{task.missingness_status}</span><ShortDigest value={task.missingness_policy_digest} /></td>
+            </tr>)}</tbody>
+          </table>
+        </div>}
+      </details>
       {overview && <div className="developer-overview-toolbar">
         <label className="developer-overview-search">検索<input type="search" value={overviewQuery} placeholder="Project / Dataset / Package" onChange={(event) => setOverviewQuery(event.target.value)} /></label>
         <label>状態<select value={overviewStatus} onChange={(event) => setOverviewStatus(event.target.value as OverviewStatus)}><option value="">すべて</option><option value="ok">検証済み</option><option value="warning">Archive参照</option><option value="error">参照不足</option></select></label>

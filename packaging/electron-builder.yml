@@ -11,6 +11,8 @@ files:
   - apps/web/dist/**/*
   - package.json
 extraResources:
+  - from: docs/contracts/capability-atlas.json
+    to: docs/contracts/capability-atlas.json
   - from: dist/sidecar/decision-workbench-sidecar
     to: sidecar
   - from: data/source/material_workbench_tutorial_v2.xlsx

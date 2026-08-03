@@ -60,6 +60,7 @@ def test_windows_bundle_declares_active_model_configuration_and_packages() -> No
     ))
 
     required_resources = {
+        "docs/contracts/capability-atlas.json",
         "models/active-packages.json",
         "models/available-packages.json",
         "models/active-transforms.json",
@@ -121,6 +122,7 @@ def test_windows_packaging_checks_every_registered_default_source(tmp_path: Path
     assert set(json.loads(completed.stdout)) == source_paths
     assert "task_inventory.py --print-source-paths" in packaging_script
     assert 'models/active-transforms.json' in packaging_script
+    assert '"docs/contracts/capability-atlas.json"' in packaging_script
     assert '$activeTransforms.transforms.PSObject.Properties.Value' in packaging_script
     assert "ConvertFrom-Json" in packaging_script
     for source in source_paths:

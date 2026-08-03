@@ -1,0 +1,4437 @@
+{
+  "schema_version": "capability-atlas/v1",
+  "generated_from": [
+    "docs/contracts/task-inventory.json authority",
+    "docs/contracts/readiness-inventory.json authority",
+    "docs/contracts/standard-estimator-readiness.json authority",
+    "bundled Model Package manifests",
+    "decision activity and proposal strategy registries",
+    "bundled Prediction Graph definitions"
+  ],
+  "project_modes": [
+    {
+      "mode": "single_task",
+      "status": "implemented",
+      "description": "one Task, Dataset View, and Model Package are fixed per Project"
+    },
+    {
+      "mode": "chain",
+      "status": "implemented_v1",
+      "description": "a Chain Revision fixes ordered Task or deterministic-transform stages and bindings"
+    },
+    {
+      "mode": "prediction_graph",
+      "status": "implemented_fixture",
+      "description": "a graph Project fixes explicit stage dependencies; bundled definitions are comparison fixtures",
+      "bundled_graphs": [
+        {
+          "graph_id": "welding-material-multi-output-demo-v1",
+          "label": "溶接材料判断 Multi-output Package比較fixture",
+          "stages": [
+            {
+              "stage_id": "A",
+              "stage_kind": "deterministic_transform",
+              "contract_id": "welding-stage-a-v1"
+            },
+            {
+              "stage_id": "B",
+              "stage_kind": "task",
+              "contract_id": "welding-consumable-stage-b-v1"
+            },
+            {
+              "stage_id": "C",
+              "stage_kind": "task",
+              "contract_id": "welding-stage-c-properties-v1"
+            },
+            {
+              "stage_id": "W",
+              "stage_kind": "task",
+              "contract_id": "welding-graph-deposition-efficiency-v1"
+            }
+          ],
+          "decision_outputs": [
+            {
+              "output_id": "deposited-composition-C",
+              "source_stage_id": "B",
+              "source_output_key": "C",
+              "label": "溶着金属 C",
+              "group": "composition",
+              "role": "diagnostic",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "mass% deposited metal",
+                "goal_direction": "none",
+                "source_variables": [
+                  "candidate.blend",
+                  "candidate.welding_context.heat_input_kj_per_mm"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "tensile-strength",
+              "source_stage_id": "C",
+              "source_output_key": "TS",
+              "label": "引張強さ",
+              "group": "mechanical",
+              "role": "primary_objective",
+              "required_for_complete_result": true,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "MPa",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.welding_context.heat_input_kj_per_mm",
+                  "candidate.welding_context.preheat_temp_c"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "charpy-energy",
+              "source_stage_id": "C",
+              "source_output_key": "CHARPY_ENERGY",
+              "label": "吸収エネルギー",
+              "group": "toughness",
+              "role": "secondary_outcome",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "J",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.test_context.test_temperature_c"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "corrosion-rate",
+              "source_stage_id": "C",
+              "source_output_key": "CORROSION_RATE",
+              "label": "腐食速度",
+              "group": "corrosion",
+              "role": "hard_constraint",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "mm/year",
+                "goal_direction": "at_most",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.test_context.test_solution"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "deposition-efficiency",
+              "source_stage_id": "W",
+              "source_output_key": "deposition_efficiency_pct",
+              "label": "溶着効率proxy",
+              "group": "processability",
+              "role": "secondary_outcome",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "%",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "candidate.welding_context.heat_input_kj_per_mm",
+                  "candidate.welding_context.voltage_v",
+                  "candidate.welding_context.gas_flow_l_per_min",
+                  "candidate.welding_context.wire_feed_speed_m_per_min"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "決定論的な式で生成した溶着効率proxyです。実測値ではなく、因果効果やproduction品質を主張しません。"
+              }
+            }
+          ]
+        },
+        {
+          "graph_id": "welding-material-split-output-demo-v1",
+          "label": "溶接材料判断 Split Package比較fixture",
+          "stages": [
+            {
+              "stage_id": "A",
+              "stage_kind": "deterministic_transform",
+              "contract_id": "welding-stage-a-v1"
+            },
+            {
+              "stage_id": "B",
+              "stage_kind": "task",
+              "contract_id": "welding-consumable-stage-b-v1"
+            },
+            {
+              "stage_id": "T",
+              "stage_kind": "task",
+              "contract_id": "welding-graph-tensile-ts-v1"
+            },
+            {
+              "stage_id": "U",
+              "stage_kind": "task",
+              "contract_id": "welding-graph-toughness-v1"
+            },
+            {
+              "stage_id": "R",
+              "stage_kind": "task",
+              "contract_id": "welding-graph-corrosion-v1"
+            },
+            {
+              "stage_id": "W",
+              "stage_kind": "task",
+              "contract_id": "welding-graph-deposition-efficiency-v1"
+            }
+          ],
+          "decision_outputs": [
+            {
+              "output_id": "deposited-composition-C",
+              "source_stage_id": "B",
+              "source_output_key": "C",
+              "label": "溶着金属 C",
+              "group": "composition",
+              "role": "diagnostic",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "mass% deposited metal",
+                "goal_direction": "none",
+                "source_variables": [
+                  "candidate.blend",
+                  "candidate.welding_context.heat_input_kj_per_mm"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "tensile-strength",
+              "source_stage_id": "T",
+              "source_output_key": "TS",
+              "label": "引張強さ",
+              "group": "mechanical",
+              "role": "primary_objective",
+              "required_for_complete_result": true,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "MPa",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.welding_context.heat_input_kj_per_mm",
+                  "candidate.welding_context.preheat_temp_c"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "charpy-energy",
+              "source_stage_id": "U",
+              "source_output_key": "CHARPY_ENERGY",
+              "label": "吸収エネルギー",
+              "group": "toughness",
+              "role": "secondary_outcome",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "J",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.test_context.test_temperature_c"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "corrosion-rate",
+              "source_stage_id": "R",
+              "source_output_key": "CORROSION_RATE",
+              "label": "腐食速度",
+              "group": "corrosion",
+              "role": "hard_constraint",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "mm/year",
+                "goal_direction": "at_most",
+                "source_variables": [
+                  "deposited_composition",
+                  "candidate.test_context.test_solution"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "リポジトリ同梱の合成教材データによるdemonstrationであり、実材料の品質または因果効果を保証しません。"
+              }
+            },
+            {
+              "output_id": "deposition-efficiency",
+              "source_stage_id": "W",
+              "source_output_key": "deposition_efficiency_pct",
+              "label": "溶着効率proxy",
+              "group": "processability",
+              "role": "secondary_outcome",
+              "required_for_complete_result": false,
+              "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "%",
+                "goal_direction": "at_least",
+                "source_variables": [
+                  "candidate.welding_context.heat_input_kj_per_mm",
+                  "candidate.welding_context.voltage_v",
+                  "candidate.welding_context.gas_flow_l_per_min",
+                  "candidate.welding_context.wire_feed_speed_m_per_min"
+                ],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "決定論的な式で生成した溶着効率proxyです。実測値ではなく、因果効果やproduction品質を主張しません。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "candidate_provenance": [
+    "direct",
+    "lineage",
+    "screening",
+    "historical_observation",
+    "experiment_batch",
+    "copy",
+    "snapshot",
+    "manual"
+  ],
+  "missingness_contract_vocabulary": {
+    "input_completeness": [
+      "complete",
+      "imputed",
+      "native_missing",
+      "blocked"
+    ],
+    "prediction_status": [
+      "final",
+      "provisional",
+      "blocked"
+    ],
+    "support": [
+      "supported",
+      "sparse",
+      "unseen",
+      "incompatible"
+    ]
+  },
+  "standard_estimator_catalog": {
+    "schema_version": "standard-estimator-readiness/v1",
+    "promotion_policy": "explicit_only",
+    "entries": [
+      {
+        "estimator_id": "ridge.v1",
+        "label": "Ridge regression",
+        "target_kinds": [
+          "continuous"
+        ],
+        "role": "interpretable_baseline",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "builtin.linear.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 4,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {
+          "alpha": 1.0,
+          "folds": 5,
+          "seed": 20260730
+        }
+      },
+      {
+        "estimator_id": "exact-gp-rbf.v1",
+        "label": "Small-data exact GP",
+        "target_kinds": [
+          "continuous"
+        ],
+        "role": "nonlinear_candidate",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "builtin.exact_gp.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 3,
+          "max_rows": 500,
+          "min_independent_groups": 3,
+          "max_features": 64
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "standard_deviation",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {
+          "restarts": 3,
+          "folds": 5,
+          "seed": 20260730,
+          "max_rows": 500
+        }
+      },
+      {
+        "estimator_id": "numpyro-lognormal-external.v1",
+        "label": "Verified lognormal Package",
+        "target_kinds": [
+          "continuous_positive"
+        ],
+        "role": "specialized_path",
+        "builder_status": "external_verified_package_only",
+        "runtime_status": "ready",
+        "runtime_type": "numpyro.dense_posterior.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 4,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {}
+      },
+      {
+        "estimator_id": "lightgbm-regression.v1",
+        "label": "LightGBM regression",
+        "target_kinds": [
+          "continuous"
+        ],
+        "role": "nonlinear_candidate",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "lightgbm.booster.v1",
+        "artifact_status": "ready",
+        "artifact_format": "lightgbm-native-text",
+        "required_dependency": "lightgbm",
+        "limits": {
+          "min_rows": 4,
+          "max_rows": 1000000,
+          "min_independent_groups": 4,
+          "max_features": 2048
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {
+          "num_boost_round": 200,
+          "folds": 5,
+          "seed": 20260730,
+          "predictive_family": "empirical_quantiles",
+          "monotone_decreasing_features": []
+        }
+      },
+      {
+        "estimator_id": "logistic.v1",
+        "label": "Logistic regression",
+        "target_kinds": [
+          "binary"
+        ],
+        "role": "interpretable_baseline",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact_status": "ready",
+        "artifact_format": "skops-allow-listed",
+        "required_dependency": "skops",
+        "limits": {
+          "min_rows": 6,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "stratified_kfold",
+          "stratified_grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "probability",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "roc_auc",
+          "brier_score",
+          "balanced_accuracy",
+          "calibration"
+        ],
+        "fixed_parameters": {
+          "c": 1.0,
+          "max_iter": 500,
+          "folds": 5,
+          "seed": 20260730,
+          "calibration": "intrinsic-logistic-link"
+        }
+      },
+      {
+        "estimator_id": "lightgbm-binary.v1",
+        "label": "Calibrated LightGBM binary",
+        "target_kinds": [
+          "binary"
+        ],
+        "role": "nonlinear_candidate",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "lightgbm.booster.v1",
+        "artifact_status": "ready",
+        "artifact_format": "lightgbm-native-text",
+        "required_dependency": "lightgbm",
+        "limits": {
+          "min_rows": 6,
+          "max_rows": 1000000,
+          "min_independent_groups": 4,
+          "max_features": 2048
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "stratified_kfold",
+          "stratified_grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "probability",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "roc_auc",
+          "brier_score",
+          "balanced_accuracy",
+          "calibration"
+        ],
+        "fixed_parameters": {
+          "num_boost_round": 100,
+          "folds": 5,
+          "seed": 20260730
+        }
+      },
+      {
+        "estimator_id": "poisson.v1",
+        "label": "Poisson regression",
+        "target_kinds": [
+          "count"
+        ],
+        "role": "interpretable_baseline",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact_status": "ready",
+        "artifact_format": "skops-allow-listed",
+        "required_dependency": "skops",
+        "limits": {
+          "min_rows": 4,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "mae",
+          "mean_poisson_deviance",
+          "interval_coverage_90"
+        ],
+        "fixed_parameters": {
+          "alpha": 1.0,
+          "max_iter": 500,
+          "folds": 5,
+          "seed": 20260730
+        }
+      },
+      {
+        "estimator_id": "numpyro-ordinal-external.v1",
+        "label": "Verified ordinal Package",
+        "target_kinds": [
+          "ordinal"
+        ],
+        "role": "specialized_path",
+        "builder_status": "external_verified_package_only",
+        "runtime_status": "ready",
+        "runtime_type": "numpyro.dense_posterior.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 4,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "ordinal_log_loss",
+          "ranked_probability_score",
+          "accuracy"
+        ],
+        "fixed_parameters": {}
+      }
+    ]
+  },
+  "global_catalogs": {
+    "decision_activities": [
+      {
+        "activity_id": "candidate-difference-v1",
+        "version": "1.0.0",
+        "label": "候補差分の要因分解",
+        "question": "この候補と比較候補で予測が違うのは、どの入力が効いているのか",
+        "required_operations": [
+          "preview"
+        ],
+        "required_resources": [
+          "candidate",
+          "comparison_candidate"
+        ],
+        "required_capabilities": [],
+        "result_kind": "candidate-difference-summary/v1",
+        "execution_policy": "explicit"
+      },
+      {
+        "activity_id": "counterfactual-target-reach-v1",
+        "version": "1.1.0",
+        "label": "目標へ届く最小変更",
+        "question": "現在候補を実行可能な範囲で最小限どう変えれば目標へ近づくか",
+        "required_operations": [
+          "preview"
+        ],
+        "required_resources": [
+          "candidate",
+          "project_design_space",
+          "objective_definition"
+        ],
+        "required_capabilities": [],
+        "result_kind": "counterfactual-summary/v1",
+        "execution_policy": "explicit"
+      },
+      {
+        "activity_id": "robustness-analysis-v1",
+        "version": "1.0.0",
+        "label": "ロバストネス／公差解析",
+        "question": "製造ばらつきがあっても目標を安定して満たすか",
+        "required_operations": [
+          "preview"
+        ],
+        "required_resources": [
+          "candidate"
+        ],
+        "required_capabilities": [],
+        "result_kind": "robustness-summary/v1",
+        "execution_policy": "explicit"
+      }
+    ],
+    "proposal_strategies": [
+      {
+        "strategy_id": "bounded_simplex_goal_v1",
+        "version": "1.0.0",
+        "label": "Bounded simplex・目標基準（組成向け）",
+        "generator_id": "bounded_simplex_hit_and_run",
+        "generator_version": "1.0.0",
+        "generator_parameters": {
+          "simplex_sampler": "hit_and_run",
+          "other_axes_sampler": "latin_hypercube",
+          "minimum_balance": 0.0,
+          "burn_in_steps": 256.0,
+          "thinning_steps": 16.0
+        },
+        "distance_id": "group_weighted_bounded_clr_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {
+          "zero_replacement": 1e-06,
+          "composition_transform": "clr_rms_over_one_plus_clr_rms",
+          "composition_weight": 1.0,
+          "process_weight": 1.0,
+          "categorical_weight": 1.0,
+          "heat_weight": 1.0
+        },
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "goal_achievement",
+        "acquisition_version": "1.0.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": false,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [],
+        "production_enabled": true,
+        "lifecycle_status": "production"
+      },
+      {
+        "strategy_id": "design_prior_empirical_v1",
+        "version": "1.0.0",
+        "label": "Design Prior・経験分布",
+        "generator_id": "design_prior",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "goal_achievement",
+        "acquisition_version": "1.0.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": false,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [],
+        "production_enabled": true,
+        "lifecycle_status": "production"
+      },
+      {
+        "strategy_id": "latin_hypercube_v1",
+        "version": "1.0.0",
+        "label": "Latin hypercube・目標基準",
+        "generator_id": "latin_hypercube",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "goal_achievement",
+        "acquisition_version": "1.0.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": false,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [],
+        "production_enabled": true,
+        "lifecycle_status": "production"
+      },
+      {
+        "strategy_id": "sobol_ei_v1",
+        "version": "1.1.0",
+        "label": "Sobol・Expected Improvement",
+        "generator_id": "sobol",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "expected_improvement",
+        "acquisition_version": "1.1.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": true,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": true,
+        "requires_acquisition_representation": "normal_mean_std",
+        "required_capabilities": [
+          {
+            "capability": "normal_mean_std",
+            "alternative": null
+          }
+        ],
+        "production_enabled": true,
+        "lifecycle_status": "production"
+      },
+      {
+        "strategy_id": "sobol_support_boundary_v1",
+        "version": "0.1.0",
+        "label": "Sobol・学習支持境界",
+        "generator_id": "sobol",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "support_boundary_sampling",
+        "acquisition_version": "0.1.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": false,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [],
+        "production_enabled": false,
+        "lifecycle_status": "experimental"
+      },
+      {
+        "strategy_id": "sobol_thompson_v1",
+        "version": "0.1.0",
+        "label": "Sobol・Thompson Sampling",
+        "generator_id": "sobol",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "thompson_sampling",
+        "acquisition_version": "0.1.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": false,
+        "requires_samples": true,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [
+          {
+            "capability": "predictive_samples",
+            "alternative": null
+          }
+        ],
+        "production_enabled": false,
+        "lifecycle_status": "experimental"
+      },
+      {
+        "strategy_id": "sobol_ucb_v1",
+        "version": "1.1.0",
+        "label": "Sobol・UCB/LCB",
+        "generator_id": "sobol",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "upper_confidence_bound",
+        "acquisition_version": "1.0.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": true,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": "normal_mean_std",
+        "required_capabilities": [
+          {
+            "capability": "normal_mean_std",
+            "alternative": null
+          }
+        ],
+        "production_enabled": true,
+        "lifecycle_status": "production"
+      },
+      {
+        "strategy_id": "sobol_uncertainty_v1",
+        "version": "0.1.0",
+        "label": "Sobol・不確かさ探索",
+        "generator_id": "sobol",
+        "generator_version": "1.0.0",
+        "generator_parameters": {},
+        "distance_id": "scalar_axis_rms",
+        "distance_version": "1.0.0",
+        "distance_parameters": {},
+        "distance_usage": "batch_selector_only",
+        "acquisition_id": "uncertainty_sampling",
+        "acquisition_version": "0.1.0",
+        "selector_id": "ranked_top_k",
+        "selector_version": "1.0.0",
+        "requires_standard_deviation": true,
+        "requires_samples": false,
+        "requires_joint_samples": false,
+        "requires_incumbent": false,
+        "requires_acquisition_representation": null,
+        "required_capabilities": [
+          {
+            "capability": "standard_deviation",
+            "alternative": null
+          }
+        ],
+        "production_enabled": false,
+        "lifecycle_status": "experimental"
+      }
+    ],
+    "scope": "Registry membership is global; availability is resolved from the Project, Task runtime, Package capabilities, and request."
+  },
+  "tasks": [
+    {
+      "task_id": "annealed-properties-v1",
+      "label": "焼鈍後特性",
+      "source_shape": "relational_workbook",
+      "profile_family": "dataset-input-profile/v2",
+      "input_semantics": [
+        "composition",
+        "process",
+        "heat_pattern"
+      ],
+      "target_semantics": [
+        {
+          "key": "EL",
+          "unit": "%",
+          "kind": "continuous"
+        },
+        {
+          "key": "TS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "YS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "lambda",
+          "unit": "%",
+          "kind": "continuous_positive"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "metallurgy-thermal",
+        "version": "4.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Al",
+          "composition.Cu",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Ti",
+          "composition.B",
+          "composition.O",
+          "composition.N",
+          "process.ls_mpm",
+          "heat_pattern"
+        ],
+        "output_features": [
+          "C",
+          "Si",
+          "Mn",
+          "P",
+          "S",
+          "Al",
+          "Cu",
+          "Ni",
+          "Cr",
+          "Mo",
+          "Ti",
+          "B",
+          "O",
+          "N",
+          "ce_iiw",
+          "pcm",
+          "c_times_mn",
+          "si_plus_al",
+          "cr_plus_mo",
+          "microalloy_sum",
+          "ac1_proxy_c",
+          "ac3_proxy_c",
+          "ms_proxy_c",
+          "ti_after_tin_proxy",
+          "peak_temperature_c",
+          "max_heating_rate_c_s",
+          "time_at_or_above_95pct_peak_s",
+          "time_at_or_above_700c_s",
+          "thermal_exposure_above_600c_c_s",
+          "cooling_rate_800_to_500_c_s",
+          "cooling_800_to_500_observed",
+          "reheat_count",
+          "has_reheat",
+          "peak_minus_ac1_c",
+          "peak_minus_ac3_c",
+          "time_above_ac1_s",
+          "time_above_ac3_s",
+          "intercritical_time_s",
+          "time_within_10c_of_peak_s",
+          "thermal_exposure_above_ac3_c_s",
+          "cooling_reaches_ms"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/annealed-gp-stable-ard-tutorial-v2",
+        "previous": null,
+        "package_id": "annealed-gp-stable-ard-tutorial-v2",
+        "version": "2.1.0-stable-ard",
+        "manifest_sha256": "4079b0aecd531751891975b12e566a7f3a76f0f93ec5bcdcd734d557af27eec8",
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/annealed-gp-stable-ard-process-v2",
+          "package_id": "annealed-gp-stable-ard-process-v2",
+          "version": "2.1.0-stable-ard",
+          "manifest_sha256": "48fe6bb0ea869346b481ca64030c401ed724d02c6d5460451094c2932c859a42",
+          "runtime_types": [
+            "builtin.exact_gp.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        },
+        {
+          "path": "packages/annealed-gp-stable-ard-tutorial-v2",
+          "package_id": "annealed-gp-stable-ard-tutorial-v2",
+          "version": "2.1.0-stable-ard",
+          "manifest_sha256": "4079b0aecd531751891975b12e566a7f3a76f0f93ec5bcdcd734d557af27eec8",
+          "runtime_types": [
+            "builtin.exact_gp.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        },
+        {
+          "path": "packages/annealed-heteroscedastic-gp-process-v2",
+          "package_id": "annealed-heteroscedastic-gp-process-v2",
+          "version": "1.1.0-experimental",
+          "manifest_sha256": "17742bd4f3625ba9e890cf40f51f239da90b99d2c67f5bc37c89f6928007cfc5",
+          "runtime_types": [
+            "builtin.heteroscedastic_exact_gp.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        },
+        {
+          "path": "packages/annealed-hierarchical-bayes-process-v2",
+          "package_id": "annealed-hierarchical-bayes-process-v2",
+          "version": "1.1.0-experimental",
+          "manifest_sha256": "16e7fc6e27f8e79ff8d8dac2c5c9d5cbc43336a0eac24ddb5d0478e771b2992e",
+          "runtime_types": [
+            "builtin.posterior_linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        },
+        {
+          "path": "packages/annealed-lightgbm-standard-process-v2",
+          "package_id": "annealed-lightgbm-standard-process-v2",
+          "version": "1.1.0-standard",
+          "manifest_sha256": "a43c0500e79befdb859fa762812d5a0bbb6a24bbd180c8426682882ade201b13",
+          "runtime_types": [
+            "lightgbm.booster.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        },
+        {
+          "path": "packages/annealed-lightgbm-standard-tutorial-v2",
+          "package_id": "annealed-lightgbm-standard-tutorial-v2",
+          "version": "1.1.0-standard",
+          "manifest_sha256": "33cc27ee9607884d894d5ef2dc91e70f96a048cc4d310bea7293d63ed4fba8ed",
+          "runtime_types": [
+            "lightgbm.booster.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "actual_measurement",
+          "order": 0
+        },
+        {
+          "kind": "response_curve",
+          "order": 10
+        },
+        {
+          "kind": "prediction_space",
+          "order": 20,
+          "target_keys": [
+            "TS",
+            "YS",
+            "EL",
+            "lambda"
+          ],
+          "evidence_context": "training_context",
+          "historical_limit": 200
+        },
+        {
+          "kind": "response_contour",
+          "order": 30,
+          "axis_paths": [
+            "composition.C",
+            "composition.Mn",
+            "process.ls_mpm"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 40,
+          "distance_target_key": "TS",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 50
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 60
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:f75e083eeac29329ffa57dfa9870c9bd28757a28146bd66495049966a923b833",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "metallurgy-thermal",
+          "version": "4.0.0",
+          "document_digest": "sha256:1b2ddf7bc5cd85b478c6245802643a53858375b123e20d161e3153e6c20e3194"
+        },
+        "training_stats_digest": "sha256:13a1b679b3abbccb3fa764978f7224546eaecc863b3c96e800dd9bffaa5c1d47",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable"
+      ]
+    },
+    {
+      "task_id": "battery-degradation-v1",
+      "label": "CALCE実測：電池容量劣化",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "capacity_percent",
+          "unit": "%",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "battery-degradation-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "process.discharge_rate_c",
+          "process.cycle_index"
+        ],
+        "output_features": [
+          "process.discharge_rate_c",
+          "process.cycle_index"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/battery-degradation-lightgbm-calce-v1",
+        "previous": null,
+        "package_id": "battery-degradation-lightgbm-calce-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "9968d3e22b3685c1853de28bd64919070e0b6f46871bd2ab32c78c209bdf6260",
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/battery-degradation-lightgbm-calce-v1",
+          "package_id": "battery-degradation-lightgbm-calce-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "9968d3e22b3685c1853de28bd64919070e0b6f46871bd2ab32c78c209bdf6260",
+          "runtime_types": [
+            "lightgbm.booster.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "actual_measurement",
+          "order": 0
+        },
+        {
+          "kind": "curve_family",
+          "order": 10
+        },
+        {
+          "kind": "response_curve",
+          "order": 20
+        },
+        {
+          "kind": "response_contour",
+          "order": 30,
+          "axis_paths": [
+            "process.cycle_index",
+            "process.discharge_rate_c"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 40,
+          "distance_target_key": "capacity_percent",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 50
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 60
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:1d6fa7924fa7e857cd393e09a6f292c462bcd7856c4df325b464283591cfa8cf",
+        "projection_digest": "sha256:1d6fa7924fa7e857cd393e09a6f292c462bcd7856c4df325b464283591cfa8cf",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "battery-degradation-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:9ef460eaaae3cfcac05059bb4b23ea48d22e665d88aade7ab01b0e164101de12"
+        },
+        "training_stats_digest": "sha256:da29c81425a912046db3dfcff85e4dfcbf863156b0448c2740833e1f89005102",
+        "profile_input_count": 2,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable"
+      ]
+    },
+    {
+      "task_id": "concrete-strength-v1",
+      "label": "コンクリート圧縮強度",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "compressive_strength_mpa",
+          "unit": "MPa",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "concrete-strength-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.cement_kg_m3",
+          "composition.blast_furnace_slag_kg_m3",
+          "composition.fly_ash_kg_m3",
+          "composition.water_kg_m3",
+          "composition.superplasticizer_kg_m3",
+          "composition.coarse_aggregate_kg_m3",
+          "composition.fine_aggregate_kg_m3",
+          "process.age_days"
+        ],
+        "output_features": [
+          "composition.cement_kg_m3",
+          "composition.cement_kg_m3__square",
+          "composition.blast_furnace_slag_kg_m3",
+          "composition.blast_furnace_slag_kg_m3__square",
+          "composition.fly_ash_kg_m3",
+          "composition.fly_ash_kg_m3__square",
+          "composition.water_kg_m3",
+          "composition.water_kg_m3__square",
+          "composition.superplasticizer_kg_m3",
+          "composition.superplasticizer_kg_m3__square",
+          "composition.coarse_aggregate_kg_m3",
+          "composition.coarse_aggregate_kg_m3__square",
+          "composition.fine_aggregate_kg_m3",
+          "composition.fine_aggregate_kg_m3__square",
+          "process.age_days__log1p"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/concrete-strength-ridge-external-v1",
+        "previous": null,
+        "package_id": "concrete-strength-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "608cb0c0fd3577e2c194b310011cf41da02a50ae1e56adf8eb5a9a2dbcd49c7a",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/concrete-strength-ridge-external-v1",
+          "package_id": "concrete-strength-ridge-external-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "608cb0c0fd3577e2c194b310011cf41da02a50ae1e56adf8eb5a9a2dbcd49c7a",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "curve_family",
+          "order": 0
+        },
+        {
+          "kind": "response_curve",
+          "order": 10
+        },
+        {
+          "kind": "response_contour",
+          "order": 20,
+          "axis_paths": [
+            "process.age_days",
+            "composition.water_kg_m3",
+            "composition.cement_kg_m3"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "compressive_strength_mpa",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:f9cc42a3d74e949d4d3973325b7cedcbd24e29ac5ecea96bcc2d199e5fdcdab2",
+        "projection_digest": "sha256:f9cc42a3d74e949d4d3973325b7cedcbd24e29ac5ecea96bcc2d199e5fdcdab2",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "concrete-strength-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:969fb022cd88c0dff348ae6256942fda3fd6d4ae1079d085408dc9a247b31266"
+        },
+        "training_stats_digest": "sha256:a746e18ecf1fded3c6b501743e2982e9ad61508aa9e5fe6cd1c0487a6983c45f",
+        "profile_input_count": 8,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "flank-wear-v1",
+      "label": "逃げ面摩耗予測",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "dataset-input-profile/v2",
+      "input_semantics": [
+        "process",
+        "composition",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "VB_mean",
+          "unit": "µm",
+          "kind": "continuous_positive"
+        },
+        {
+          "key": "VB_max",
+          "unit": "µm",
+          "kind": "continuous_positive"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "cutting-flank-wear",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "process.cutting_distance_m",
+          "process.cutting_speed_mpm",
+          "process.feed_mm_rev",
+          "process.depth_of_cut_mm",
+          "process.hardness_hv",
+          "process.tensile_mpa",
+          "process.wear_resistance_index",
+          "process.fracture_resistance_index",
+          "process.nose_radius_mm",
+          "process.rake_angle_deg",
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Ni",
+          "composition.Mo",
+          "composition.V",
+          "composition.W",
+          "composition.Co",
+          "composition.Ti",
+          "composition.Al",
+          "composition.Cu",
+          "categorical.coating_method",
+          "categorical.coolant_method",
+          "categorical.cutting_mode",
+          "categorical.holder_rigidity"
+        ],
+        "output_features": [
+          "C",
+          "Si",
+          "Mn",
+          "Cr",
+          "Ni",
+          "Mo",
+          "V",
+          "W",
+          "Co",
+          "Ti",
+          "Al",
+          "Cu",
+          "hardness_hv",
+          "tensile_mpa",
+          "wear_resistance_index",
+          "fracture_resistance_index",
+          "nose_radius_mm",
+          "rake_angle_deg",
+          "coating_cvd",
+          "coating_pvd",
+          "cutting_speed_mpm",
+          "log_cutting_speed",
+          "feed_mm_rev",
+          "depth_of_cut_mm",
+          "coolant_dry",
+          "coolant_air_blow",
+          "coolant_mql",
+          "coolant_flood",
+          "coolant_high_pressure",
+          "interrupted_cut",
+          "holder_rigidity_ord",
+          "log_cutting_distance",
+          "speed_distance",
+          "hardness_distance",
+          "wear_index_distance"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/flank-wear-gp-2026-07",
+        "previous": null,
+        "package_id": "flank-wear-gp-2026-07",
+        "version": "0.1.0",
+        "manifest_sha256": "c4b8d47cb42ff3b60a71e2544e7052714f1798324cd8fc6174d20e3f52d3dd07",
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/flank-wear-gp-2026-07",
+          "package_id": "flank-wear-gp-2026-07",
+          "version": "0.1.0",
+          "manifest_sha256": "c4b8d47cb42ff3b60a71e2544e7052714f1798324cd8fc6174d20e3f52d3dd07",
+          "runtime_types": [
+            "builtin.exact_gp.v1"
+          ],
+          "registered_available": false,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.exact_gp.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "actual_measurement",
+          "order": 0
+        },
+        {
+          "kind": "curve_family",
+          "order": 10
+        },
+        {
+          "kind": "response_curve",
+          "order": 20
+        },
+        {
+          "kind": "prediction_space",
+          "order": 30,
+          "target_keys": [
+            "VB_mean",
+            "VB_max"
+          ],
+          "evidence_context": "parent_condition",
+          "historical_limit": 200
+        },
+        {
+          "kind": "input_space",
+          "order": 40,
+          "distance_target_key": "VB_mean",
+          "evidence_context": "parent_condition",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 50
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 60
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:7c171fda072627ad3d3b75cccd6e0234c9b7a77e5b184fd93d411b9756002966",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "cutting-flank-wear",
+          "version": "1.0.0",
+          "document_digest": "sha256:ec841c978cb291dcf6dcd046c6f537a0dc7d351dd3fbbd67246a51970ebf0c82"
+        },
+        "training_stats_digest": "sha256:6aed3335c32978810b7920d2fe3dbfdd67de73d81059761dd741f248da5c8c03",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "heat-treatment-tradeoff-v1",
+      "label": "熱処理の硬さ・靭性",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "hardness_hv",
+          "unit": "HV",
+          "kind": "continuous"
+        },
+        {
+          "key": "charpy_j",
+          "unit": "J",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "heat-treatment-tradeoff-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.carbon_pct",
+          "composition.chromium_pct",
+          "composition.nickel_pct",
+          "process.austenitize_temp_c",
+          "process.tempering_temp_c",
+          "process.hold_time_h",
+          "process.cooling_rate_c_per_s",
+          "categorical.alloy_family"
+        ],
+        "output_features": [
+          "composition.carbon_pct",
+          "composition.carbon_pct__square",
+          "composition.chromium_pct",
+          "composition.chromium_pct__square",
+          "composition.nickel_pct",
+          "composition.nickel_pct__square",
+          "process.austenitize_temp_c",
+          "process.austenitize_temp_c__square",
+          "process.tempering_temp_c",
+          "process.tempering_temp_c__square",
+          "process.hold_time_h",
+          "process.hold_time_h__square",
+          "process.cooling_rate_c_per_s",
+          "process.cooling_rate_c_per_s__square",
+          "categorical.alloy_family__martensitic_stainless",
+          "categorical.alloy_family__low_alloy_steel",
+          "categorical.alloy_family__spring_steel",
+          "categorical.alloy_family__bearing_steel"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/heat-treatment-ridge-external-v1",
+        "previous": null,
+        "package_id": "heat-treatment-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "b60bdf52b53efe752db92bc1b27637988a31f7051ce58da322aedaf4173639fe",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/heat-treatment-ridge-external-v1",
+          "package_id": "heat-treatment-ridge-external-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "b60bdf52b53efe752db92bc1b27637988a31f7051ce58da322aedaf4173639fe",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "response_curve",
+          "order": 0
+        },
+        {
+          "kind": "prediction_space",
+          "order": 10,
+          "target_keys": [
+            "hardness_hv",
+            "charpy_j"
+          ],
+          "evidence_context": "training_context",
+          "historical_limit": 200
+        },
+        {
+          "kind": "response_contour",
+          "order": 20,
+          "axis_paths": [
+            "process.tempering_temp_c",
+            "process.cooling_rate_c_per_s",
+            "composition.carbon_pct"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "hardness_hv",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:f90719fb00412fc61c74f5b6805d80ea05c2cd03f3f200b90ba734c0bc2220d8",
+        "projection_digest": "sha256:f90719fb00412fc61c74f5b6805d80ea05c2cd03f3f200b90ba734c0bc2220d8",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "heat-treatment-tradeoff-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:04ca174276a714968e7835bccb47a0b78d06076b9303829fd7aeb1b35092cf3c"
+        },
+        "training_stats_digest": "sha256:517584ef6e8038bb25da00310c3a1cd73caf2d257f90c328b43d21c76ee153a7",
+        "profile_input_count": 8,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "hot-rolled-properties-v1",
+      "label": "熱延後特性予測",
+      "source_shape": "relational_workbook",
+      "profile_family": "dataset-input-profile/v2",
+      "input_semantics": [
+        "composition",
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "TS",
+          "unit": "MPa",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "metallurgy-hot-rolling",
+        "version": "3.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Al",
+          "composition.Cu",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Ti",
+          "composition.B",
+          "composition.O",
+          "composition.N",
+          "process.soaking_temperature_c",
+          "process.finish_temperature_c",
+          "process.entry_thickness_mm",
+          "process.exit_thickness_mm",
+          "process.hold_temperature_c",
+          "process.hold_time_min"
+        ],
+        "output_features": [
+          "C",
+          "Si",
+          "Mn",
+          "P",
+          "S",
+          "Al",
+          "Cu",
+          "Ni",
+          "Cr",
+          "Mo",
+          "Ti",
+          "B",
+          "O",
+          "N",
+          "ce_iiw",
+          "pcm",
+          "c_times_mn",
+          "si_plus_al",
+          "cr_plus_mo",
+          "ac1_proxy_c",
+          "ac3_proxy_c",
+          "ms_proxy_c",
+          "ti_after_tin_proxy",
+          "soaking_temperature_c",
+          "finish_temperature_c",
+          "entry_thickness_mm",
+          "exit_thickness_mm",
+          "hold_temperature_c",
+          "hold_time_min",
+          "total_reduction_percent",
+          "log_thickness_strain",
+          "ar3_proxy_c",
+          "soak_minus_ac3_c",
+          "finish_minus_ar3_c",
+          "hold_minus_ac1_c",
+          "hold_exposure_above_ac1_c_min",
+          "soak_to_finish_drop_c"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/hot-rolled-tutorial-v2",
+        "previous": null,
+        "package_id": "hot-rolled-tutorial-v2",
+        "version": "1.2.0-feature-design-v3",
+        "manifest_sha256": "73654f787b5614553935118b65eab91af7cbd3e87d3a25223dc7e2de911a2ff3",
+        "runtime_types": [
+          "builtin.posterior_linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/hot-rolled-horseshoe-process-v2",
+          "package_id": "hot-rolled-horseshoe-process-v2",
+          "version": "1.2.0-feature-design-v3",
+          "manifest_sha256": "4bf20672ccf4371cacb5b4c0a55a9b39e989bbf276eef3e5d00f48639a1b470f",
+          "runtime_types": [
+            "builtin.posterior_linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": false,
+          "is_previous": false
+        },
+        {
+          "path": "packages/hot-rolled-tutorial-v2",
+          "package_id": "hot-rolled-tutorial-v2",
+          "version": "1.2.0-feature-design-v3",
+          "manifest_sha256": "73654f787b5614553935118b65eab91af7cbd3e87d3a25223dc7e2de911a2ff3",
+          "runtime_types": [
+            "builtin.posterior_linear.v1"
+          ],
+          "registered_available": false,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.posterior_linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "actual_measurement",
+          "order": 0
+        },
+        {
+          "kind": "response_curve",
+          "order": 10
+        },
+        {
+          "kind": "response_contour",
+          "order": 20,
+          "axis_paths": [
+            "process.finish_temperature_c",
+            "process.exit_thickness_mm",
+            "process.hold_temperature_c",
+            "process.hold_time_min"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "TS",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:38e01c6c840d576e1fd5fda77c645d9d64e0cc20f36bc281bb542907d46c67d4",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "metallurgy-hot-rolling",
+          "version": "3.0.0",
+          "document_digest": "sha256:76eab3751f8a159b37159684399a27cdcf48181efb13c95996468eaeb0a07f7d"
+        },
+        "training_stats_digest": "sha256:75321e5aac38d58a9956f02478c0b3a1ab35ba98cbe32c5090beac29f0b7762d",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable"
+      ]
+    },
+    {
+      "task_id": "mpea-hardness-process-v1",
+      "label": "MPEA文献：硬さと工程",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "HV",
+          "unit": "HV",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "mpea-hardness-process-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta",
+          "process.homogenization_temp_c",
+          "process.homogenization_time_h",
+          "process.rolling_temp_c",
+          "process.rolling_reduction_pct",
+          "process.recrystallization_temp_c",
+          "process.recrystallization_time_min",
+          "process.aging_temp_c",
+          "process.aging_time_h",
+          "categorical.homogenized",
+          "categorical.rolled",
+          "categorical.recrystallized",
+          "categorical.aged"
+        ],
+        "output_features": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta",
+          "categorical.homogenized__no",
+          "categorical.homogenized__yes",
+          "process.homogenization_temp_c",
+          "process.homogenization_time_h__log1p",
+          "categorical.rolled__no",
+          "categorical.rolled__yes",
+          "process.rolling_temp_c",
+          "process.rolling_reduction_pct",
+          "categorical.recrystallized__no",
+          "categorical.recrystallized__yes",
+          "process.recrystallization_temp_c",
+          "process.recrystallization_time_min__log1p",
+          "categorical.aged__no",
+          "categorical.aged__yes",
+          "process.aging_temp_c",
+          "process.aging_time_h__log1p"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/mpea-hardness-ridge-v2",
+        "previous": "packages/mpea-hardness-ridge-v1",
+        "package_id": "mpea-hardness-ridge-v2",
+        "version": "2.0.0",
+        "manifest_sha256": "45200e4381cb8f733aeb987a1026bdf46ec8e04e7c04fcf2ba9652f803cc3058",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/mpea-hardness-ridge-v2",
+          "package_id": "mpea-hardness-ridge-v2",
+          "version": "2.0.0",
+          "manifest_sha256": "45200e4381cb8f733aeb987a1026bdf46ec8e04e7c04fcf2ba9652f803cc3058",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "input_space",
+          "order": 0,
+          "distance_target_key": "HV",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 10
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 20
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:75dff2a8f859955bf008ed736288ad14a89f907c3865295e7dc16b589e835cf0",
+        "projection_digest": "sha256:75dff2a8f859955bf008ed736288ad14a89f907c3865295e7dc16b589e835cf0",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "mpea-hardness-process-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:976e956fb0599974401ac3c60005f2b0389fd5a5bb29adf697447995a80f94d8"
+        },
+        "training_stats_digest": "sha256:e756bec8edf0fc9d3bfcb491df99e6a0a883556ad7304feeba2e42dec567ae3e",
+        "profile_input_count": 26,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "mpea-literature-tys-v1",
+      "label": "MPEA文献：組成のみの降伏強さ参考推定（旧版）",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition"
+      ],
+      "target_semantics": [
+        {
+          "key": "TYS",
+          "unit": "MPa",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "mpea-literature-tys-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta"
+        ],
+        "output_features": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/mpea-literature-tys-ridge-v1",
+        "previous": null,
+        "package_id": "mpea-literature-tys-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "5f0a2531f8bb5c334b2e156d1464476d3d306ff8b2514c9a51d25ce77c9ac1e0",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/mpea-literature-tys-ridge-v1",
+          "package_id": "mpea-literature-tys-ridge-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "5f0a2531f8bb5c334b2e156d1464476d3d306ff8b2514c9a51d25ce77c9ac1e0",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": false,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "similarity",
+          "order": 0
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 10
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:722f57222a86d3534aae84b1bae65c33cd5fe12d74dfc2fad2ad8c772e011f87",
+        "projection_digest": "sha256:722f57222a86d3534aae84b1bae65c33cd5fe12d74dfc2fad2ad8c772e011f87",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "mpea-literature-tys-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:349041367f91866e52de719754628867e70df2b74e0ed8c04a4fe02527b618c3"
+        },
+        "training_stats_digest": "sha256:b45abd4a9e2d70515043df5236f4d748feced8ec63849db57064a429d1863e5d",
+        "profile_input_count": 14,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "unavailable",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "project_creation_ui_unavailable",
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "mpea-room-tensile-v1",
+      "label": "MPEA文献：室温引張特性と工程",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "TYS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "UTS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "EL",
+          "unit": "%",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "mpea-room-tensile-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta",
+          "process.homogenization_temp_c",
+          "process.homogenization_time_h",
+          "process.rolling_temp_c",
+          "process.rolling_reduction_pct",
+          "process.recrystallization_temp_c",
+          "process.recrystallization_time_min",
+          "process.aging_temp_c",
+          "process.aging_time_h",
+          "categorical.homogenized",
+          "categorical.rolled",
+          "categorical.recrystallized",
+          "categorical.aged"
+        ],
+        "output_features": [
+          "composition.Fe",
+          "composition.Ni",
+          "composition.Co",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Al",
+          "composition.Ti",
+          "composition.Cu",
+          "composition.Si",
+          "composition.V",
+          "composition.Nb",
+          "composition.B",
+          "composition.Mo",
+          "composition.Ta",
+          "categorical.homogenized__no",
+          "categorical.homogenized__yes",
+          "process.homogenization_temp_c",
+          "process.homogenization_time_h__log1p",
+          "categorical.rolled__no",
+          "categorical.rolled__yes",
+          "process.rolling_temp_c",
+          "process.rolling_reduction_pct",
+          "categorical.recrystallized__no",
+          "categorical.recrystallized__yes",
+          "process.recrystallization_temp_c",
+          "process.recrystallization_time_min__log1p",
+          "categorical.aged__no",
+          "categorical.aged__yes",
+          "process.aging_temp_c",
+          "process.aging_time_h__log1p"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/mpea-room-tensile-ridge-v2",
+        "previous": "packages/mpea-room-tensile-ridge-v1",
+        "package_id": "mpea-room-tensile-ridge-v2",
+        "version": "2.0.0",
+        "manifest_sha256": "a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/mpea-room-tensile-ridge-v2",
+          "package_id": "mpea-room-tensile-ridge-v2",
+          "version": "2.0.0",
+          "manifest_sha256": "a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": true,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "prediction_space",
+          "order": 0,
+          "target_keys": [
+            "TYS",
+            "UTS",
+            "EL"
+          ],
+          "evidence_context": "training_context",
+          "historical_limit": 200
+        },
+        {
+          "kind": "input_space",
+          "order": 10,
+          "distance_target_key": "TYS",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 20
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 30
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:0f00a952ece837ed2fa4d759e90ccb3942ecd69f54cf014e5c556a46fdc96d92",
+        "projection_digest": "sha256:0f00a952ece837ed2fa4d759e90ccb3942ecd69f54cf014e5c556a46fdc96d92",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "mpea-room-tensile-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:cf4d35322308e30143c6680c1d5ef0e1195d62eb430aff79840a613e00689622"
+        },
+        "training_stats_digest": "sha256:d83cb27b2ba44a5edad63ac2e4f4f0573f8bfc71db0a02a6da9760a1d8ed8f56",
+        "profile_input_count": 26,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "secom-yield-risk-v1",
+      "label": "SECOM実測：工程異常リスク",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "fail_probability",
+          "unit": "1",
+          "kind": "binary"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "secom-yield-risk-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "process.sensor_059",
+          "process.sensor_103",
+          "process.sensor_130",
+          "process.sensor_102",
+          "process.sensor_019",
+          "process.sensor_021",
+          "process.sensor_348",
+          "process.sensor_033",
+          "process.sensor_477",
+          "process.sensor_064",
+          "process.sensor_090",
+          "process.sensor_287"
+        ],
+        "output_features": [
+          "process.sensor_059",
+          "process.sensor_103",
+          "process.sensor_130",
+          "process.sensor_102",
+          "process.sensor_019",
+          "process.sensor_021",
+          "process.sensor_348",
+          "process.sensor_033",
+          "process.sensor_477",
+          "process.sensor_064",
+          "process.sensor_090",
+          "process.sensor_287"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/secom-yield-lightgbm-calibrated-v1",
+        "previous": null,
+        "package_id": "secom-yield-lightgbm-calibrated-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "5c491cca6ca63cb0ad2c719ac60ee2584d7730b51f54b4ad72b130e43a30ecd1",
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/secom-yield-lightgbm-calibrated-v1",
+          "package_id": "secom-yield-lightgbm-calibrated-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "5c491cca6ca63cb0ad2c719ac60ee2584d7730b51f54b4ad72b130e43a30ecd1",
+          "runtime_types": [
+            "lightgbm.booster.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "lightgbm.booster.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "actual_measurement",
+          "order": 0
+        },
+        {
+          "kind": "response_curve",
+          "order": 10
+        },
+        {
+          "kind": "response_contour",
+          "order": 20,
+          "axis_paths": [
+            "process.sensor_059",
+            "process.sensor_103",
+            "process.sensor_130",
+            "process.sensor_102"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "fail_probability",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:cc14fec6827525af7a4dc73f3d8729b801c974b21a69545958579262b78887e4",
+        "projection_digest": "sha256:cc14fec6827525af7a4dc73f3d8729b801c974b21a69545958579262b78887e4",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "secom-yield-risk-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:6ab221a724b78783ca98ff527064508357f6816430e41b6968979f5fb6195836"
+        },
+        "training_stats_digest": "sha256:c4091a0989cb61164157edc3767d83bd5cc688358a842587f6de1dfde6dd2051",
+        "profile_input_count": 12,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": []
+    },
+    {
+      "task_id": "wear-curve-v1",
+      "label": "工具摩耗曲線",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "wear_vb_um",
+          "unit": "µm",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "wear-curve-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.carbon_pct",
+          "process.cutting_speed_m_per_min",
+          "process.feed_mm_per_rev",
+          "process.depth_of_cut_mm",
+          "process.cutting_distance_m",
+          "categorical.tool_type",
+          "categorical.material_family",
+          "categorical.cooling"
+        ],
+        "output_features": [
+          "composition.carbon_pct",
+          "composition.carbon_pct__square",
+          "process.cutting_speed_m_per_min",
+          "process.cutting_speed_m_per_min__square",
+          "process.feed_mm_per_rev",
+          "process.feed_mm_per_rev__square",
+          "process.depth_of_cut_mm",
+          "process.depth_of_cut_mm__square",
+          "process.cutting_distance_m",
+          "process.cutting_distance_m__square",
+          "categorical.tool_type__carbide_A",
+          "categorical.tool_type__coated_C",
+          "categorical.tool_type__carbide_B",
+          "categorical.tool_type__ceramic_D",
+          "categorical.material_family__stainless",
+          "categorical.material_family__low_carbon_steel",
+          "categorical.material_family__alloy_steel",
+          "categorical.material_family__cast_iron",
+          "categorical.cooling__dry",
+          "categorical.cooling__flood",
+          "categorical.cooling__mist"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/wear-curve-ridge-external-v1",
+        "previous": null,
+        "package_id": "wear-curve-ridge-external-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "380c212f6cfae46599c789b63010439bf70bd3c88a5ca4b27d0cb1bee70c5cd5",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/wear-curve-ridge-external-v1",
+          "package_id": "wear-curve-ridge-external-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "380c212f6cfae46599c789b63010439bf70bd3c88a5ca4b27d0cb1bee70c5cd5",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "curve_family",
+          "order": 0
+        },
+        {
+          "kind": "response_curve",
+          "order": 10
+        },
+        {
+          "kind": "response_contour",
+          "order": 20,
+          "axis_paths": [
+            "process.cutting_distance_m",
+            "process.cutting_speed_m_per_min",
+            "process.feed_mm_per_rev"
+          ],
+          "grid_size": 11
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "wear_vb_um",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": false,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:f71c0570d6b7cac7417de99385495fe3ff1a3611f3c2e234eb0a8f1f1ee73243",
+        "projection_digest": "sha256:f71c0570d6b7cac7417de99385495fe3ff1a3611f3c2e234eb0a8f1f1ee73243",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "wear-curve-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:92298f9ba2af39e9a7babed644b8c9e6882ca8bf6c41c796b18838d8741a7fc9"
+        },
+        "training_stats_digest": "sha256:d8b45dd3ee337e75048a2347ff855f8e620b66b5b1febd1cbcddcf48fff6b3fd",
+        "profile_input_count": 8,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "bundled_reference"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "actual_measurement_unavailable"
+      ]
+    },
+    {
+      "task_id": "welding-consumable-stage-b-v1",
+      "label": "溶接材料 Stage B：溶着金属成分",
+      "source_shape": "relational_workbook",
+      "profile_family": "welding-stage-b-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "C",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Si",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Mn",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "P",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "S",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Ni",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Cr",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Mo",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Cu",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Ti",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "B",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Nb",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "V",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "Al",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "N",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        },
+        {
+          "key": "O",
+          "unit": "mass% deposited metal",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "welding-consumable-stage-b-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.Fe",
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Ni",
+          "composition.Mo",
+          "composition.Ti",
+          "composition.B",
+          "composition.Al",
+          "composition.Mg",
+          "composition.Nb",
+          "composition.V",
+          "composition.Cu",
+          "composition.Zr",
+          "composition.Ca",
+          "composition.N",
+          "composition.O",
+          "composition.S",
+          "composition.P",
+          "composition.CaF2",
+          "composition.TiO2",
+          "composition.SiO2",
+          "composition.Al2O3",
+          "composition.MgO",
+          "composition.ZrO2",
+          "composition.K2O",
+          "composition.Na2O",
+          "composition.CaCO3",
+          "composition.Fe2O3",
+          "composition.other",
+          "process.heat_input_kj_per_mm",
+          "process.voltage_v",
+          "process.gas_flow_l_per_min",
+          "process.alloy_powder_d50_um",
+          "categorical.shielding_gas",
+          "categorical.welding_position"
+        ],
+        "output_features": [
+          "composition.Fe",
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.Cr",
+          "composition.Ni",
+          "composition.Mo",
+          "composition.Ti",
+          "composition.B",
+          "composition.Al",
+          "composition.Mg",
+          "composition.Nb",
+          "composition.V",
+          "composition.Cu",
+          "composition.Zr",
+          "composition.Ca",
+          "composition.N",
+          "composition.O",
+          "composition.S",
+          "composition.P",
+          "composition.CaF2",
+          "composition.TiO2",
+          "composition.SiO2",
+          "composition.Al2O3",
+          "composition.MgO",
+          "composition.ZrO2",
+          "composition.K2O",
+          "composition.Na2O",
+          "composition.CaCO3",
+          "composition.Fe2O3",
+          "composition.other",
+          "process.heat_input_kj_per_mm",
+          "process.voltage_v",
+          "categorical.shielding_gas__80%Ar-20%CO2",
+          "categorical.shielding_gas__100%CO2",
+          "process.gas_flow_l_per_min",
+          "categorical.welding_position__下向",
+          "categorical.welding_position__横向",
+          "categorical.welding_position__立向上進",
+          "process.alloy_powder_d50_um"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-consumable-stage-b-ridge-v3",
+        "previous": "packages/welding-consumable-stage-b-ridge-v2",
+        "package_id": "welding-consumable-stage-b-ridge-v3",
+        "version": "1.0.0",
+        "manifest_sha256": "b22594d3e26f68728bca297efba61e29bb832d5f0aaa80abee46f60f01d72987",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-consumable-stage-b-ridge-v3",
+          "package_id": "welding-consumable-stage-b-ridge-v3",
+          "version": "1.0.0",
+          "manifest_sha256": "b22594d3e26f68728bca297efba61e29bb832d5f0aaa80abee46f60f01d72987",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": false,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": true
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "blend_tools",
+          "order": 0
+        },
+        {
+          "kind": "actual_measurement",
+          "order": 10
+        },
+        {
+          "kind": "prediction_space",
+          "order": 20,
+          "target_keys": [
+            "C",
+            "Mn",
+            "Si",
+            "Ni",
+            "Cr",
+            "Mo"
+          ],
+          "evidence_context": "training_context",
+          "historical_limit": 200
+        },
+        {
+          "kind": "input_space",
+          "order": 30,
+          "distance_target_key": "C",
+          "evidence_context": "training_context",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 40
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 50
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": true,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:b9891d31ef7920a3f015e61ee4466e88b108b86ece4dd6b31c9529b7ac7cc485",
+        "projection_digest": "sha256:b9891d31ef7920a3f015e61ee4466e88b108b86ece4dd6b31c9529b7ac7cc485",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-consumable-stage-b-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:e64efc68693cfbf52f02d7a407638db0cfa4e933e284d37c232100383c35f893"
+        },
+        "training_stats_digest": "sha256:bd61aceabc2af4dd69438e4661b2b33b08b1d872b016b7c3b0ce4e36074f3d6d",
+        "profile_input_count": 37,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "welding-graph-corrosion-v1",
+      "label": "Graph比較用: 腐食速度",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "CORROSION_RATE",
+          "unit": "mm/year",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": null,
+      "feature_recipe": {
+        "id": "welding-graph-corrosion-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "categorical.test_solution"
+        ],
+        "output_features": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "categorical.test_solution::3.5%NaCl",
+          "categorical.test_solution::5%H2SO4"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-graph-corrosion-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-corrosion-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "4866c818e6d7e82dea1d494eb6f553dd5934e9e91e46e08488ebc438a2992571",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-graph-corrosion-ridge-v1",
+          "package_id": "welding-graph-corrosion-ridge-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "4866c818e6d7e82dea1d494eb6f553dd5934e9e91e46e08488ebc438a2992571",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": true,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "similarity",
+          "order": 0
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 10
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:fbef42eec77253ccdc7921db3ef0b15ff390d5444d10c1bce5c168efb04633b0",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-graph-corrosion-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:a1de4754478d5e8f70690cac0c8e14de8e1a9db7eecc5017f29defda31420311"
+        },
+        "training_stats_digest": "sha256:eec2af9ee3bf00e1812bae039ecd3d899361620c956f2264030038cbfbac1fd7",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "unavailable",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "project_creation_ui_unavailable",
+        "actual_measurement_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "welding-graph-deposition-efficiency-v1",
+      "label": "Graph比較用: 溶着効率proxy",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "input_semantics": [
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "deposition_efficiency_pct",
+          "unit": "%",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": true,
+      "validation_plans": {
+        "deposition_efficiency_pct": {
+          "schema_version": "validation-plan/v1",
+          "strategy": "grouped_kfold",
+          "folds": 5,
+          "holdout_fraction": null,
+          "seed": 20260730,
+          "group_key": "parent_key",
+          "time_key": null,
+          "gap": 0,
+          "minimum_train_size": 2,
+          "class_balance_policy": null,
+          "digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+        }
+      },
+      "feature_recipe": {
+        "id": "welding-graph-deposition-efficiency-v1-profile-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "process.heat_input_kj_per_mm",
+          "process.voltage_v",
+          "process.gas_flow_l_per_min",
+          "process.wire_feed_speed_m_per_min"
+        ],
+        "output_features": [
+          "process.heat_input_kj_per_mm",
+          "process.heat_input_kj_per_mm__square",
+          "process.voltage_v",
+          "process.voltage_v__square",
+          "process.gas_flow_l_per_min",
+          "process.gas_flow_l_per_min__square",
+          "process.wire_feed_speed_m_per_min",
+          "process.wire_feed_speed_m_per_min__square"
+        ],
+        "artifacts": [
+          "reference/training_stats.json",
+          "reference/training-recipe.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-graph-deposition-efficiency-ridge-v2",
+        "previous": null,
+        "package_id": "welding-graph-deposition-efficiency-ridge-v2",
+        "version": "1.1.0",
+        "manifest_sha256": "d5707c6d37dc4b23476b8cdcc1607977d196f8c9cf4e0d2c448af35da9819d44",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-graph-deposition-efficiency-ridge-v2",
+          "package_id": "welding-graph-deposition-efficiency-ridge-v2",
+          "version": "1.1.0",
+          "manifest_sha256": "d5707c6d37dc4b23476b8cdcc1607977d196f8c9cf4e0d2c448af35da9819d44",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": false,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "response_curve",
+          "order": 0
+        },
+        {
+          "kind": "similarity",
+          "order": 10
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 20
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "reject_only",
+        "policy_digest": "sha256:c84c237ae1cfb9154135feecbb59868fdf6bf35ff24cb4f493d5d4943124b4eb",
+        "projection_digest": "sha256:c84c237ae1cfb9154135feecbb59868fdf6bf35ff24cb4f493d5d4943124b4eb",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-graph-deposition-efficiency-v1-profile-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:798d7fad596017e077f99ea5736574d74f96e39f637d9b9961576a9405bb4d57"
+        },
+        "training_stats_digest": "sha256:9f86253a1539fb4a902e230fe97b563ea974a4060e3242d4020026400c759e09",
+        "profile_input_count": 4,
+        "profile_strategies": [
+          "reject"
+        ],
+        "input_completeness": [
+          "complete",
+          "blocked"
+        ],
+        "support_outcomes": [
+          "supported",
+          "incompatible"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "available",
+        "project_creation_ui": "unavailable",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "project_creation_ui_unavailable",
+        "actual_measurement_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "welding-graph-tensile-ts-v1",
+      "label": "Graph比較用: 引張強さ",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "TS",
+          "unit": "MPa",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": null,
+      "feature_recipe": {
+        "id": "welding-graph-tensile-ts-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c"
+        ],
+        "output_features": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-graph-tensile-ts-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-tensile-ts-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "2c710e9533a04db4e721f44d8f6b5faf456a0af1943993f980d7d520b7d3d3b8",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-graph-tensile-ts-ridge-v1",
+          "package_id": "welding-graph-tensile-ts-ridge-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "2c710e9533a04db4e721f44d8f6b5faf456a0af1943993f980d7d520b7d3d3b8",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": true,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "similarity",
+          "order": 0
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 10
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:38cbfbd86c495bba7eb91a7782c00d4742dd0477961ee35a97aeeefdc58d51c8",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-graph-tensile-ts-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:af9e1cd3b6b63f865e6aa7ac7b06d7c105c4034de50bb1c1236edce5d34127cb"
+        },
+        "training_stats_digest": "sha256:62914037e8585b79e0eee4ac6f7bcf30210b3d64bf490b7d79d88aec8f5b8559",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "unavailable",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "project_creation_ui_unavailable",
+        "actual_measurement_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "welding-graph-toughness-v1",
+      "label": "Graph比較用: 吸収エネルギー",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process"
+      ],
+      "target_semantics": [
+        {
+          "key": "CHARPY_ENERGY",
+          "unit": "J",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": null,
+      "feature_recipe": {
+        "id": "welding-graph-toughness-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c",
+          "process.test_temperature_c"
+        ],
+        "output_features": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c",
+          "process.test_temperature_c"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-graph-toughness-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-toughness-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "c32dd07d275a5a0ac15fe5c9bc7ec8ab5db3ecb40b10867326cfa643e00a46c6",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-graph-toughness-ridge-v1",
+          "package_id": "welding-graph-toughness-ridge-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "c32dd07d275a5a0ac15fe5c9bc7ec8ab5db3ecb40b10867326cfa643e00a46c6",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": false,
+          "similarity": true,
+          "target_specific_similarity": true,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "similarity",
+          "order": 0
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 10
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:316ec01514a70b1806037a4d7a25dafd9620e2cf0c4af170e0449058e3852864",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-graph-toughness-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:d825883d6e87e3ca2b3a394f5278a34767219160887725cccfdcc540dfe46187"
+        },
+        "training_stats_digest": "sha256:d837e88b192efd815644a598f18707286b029ecd9fe44f9c04205e0767dce8ab",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "unavailable",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "project_creation_ui_unavailable",
+        "actual_measurement_unavailable",
+        "research_or_fixture_source"
+      ]
+    },
+    {
+      "task_id": "welding-stage-c-properties-v1",
+      "label": "溶着金属成分から特性を予測",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "input_semantics": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_semantics": [
+        {
+          "key": "TS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "YS",
+          "unit": "MPa",
+          "kind": "continuous"
+        },
+        {
+          "key": "EL",
+          "unit": "%",
+          "kind": "continuous"
+        },
+        {
+          "key": "RA",
+          "unit": "%",
+          "kind": "continuous"
+        },
+        {
+          "key": "CHARPY_ENERGY",
+          "unit": "J",
+          "kind": "continuous"
+        },
+        {
+          "key": "BRITTLE_FRACTURE",
+          "unit": "%",
+          "kind": "continuous"
+        },
+        {
+          "key": "CORROSION_RATE",
+          "unit": "mm/year",
+          "kind": "continuous"
+        }
+      ],
+      "standard_authoring": false,
+      "validation_plans": [],
+      "feature_recipe": {
+        "id": "welding-stage-c-observation-transform",
+        "version": "1.0.0",
+        "spec": "feature-pipeline/pipeline.json",
+        "canonical_input_paths": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c",
+          "process.test_temperature_c",
+          "categorical.test_solution"
+        ],
+        "output_features": [
+          "composition.C",
+          "composition.Si",
+          "composition.Mn",
+          "composition.P",
+          "composition.S",
+          "composition.Ni",
+          "composition.Cr",
+          "composition.Mo",
+          "composition.Cu",
+          "composition.Ti",
+          "composition.B",
+          "composition.Nb",
+          "composition.V",
+          "composition.Al",
+          "composition.N",
+          "composition.O",
+          "process.heat_input_kj_per_mm",
+          "process.preheat_temp_c",
+          "process.test_temperature_c",
+          "categorical.test_solution::3.5%NaCl",
+          "categorical.test_solution::5%H2SO4"
+        ],
+        "artifacts": [
+          "reference/training_stats.json"
+        ]
+      },
+      "active_package": {
+        "path": "packages/welding-stage-c-ridge-v1",
+        "previous": null,
+        "package_id": "welding-stage-c-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "available_packages": [
+        {
+          "path": "packages/welding-stage-c-ridge-v1",
+          "package_id": "welding-stage-c-ridge-v1",
+          "version": "1.0.0",
+          "manifest_sha256": "c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",
+          "runtime_types": [
+            "builtin.linear.v1"
+          ],
+          "registered_available": true,
+          "is_active": true,
+          "is_previous": false
+        }
+      ],
+      "runtime_capabilities": {
+        "available": true,
+        "runtime_types": [
+          "builtin.linear.v1"
+        ],
+        "operations": {
+          "preview": true,
+          "detailed_prediction": true,
+          "response_curve": true,
+          "similarity": true,
+          "target_specific_similarity": true,
+          "snapshot": true,
+          "actual_measurement": false
+        }
+      },
+      "workbench_surfaces": [
+        {
+          "kind": "response_curve",
+          "order": 0
+        },
+        {
+          "kind": "prediction_space",
+          "order": 10,
+          "target_keys": [
+            "TS",
+            "YS",
+            "EL",
+            "RA",
+            "CHARPY_ENERGY",
+            "CORROSION_RATE"
+          ],
+          "evidence_context": "parent_condition",
+          "historical_limit": 200
+        },
+        {
+          "kind": "input_space",
+          "order": 20,
+          "distance_target_key": "TS",
+          "evidence_context": "parent_condition",
+          "embedding_method": "landmark-classical-mds-oos",
+          "embedding_version": "1.0.0",
+          "seed": 508,
+          "landmark_limit": 96,
+          "historical_limit": 240
+        },
+        {
+          "kind": "similarity",
+          "order": 30
+        },
+        {
+          "kind": "feature_engineering",
+          "order": 40
+        }
+      ],
+      "decision_activities": {
+        "status": "project_dependent",
+        "catalog_ref": "global_catalogs.decision_activities"
+      },
+      "proposal_strategies": {
+        "status": "project_and_package_dependent",
+        "catalog_ref": "global_catalogs.proposal_strategies"
+      },
+      "graph_compatible": true,
+      "actual_supported": false,
+      "missingness_modes": {
+        "status": "runtime_contract_not_exposed",
+        "policy_digest": "sha256:2f076b69fbd9ce130cba388c44b25b2607e271de5b7ad14ae4b50d4ffb402200",
+        "declared_package_policy_digest": null,
+        "feature_pipeline": {
+          "id": "welding-stage-c-observation-transform",
+          "version": "1.0.0",
+          "document_digest": "sha256:1c70a4bca74a3bbe324bb4e199364eb5097af0ba4bf0a187a9b98bf062756361"
+        },
+        "training_stats_digest": "sha256:06f9734945eacd693800366203c5c5537752115a7531b08f357476b04226e2e4",
+        "profile_input_count": 0,
+        "profile_strategies": [],
+        "input_completeness": [
+          "complete"
+        ],
+        "support_outcomes": [
+          "not_evaluated"
+        ],
+        "native_missing_supported": false
+      },
+      "historical_candidate_supported": {
+        "status": "eligible_record_required",
+        "provenance": [
+          "historical_observation",
+          "experiment_batch"
+        ]
+      },
+      "support_status": {
+        "runtime": "available",
+        "standard_builder": "unavailable",
+        "project_creation_ui": "available",
+        "source": "research_or_fixture"
+      },
+      "known_limitations": [
+        "standard_builder_unavailable",
+        "actual_measurement_unavailable",
+        "research_or_fixture_source"
+      ]
+    }
+  ],
+  "out_of_scope": [
+    "personal Workspace Model Library entries",
+    "arbitrary plugin discovery",
+    "a universal cross-task score"
+  ],
+  "known_limitations": [
+    "The Atlas is a bundled-capability projection, not a personal Workspace inventory.",
+    "An eligible historical observation or experiment batch is required before its provenance can be used."
+  ]
+}

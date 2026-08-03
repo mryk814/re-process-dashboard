@@ -19,6 +19,10 @@ ownerは各backend／frontend／modeling領域で、schema、保存意味、exec
 - [疎な配合候補](sparse-blend-contract.md)
 - [可変長系列](variable-length-series.md)
 - [生成済みTask inventory](task-inventory.json)
+- [生成済みCapability Atlas](capability-atlas.json)
 
 `task-inventory.json`は同梱Taskだけを対象にした生成物です。個人用Task storeの内容は含みません。
 直接編集せず、`npm run task:inventory`で更新し、`npm run task:inventory:check`でdriftを検査します。
+
+`capability-atlas.json`はTask inventory、readiness、標準estimator、同梱Model Package、allow-list済みregistryを一つの読み取り専用projectionへ結合したものです。
+personal WorkspaceのModel Libraryや任意pluginは含みません。直接編集せず、`npm run capability:atlas`で更新し、`npm run capability:atlas:check`でdriftを検査します。

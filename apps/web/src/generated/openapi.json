@@ -10071,6 +10071,108 @@
         "title": "DeterministicTransformExecutionRequest",
         "type": "object"
       },
+      "DeveloperCapabilityAtlas": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "bundled",
+            "title": "Authority",
+            "type": "string"
+          },
+          "available_package_count": {
+            "title": "Available Package Count",
+            "type": "integer"
+          },
+          "graph_count": {
+            "title": "Graph Count",
+            "type": "integer"
+          },
+          "project_modes": {
+            "items": {
+              "enum": [
+                "single_task",
+                "chain",
+                "prediction_graph"
+              ],
+              "type": "string"
+            },
+            "title": "Project Modes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "capability-atlas/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "task_count": {
+            "title": "Task Count",
+            "type": "integer"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/DeveloperCapabilityAtlasTask"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "authority",
+          "project_modes",
+          "task_count",
+          "available_package_count",
+          "graph_count",
+          "tasks"
+        ],
+        "title": "DeveloperCapabilityAtlas",
+        "type": "object"
+      },
+      "DeveloperCapabilityAtlasTask": {
+        "additionalProperties": false,
+        "properties": {
+          "available_package_count": {
+            "title": "Available Package Count",
+            "type": "integer"
+          },
+          "graph_compatible": {
+            "title": "Graph Compatible",
+            "type": "boolean"
+          },
+          "missingness_policy_digest": {
+            "title": "Missingness Policy Digest",
+            "type": "string"
+          },
+          "missingness_status": {
+            "enum": [
+              "runtime_contract_not_exposed",
+              "reject_only",
+              "declared_imputation",
+              "evaluated_imputation"
+            ],
+            "title": "Missingness Status",
+            "type": "string"
+          },
+          "runtime_available": {
+            "title": "Runtime Available",
+            "type": "boolean"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "runtime_available",
+          "available_package_count",
+          "graph_compatible",
+          "missingness_status",
+          "missingness_policy_digest"
+        ],
+        "title": "DeveloperCapabilityAtlasTask",
+        "type": "object"
+      },
       "DeveloperCheck": {
         "additionalProperties": false,
         "properties": {
@@ -29662,6 +29764,37 @@
           }
         },
         "summary": "Training Snapshot Detail"
+      }
+    },
+    "/api/developer/capability-atlas": {
+      "get": {
+        "operationId": "get_capability_atlas_api_developer_capability_atlas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperCapabilityAtlas"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Capability Atlas",
+        "tags": [
+          "developer"
+        ]
       }
     },
     "/api/developer/change-guide": {

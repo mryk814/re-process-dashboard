@@ -34,6 +34,10 @@ data approval、Package activation、Graph publication、Project内の候補条�
 
 既定表示はavailability、lifecycle、用途、件数、主要identity。digest、port、固定stage、Validation Planはdetailに置く。
 
+同梱Task／Package／runtime／Graphの横断的な実装能力は、生成済み[Capability Atlas](../contracts/capability-atlas.json)を技術上の正本とする。Model Libraryは現在のWorkspaceへ登録された資産と公開済みRevisionを読む動的read modelであり、Atlasの代替生成物でも全Workspace共通のauthorityでもない。
+
+Developer Control Centerでは、この境界を確認したい開発者向けに、Atlasの3 Project mode、Task／Package／Graph件数、Task別runtime／missingness policy digestを折りたたみのread-only技術詳細として表示する。Project一覧の前に置くことで、同梱能力を確認してからWorkspace固有の固定参照を読む順序を保つ。ここではPackage選択やactivationを決めさせない。Atlas取得失敗はこの技術詳細内へ表示し、取得済みのProject一覧と変更ガイドは保持する。
+
 ## 受入観察
 
 - top navigationからModel Libraryへ到達し、URL reload／backでtabを復元できる。

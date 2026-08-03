@@ -1,6 +1,6 @@
 <!--
 document-status: current
-verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+verified-commit: a200415e5fdf8789011052f0a3a8139324304bce
 owner: developer experience
 source-of-truth: change routing and verification policy
 -->
@@ -16,7 +16,7 @@ source-of-truth: change routing and verification policy
 
 アプリ開発では「何を変更したいか」から、変更する契約、生成物、検証を決めます。
 
-最初に [現行システム基準](product/current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [contracts/task-inventory.json](contracts/task-inventory.json)、個別契約は [Dataset Input Profile](operations/dataset-input-profile.md)、各Profile、[特徴量](contracts/feature-engineering.md)、[Model Package](contracts/model-package-contract.md)、[Chain実行](contracts/chain-execution.md)、[検討アクティビティ](contracts/decision-activities.md) を正本とします。
+最初に [現行システム基準](product/current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。複数のTask、runtime、builder、Graphの現在値を横断して判断するときは、生成済み [Capability Atlas](contracts/capability-atlas.json) を先に読みます。実装一覧は [contracts/task-inventory.json](contracts/task-inventory.json)、個別契約は [Dataset Input Profile](operations/dataset-input-profile.md)、各Profile、[特徴量](contracts/feature-engineering.md)、[Model Package](contracts/model-package-contract.md)、[Chain実行](contracts/chain-execution.md)、[検討アクティビティ](contracts/decision-activities.md) を正本とします。
 Prediction Taskの配線を変更するときは
 [Task compositionの依存方向](architecture/task-composition.md)も確認してください。
 
@@ -68,6 +68,11 @@ Electron appId、既存のuser-data path、SQLite、localStorage、`.mdwb`、Tas
 Chain Revisionを固定し、複数のTask／deterministic transformをbindingする。Candidate preparation、Stage実行、部分再計算、Snapshot、不確かさ伝播はsingle-task previewと別の実行経路を持つ。
 
 新しいデータが複数段に見えても、単に一つのTaskで表現できるものを安易にChainへしない。各Stageが単独で意味を持ち、版、実測、精度または再計算単位を分離する必要がある場合にChainを使う。
+
+### Prediction Graph Project
+
+Prediction Graph Definition／Revisionを固定し、明示的なstage依存とdecision outputを持つ比較経路として扱う。
+同梱Graphは比較fixtureであり、任意pluginや一般的なworkflow実行基盤として拡張しない。
 
 ## 先にデータの用途と形状を決める
 

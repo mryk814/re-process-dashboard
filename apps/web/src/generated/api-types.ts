@@ -473,6 +473,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/capability-atlas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Capability Atlas */
+        get: operations["get_capability_atlas_api_developer_capability_atlas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/change-guide": {
         parameters: {
             query?: never;
@@ -6508,6 +6525,47 @@ export interface components {
         /** DeterministicTransformExecutionRequest */
         DeterministicTransformExecutionRequest: {
             blend: components["schemas"]["SparseBlend"];
+        };
+        /** DeveloperCapabilityAtlas */
+        DeveloperCapabilityAtlas: {
+            /**
+             * Authority
+             * @constant
+             */
+            authority: "bundled";
+            /** Available Package Count */
+            available_package_count: number;
+            /** Graph Count */
+            graph_count: number;
+            /** Project Modes */
+            project_modes: ("single_task" | "chain" | "prediction_graph")[];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "capability-atlas/v1";
+            /** Task Count */
+            task_count: number;
+            /** Tasks */
+            tasks: components["schemas"]["DeveloperCapabilityAtlasTask"][];
+        };
+        /** DeveloperCapabilityAtlasTask */
+        DeveloperCapabilityAtlasTask: {
+            /** Available Package Count */
+            available_package_count: number;
+            /** Graph Compatible */
+            graph_compatible: boolean;
+            /** Missingness Policy Digest */
+            missingness_policy_digest: string;
+            /**
+             * Missingness Status
+             * @enum {string}
+             */
+            missingness_status: "runtime_contract_not_exposed" | "reject_only" | "declared_imputation" | "evaluated_imputation";
+            /** Runtime Available */
+            runtime_available: boolean;
+            /** Task Id */
+            task_id: string;
         };
         /** DeveloperCheck */
         DeveloperCheck: {
@@ -14423,6 +14481,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApprovedTrainingSnapshotDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_capability_atlas_api_developer_capability_atlas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeveloperCapabilityAtlas"];
                 };
             };
             /** @description Validation Error */

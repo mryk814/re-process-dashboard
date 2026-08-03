@@ -158,6 +158,36 @@ class DeveloperOverview(BaseModel):
     items: list[DeveloperOverviewItem]
 
 
+class DeveloperCapabilityAtlasTask(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    runtime_available: bool
+    available_package_count: int
+    graph_compatible: bool
+    missingness_status: Literal[
+        "runtime_contract_not_exposed",
+        "reject_only",
+        "declared_imputation",
+        "evaluated_imputation",
+    ]
+    missingness_policy_digest: str
+
+
+class DeveloperCapabilityAtlas(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["capability-atlas/v1"]
+    authority: Literal["bundled"]
+    project_modes: list[
+        Literal["single_task", "chain", "prediction_graph"]
+    ]
+    task_count: int
+    available_package_count: int
+    graph_count: int
+    tasks: list[DeveloperCapabilityAtlasTask]
+
+
 class RuntimeDiagnosticsReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

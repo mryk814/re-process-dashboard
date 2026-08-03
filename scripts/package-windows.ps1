@@ -47,6 +47,7 @@ try {
     $unpackedResources = Join-Path $releaseRoot "win-unpacked/resources"
     $requiredPackagedFiles = @(
         "sidecar/decision-workbench-sidecar.exe"
+        "docs/contracts/capability-atlas.json"
         "models/active-packages.json"
         "models/available-packages.json"
         "models/active-transforms.json"
