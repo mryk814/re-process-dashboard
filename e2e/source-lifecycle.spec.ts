@@ -21,10 +21,11 @@ function waitForDataLibraryCatalog(
 
 async function gotoDataLibraryAfterCatalog(
   page: import("@playwright/test").Page,
+  datasetRevisionId: string,
 ) {
   await Promise.all([
     waitForDataLibraryCatalog(page),
-    page.goto("/?view=data-library"),
+    page.goto(`/?view=data-library&focus_dataset_revision=${encodeURIComponent(datasetRevisionId)}`),
   ]);
 }
 
@@ -47,7 +48,14 @@ async function reloadSourceLifecycleAfterReady(
   ];
   await Promise.all([...readyResponses, page.reload()]);
 
-  return page.locator(".source-lifecycle-section");
+  const section = page.locator(".source-lifecycle-section");
+  await expect(section.getByLabel("品質判定レシピ")).not.toHaveValue("", {
+    timeout: 30_000,
+  });
+  await expect(section.getByLabel("データセットプロファイル")).not.toHaveValue("", {
+    timeout: 30_000,
+  });
+  return section;
 }
 
 test("source refresh stays separate from approval, training and activation", async ({ page, request }) => {
@@ -256,6 +264,15 @@ test("source refresh stays separate from approval, training and activation", asy
     `${apiBaseUrl}/api/data-library/model-packages?include_archived=true`,
   );
   expect(packageListResponse.ok()).toBeTruthy();
+  const datasetListResponse = await request.get(
+    `${apiBaseUrl}/api/data-library/datasets?include_archived=true`,
+  );
+  expect(datasetListResponse.ok()).toBeTruthy();
+  const datasets = await datasetListResponse.json() as Array<{
+    data_asset: { sha256: string };
+    dataset_revision: { id: string };
+    profile_revision: { profile_digest: string };
+  }>;
   const linkedPackages = (await packageListResponse.json()).map(
     (item: { manifest_json: Record<string, unknown> }) => {
         const provenance = item.manifest_json.provenance;
@@ -276,10 +293,28 @@ test("source refresh stays separate from approval, training and activation", asy
         };
       },
   );
+  const linkedDataset = datasets.find((dataset) => linkedPackages.some(
+    (item: { manifest_json: Record<string, unknown> }) => {
+      const provenance = item.manifest_json.provenance;
+      if (!provenance || typeof provenance !== "object") return false;
+      const trainingDataId = "training_data_id" in provenance
+        ? provenance.training_data_id
+        : undefined;
+      const profileDigest = "dataset_profile_id" in provenance
+        ? provenance.dataset_profile_id
+        : undefined;
+      return trainingDataId === `sha256:${dataset.data_asset.sha256}`
+        && (
+          typeof profileDigest !== "string"
+          || profileDigest === dataset.profile_revision.profile_digest
+        );
+    },
+  ));
+  expect(linkedDataset).toBeTruthy();
   await page.route("**/api/data-library/model-packages?include_archived=true", async (route) => {
     await route.fulfill({ json: linkedPackages });
   });
-  await gotoDataLibraryAfterCatalog(page);
+  await gotoDataLibraryAfterCatalog(page, linkedDataset!.dataset_revision.id);
   const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
   await snapshotLink.waitFor();
   await snapshotLink.click();
