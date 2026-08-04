@@ -6,6 +6,7 @@ export type PlaygroundTargetResult = Readonly<{
   targetKey: string;
   metrics: Readonly<Record<string, PlaygroundMetricValue>>;
   inferenceLabel: string;
+  intervalSemantics: string;
 }>;
 
 export type PlaygroundAttemptView = Readonly<{
@@ -28,6 +29,7 @@ export type PlaygroundAttemptView = Readonly<{
     referenceId: string;
     activePackageChanged: false;
   }>;
+  capabilities: readonly string[];
 }>;
 
 export type PlaygroundComparisonRow = Readonly<{
@@ -40,8 +42,8 @@ const metricLabels: Readonly<Record<string, string>> = {
   rmse: "RMSE",
   median_absolute_error: "Median AE",
   mean_log_predictive_density: "Mean log density",
-  interval_coverage_90: "90% coverage",
-  mean_interval_width: "Interval width",
+  interval_coverage_90: "90% coverage (interval semantics参照)",
+  mean_interval_width: "Interval width (interval semantics参照)",
   extreme_residual_mae: "Extreme residual MAE",
 };
 
@@ -103,4 +105,3 @@ export function latencyLabel(value?: number | null): string {
     ? "未計測"
     : `${value.toLocaleString("ja-JP", { maximumFractionDigits: 1 })} ms`;
 }
-

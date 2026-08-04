@@ -11,13 +11,14 @@ const target = (mae) => ({
   targetKey: "strength",
   metrics: { mae, rmse: mae * 2 },
   inferenceLabel: "analytic",
+  intervalSemantics: "posterior predictive 90%",
 });
 
 test("comparison keeps the latest attempt per recipe and one fixed target", () => {
   const attempts = [
-    { attemptId: "ridge-1", recipeId: "ridge", recipeLabel: "Ridge", sequence: 1, status: "failed", targets: [] },
-    { attemptId: "ridge-2", recipeId: "ridge", recipeLabel: "Ridge", sequence: 2, status: "completed", targets: [target(2)] },
-    { attemptId: "additive-1", recipeId: "additive", recipeLabel: "Additive", sequence: 1, status: "completed", targets: [target(1)] },
+    { attemptId: "ridge-1", recipeId: "ridge", recipeLabel: "Ridge", sequence: 1, status: "failed", capabilities: [], targets: [] },
+    { attemptId: "ridge-2", recipeId: "ridge", recipeLabel: "Ridge", sequence: 2, status: "completed", capabilities: ["point"], targets: [target(2)] },
+    { attemptId: "additive-1", recipeId: "additive", recipeLabel: "Additive", sequence: 1, status: "completed", capabilities: ["point", "interval"], targets: [target(1)] },
   ];
 
   assert.deepEqual(latestAttempts(attempts).map((item) => item.attemptId), [

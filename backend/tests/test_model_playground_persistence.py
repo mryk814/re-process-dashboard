@@ -44,7 +44,11 @@ DIGEST = "sha256:" + "1" * 64
 NOW = datetime(2026, 8, 4, tzinfo=UTC)
 
 
-def _run(*, status: str | None = None):
+def _run(
+    *,
+    status: str | None = None,
+    execution_instance_id: str | None = None,
+):
     plan = ValidationPlan(
         strategy="grouped_kfold",
         folds=2,
@@ -185,6 +189,7 @@ def _run(*, status: str | None = None):
             "sequence": 1,
             "status": status,
             "recipe_digest": selection.recipe_digest,
+            "execution_instance_id": execution_instance_id,
             "started_at": NOW,
         }
         if status == "completed":
@@ -264,10 +269,14 @@ def test_restart_marks_running_attempt_interrupted_without_overwriting_it(
     tmp_path,
 ) -> None:
     store = Store(tmp_path / "workspace.db")
-    running = _run(status="running")
+    running = _run(
+        status="running",
+        execution_instance_id="previous-process",
+    )
     store.create_model_exploration_run(running)
     service = object.__new__(ModelPlaygroundUseCases)
     service.store = Store(store.path)
+    service.execution_instance_id = "restarted-process"
 
     recovered = service.get_run(running.run_id)
 
@@ -275,6 +284,26 @@ def test_restart_marks_running_attempt_interrupted_without_overwriting_it(
     assert recovered.attempts[0].status == "interrupted"
     assert recovered.attempts[0].failure is not None
     assert service.get_run(running.run_id) == recovered
+
+
+def test_live_get_keeps_running_attempt_owned_by_same_execution_instance(
+    tmp_path,
+) -> None:
+    store = Store(tmp_path / "workspace.db")
+    running = _run(
+        status="running",
+        execution_instance_id="live-process",
+    )
+    store.create_model_exploration_run(running)
+    service = object.__new__(ModelPlaygroundUseCases)
+    service.store = Store(store.path)
+    service.execution_instance_id = "live-process"
+
+    observed = service.get_run(running.run_id)
+
+    assert observed == running
+    assert observed.attempts[0].status == "running"
+    assert observed.execution_revision == 1
 
 
 def test_completed_attempt_evidence_cannot_be_overwritten(tmp_path) -> None:

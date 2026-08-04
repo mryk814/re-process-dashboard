@@ -215,6 +215,7 @@ def _prepare_run_context(client, tmp_path):
         model_store_path=tmp_path / "models",
         task_store_path=tmp_path / "tasks",
         package_origins={},
+        execution_instance_id="execution-test",
     )
     return service, revision, snapshot
 

@@ -198,6 +198,7 @@ function RunSurface({
   busyAttemptId,
   onTargetChange,
   onRetry,
+  onCreateNewRun,
   onRegister,
   onSaveMemo,
 }: {
@@ -206,6 +207,7 @@ function RunSurface({
   busyAttemptId?: string;
   onTargetChange?: (target: string) => void;
   onRetry?: (attempt: PlaygroundAttemptView) => void;
+  onCreateNewRun?: () => void;
   onRegister?: (attempt: PlaygroundAttemptView) => void;
   onSaveMemo?: (memo: { decision: "adopt" | "no_adopt" | "continue_research"; recipeId?: string; rationale: string }) => void;
 }) {
@@ -259,6 +261,7 @@ function RunSurface({
           </dl>}
           <div className="model-asset-actions">
             {(attempt.status === "failed" || attempt.status === "interrupted") && <button className="outline-button" type="button" disabled={busyAttemptId === attempt.attemptId || !onRetry} onClick={() => onRetry?.(attempt)}>同じidentityで再試行</button>}
+            {(attempt.status === "failed" || attempt.status === "interrupted") && <button className="text-button" type="button" disabled={!onCreateNewRun} onClick={onCreateNewRun}>条件を選び直して別Runを作成</button>}
             {attempt.status === "completed" && !attempt.registration && <button className="outline-button" type="button" disabled={busyAttemptId === attempt.attemptId || !onRegister} onClick={() => onRegister?.(attempt)}>Model Libraryへ登録</button>}
           </div>
           {attempt.registration && attempt.packagePath && <div className="playground-registration" role="status">
@@ -285,7 +288,12 @@ function RunSurface({
         ? <p className="playground-empty-comparison">比較には2件以上の完了結果が必要です。失敗したrecipe以外の証拠は保持されています。</p>
         : <div className="playground-comparison-scroll"><table className="playground-comparison-table">
           <thead><tr><th scope="col">Evidence</th>{completed.map((attempt) => <th scope="col" key={attempt.recipeId}>{attempt.recipeLabel}</th>)}</tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.metric}><th scope="row">{row.metric}</th>{completed.map((attempt) => <td key={attempt.recipeId}>{formatMetric(row.values[attempt.recipeId] ?? null)}</td>)}</tr>)}</tbody>
+          <tbody>
+            <tr><th scope="row">Inference</th>{completed.map((attempt) => <td key={attempt.recipeId}>{attempt.targets.find((item) => item.targetKey === target)?.inferenceLabel ?? "—"}</td>)}</tr>
+            <tr><th scope="row">Interval semantics</th>{completed.map((attempt) => <td key={attempt.recipeId}>{attempt.targets.find((item) => item.targetKey === target)?.intervalSemantics ?? "—"}</td>)}</tr>
+            <tr><th scope="row">Capabilities</th>{completed.map((attempt) => <td key={attempt.recipeId}>{attempt.capabilities.join(" / ") || "—"}</td>)}</tr>
+            {rows.map((row) => <tr key={row.metric}><th scope="row">{row.metric}</th>{completed.map((attempt) => <td key={attempt.recipeId}>{formatMetric(row.values[attempt.recipeId] ?? null)}</td>)}</tr>)}
+          </tbody>
         </table></div>}
       <p className="playground-comparison-note">単一scoreや自動winnerは作りません。性能、不確かさ、計算量、capabilityを別々に判断します。</p>
     </section>
@@ -315,6 +323,7 @@ export function ModelPlaygroundPage({
   onCreateRun,
   onTargetChange,
   onRetry,
+  onCreateNewRun,
   onRegister,
   onSaveMemo,
 }: {
@@ -327,6 +336,7 @@ export function ModelPlaygroundPage({
   onCreateRun?: (recipeIds: readonly string[], budget: "quick" | "standard" | "research") => void;
   onTargetChange?: (target: string) => void;
   onRetry?: (attempt: PlaygroundAttemptView) => void;
+  onCreateNewRun?: () => void;
   onRegister?: (attempt: PlaygroundAttemptView) => void;
   onSaveMemo?: (memo: { decision: "adopt" | "no_adopt" | "continue_research"; recipeId?: string; rationale: string }) => void;
 }) {
@@ -337,8 +347,7 @@ export function ModelPlaygroundPage({
     </header>
     {state.kind === "loading" && <div className="model-playground-state" role="status"><strong>固定identityとRunを読み込んでいます</strong><span>完了済みrecipeの証拠は再計算しません。</span></div>}
     {state.kind === "error" && <div className="model-playground-state error" role="alert"><strong>Model Playgroundを読み込めません</strong><span>{state.message}</span><button className="primary-button" type="button" onClick={onRetryLoad}>再試行</button></div>}
-    {state.kind === "preview" && <SetupSurface preview={state.preview} busy={busy} onCreateRun={onCreateRun} />}
-    {state.kind === "run" && <RunSurface run={state.run} selectedTarget={selectedTarget} busyAttemptId={busyAttemptId} onTargetChange={onTargetChange} onRetry={onRetry} onRegister={onRegister} onSaveMemo={onSaveMemo} />}
+    {state.kind === "preview" && <SetupSurface key={`${state.preview.taskId}:${state.preview.trainingSnapshotId}`} preview={state.preview} busy={busy} onCreateRun={onCreateRun} />}
+    {state.kind === "run" && <RunSurface key={state.run.runId} run={state.run} selectedTarget={selectedTarget} busyAttemptId={busyAttemptId} onTargetChange={onTargetChange} onRetry={onRetry} onCreateNewRun={onCreateNewRun} onRegister={onRegister} onSaveMemo={onSaveMemo} />}
   </section>;
 }
-

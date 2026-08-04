@@ -213,6 +213,7 @@ def get_model_playground_use_cases(
         model_store_path=Path(model_store_path),
         task_store_path=Path(state.task_store_path),
         package_origins=state.model_package_origins,
+        execution_instance_id=state.model_playground_execution_instance_id,
     )
 
 

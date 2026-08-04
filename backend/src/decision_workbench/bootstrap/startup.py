@@ -288,6 +288,7 @@ def create_lifespan(
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
             app.state.store = Store(database)
+            app.state.model_playground_execution_instance_id = str(uuid4())
             demo_seed_mode = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower()
             selected_starters = set(
                 installed_starter_project_ids(app.state.store, prepared.modules)

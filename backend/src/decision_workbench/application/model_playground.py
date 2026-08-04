@@ -228,6 +228,7 @@ class ModelPlaygroundUseCases:
         model_store_path: Path,
         task_store_path: Path,
         package_origins: dict[str, str],
+        execution_instance_id: str,
     ) -> None:
         self.store = store
         self.catalog = workspace_catalog
@@ -236,6 +237,7 @@ class ModelPlaygroundUseCases:
         self.model_store = model_store_path.resolve()
         self.task_store = task_store_path.resolve()
         self.package_origins = package_origins
+        self.execution_instance_id = execution_instance_id
         self.run_root = self.model_store / "model-playground" / "runs"
 
     def preview(
@@ -401,6 +403,7 @@ class ModelPlaygroundUseCases:
             recipe_digest=selection.recipe_digest,
             hypothesis=selection.hypothesis,
             inference_identity=selection.inference_identity,
+            execution_instance_id=self.execution_instance_id,
             started_at=started,
         )
         running = _replace_run(
@@ -1041,7 +1044,12 @@ class ModelPlaygroundUseCases:
         )
 
     def _recover_running(self, run: ModelExplorationRun) -> ModelExplorationRun:
-        running = [item for item in run.attempts if item.status == "running"]
+        running = [
+            item
+            for item in run.attempts
+            if item.status == "running"
+            and item.execution_instance_id != self.execution_instance_id
+        ]
         if not running:
             return run
         now = _utcnow()
@@ -1058,6 +1066,7 @@ class ModelPlaygroundUseCases:
                 }
             )
             if item.status == "running"
+            and item.execution_instance_id != self.execution_instance_id
             else item
             for item in run.attempts
         )

@@ -344,6 +344,7 @@ class ModelExplorationRecipeAttempt(ModelPlaygroundContract):
     recipe_digest: Digest
     hypothesis: ModelHypothesisIdentity | None = None
     inference_identity: InferenceIdentity | None = None
+    execution_instance_id: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
     result: ModelExplorationAttemptResult | None = None
