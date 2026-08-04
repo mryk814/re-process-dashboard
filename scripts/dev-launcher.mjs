@@ -169,40 +169,27 @@ if (activeLockPath) {
     pid: process.pid,
     workspace_id: workspace.workspaceName,
   })}\n`;
-  let acquired = false;
-  for (let attempt = 0; attempt < 2 && !acquired; attempt += 1) {
+  try {
+    writeFileSync(activeLockPath, lockPayload, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    let owner = "unknown";
     try {
-      writeFileSync(activeLockPath, lockPayload, {
-        encoding: "utf8",
-        flag: "wx",
-      });
-      acquired = true;
-    } catch (error) {
-      if (error?.code !== "EEXIST") throw error;
-      let current;
-      try {
-        current = JSON.parse(readFileSync(activeLockPath, "utf8"));
-      } catch (readError) {
-        throw new Error(
-          `既存のWorkspace lockを検証できません: ${activeLockPath}`,
-          { cause: readError },
-        );
+      const current = JSON.parse(readFileSync(activeLockPath, "utf8"));
+      if (Number.isInteger(current.pid) && current.pid > 0) {
+        owner = `pid=${current.pid}`;
       }
-      if (!Number.isInteger(current.pid) || current.pid <= 0) {
-        throw new Error(`既存のWorkspace lockに有効なpidがありません: ${activeLockPath}`);
-      }
-      try {
-        process.kill(current.pid, 0);
-        throw new Error(
-          `このWorkspaceは別のdev server (pid=${current.pid}) が使用中です。`,
-        );
-      } catch (processError) {
-        if (processError?.code !== "ESRCH") throw processError;
-      }
-      unlinkSync(activeLockPath);
+    } catch {
+      owner = "invalid lock";
     }
+    throw new Error(
+      `Workspace lockが既に存在します (${owner})。`
+      + `server停止を確認し、必要なら手動で削除してください: ${activeLockPath}`,
+    );
   }
-  if (!acquired) throw new Error(`Workspace lockを排他的に取得できません: ${activeLockPath}`);
 }
 
 const { default: concurrently } = await import("concurrently");

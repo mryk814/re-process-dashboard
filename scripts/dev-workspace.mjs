@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   mkdirSync,
   existsSync,
+  lstatSync,
   readFileSync,
   realpathSync,
   writeFileSync,
@@ -110,6 +111,11 @@ export function materializeDevWorkspace(workspace) {
   if (workspace.source !== "branch-default" || !workspace.workspaceRoot) return;
   const expected = `${JSON.stringify(workspace.manifest, null, 2)}\n`;
   if (existsSync(workspace.workspaceRoot)) {
+    if (lstatSync(workspace.workspaceRoot).isSymbolicLink()) {
+      throw new Error(
+        `開発Workspace rootにsymlink/reparse pointは使用できません: ${workspace.workspaceRoot}`,
+      );
+    }
     let current;
     try {
       current = readFileSync(workspace.workspaceManifestPath, "utf8");
