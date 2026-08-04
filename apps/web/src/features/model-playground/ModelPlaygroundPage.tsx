@@ -53,7 +53,7 @@ export type ModelPlaygroundPreviewView = Readonly<{
   recipes: readonly PlaygroundRecipeView[];
 }>;
 
-type PageState =
+export type ModelPlaygroundPageState =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "error"; message: string }>
   | Readonly<{ kind: "preview"; preview: ModelPlaygroundPreviewView }>
@@ -315,6 +315,7 @@ function RunSurface({
 
 export function ModelPlaygroundPage({
   state,
+  actionError,
   selectedTarget,
   busy = false,
   busyAttemptId,
@@ -327,7 +328,8 @@ export function ModelPlaygroundPage({
   onRegister,
   onSaveMemo,
 }: {
-  state: PageState;
+  state: ModelPlaygroundPageState;
+  actionError?: string;
   selectedTarget?: string;
   busy?: boolean;
   busyAttemptId?: string;
@@ -345,6 +347,7 @@ export function ModelPlaygroundPage({
       <div><span className="overline">MODEL PLAYGROUND</span><h1>同じデータでモデル仮説を比較する</h1><p>Task・Training Snapshot・Validationを固定し、active Packageや既存Projectを変更せずに証拠を作ります。</p></div>
       <button className="outline-button" type="button" onClick={onBack}>Model Libraryへ戻る</button>
     </header>
+    {actionError && <p className="playground-warning" role="alert">{actionError}</p>}
     {state.kind === "loading" && <div className="model-playground-state" role="status"><strong>固定identityとRunを読み込んでいます</strong><span>完了済みrecipeの証拠は再計算しません。</span></div>}
     {state.kind === "error" && <div className="model-playground-state error" role="alert"><strong>Model Playgroundを読み込めません</strong><span>{state.message}</span><button className="primary-button" type="button" onClick={onRetryLoad}>再試行</button></div>}
     {state.kind === "preview" && <SetupSurface key={`${state.preview.taskId}:${state.preview.trainingSnapshotId}`} preview={state.preview} busy={busy} onCreateRun={onCreateRun} />}

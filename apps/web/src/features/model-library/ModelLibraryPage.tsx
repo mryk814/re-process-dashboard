@@ -99,6 +99,7 @@ export function ModelLibraryPage({
   onOpenDataLibrary,
   onOpenStudio,
   onStartProject,
+  onOpenPlayground,
 }: {
   tab: ModelLibraryTab;
   dataContext?: ModelLibraryDataIntent;
@@ -107,6 +108,11 @@ export function ModelLibraryPage({
   onOpenDataLibrary: (intent?: ModelLibraryDataIntent) => void;
   onOpenStudio: (definition?: ApiPredictionGraphDefinition) => Promise<void>;
   onStartProject: (intent: ModelLibraryProjectIntent) => void;
+  onOpenPlayground: (intent: {
+    taskId: string;
+    profileRevisionId: string;
+    trainingSnapshotId: string;
+  }) => void;
 }) {
   const [catalog, setCatalog] = useState<ApiModelLibraryCatalog | null>(null);
   const [error, setError] = useState("");
@@ -282,12 +288,29 @@ export function ModelLibraryPage({
             : undefined
           : item.data_references.dataset_view_revision_ids[0];
         const projectAvailable = Boolean(datasetViewId && datasetRevisionId && item.state.availability === "available");
+        const playgroundAvailable = item.data_references.profile_revision_ids.length === 1
+          && Boolean(item.data_references.training_snapshot_id);
         const projectUnavailableId = `package-project-unavailable-${item.reference_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
         return <article className="model-asset-card" key={item.reference_id}>
           <header><div><span className="model-asset-kind">PACKAGE · {item.storage_scope === "personal" ? "PERSONAL" : "BUNDLED"}</span><h2>{item.package_id}</h2><span>{taskLabels.get(item.task_id) ?? item.task_id} · {item.version}</span></div><AssetStateSummary state={item.state} /></header>
           <p>{item.predictor_families.map((predictor) => `${predictor.target}: ${predictor.predictive_family}`).join(" · ") || "predictor identityなし"}</p>
           {packagePredictiveMeaning(item.predictor_families) && <p>{packagePredictiveMeaning(item.predictor_families)}</p>}
           <div className="model-asset-actions">
+            <button
+              type="button"
+              className="outline-button"
+              disabled={!playgroundAvailable}
+              onClick={() => {
+                const profileRevisionId = item.data_references.profile_revision_ids[0];
+                const trainingSnapshotId = item.data_references.training_snapshot_id;
+                if (!profileRevisionId || !trainingSnapshotId) return;
+                onOpenPlayground({
+                  taskId: item.task_id,
+                  profileRevisionId,
+                  trainingSnapshotId,
+                });
+              }}
+            >同じデータでモデルを比較</button>
             <button type="button" className="outline-button" onClick={() => onOpenDataLibrary({
               datasetRevisionId,
               packageReferenceId: item.reference_id,
@@ -316,6 +339,9 @@ export function ModelLibraryPage({
               : contextDatasetRevisionId && !datasetViewId
                 ? "このPackageには複数のDataset／View参照があります。Data Libraryで利用するViewを選んでからProjectを作成してください。"
               : "Dataset ViewとDataset Revisionの固定参照が揃うとProjectを作成できます。"}
+          </p>}
+          {!playgroundAvailable && <p className="model-action-reason">
+            Profile RevisionとTraining Snapshotが一意に固定されたPackageから比較できます。
           </p>}
           <IdentityDetails title="Pipeline・検証・固定参照" entries={[
             ["Manifest", shortDigest(item.manifest_digest)],

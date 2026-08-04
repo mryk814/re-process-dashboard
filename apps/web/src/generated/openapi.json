@@ -12028,6 +12028,28 @@
         "title": "FixedGraphInputSource",
         "type": "object"
       },
+      "FixedGroupFoldAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "fold": {
+            "maximum": 19.0,
+            "minimum": 0.0,
+            "title": "Fold",
+            "type": "integer"
+          },
+          "group_key": {
+            "minLength": 1,
+            "title": "Group Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_key",
+          "fold"
+        ],
+        "title": "FixedGroupFoldAssignment",
+        "type": "object"
+      },
       "GraphGoalTermInput": {
         "additionalProperties": false,
         "properties": {
@@ -12530,6 +12552,99 @@
         "title": "ImputeOperation",
         "type": "object"
       },
+      "InferenceDiagnostics": {
+        "additionalProperties": false,
+        "description": "Common effective diagnostics without pretending every algorithm has R-hat.",
+        "properties": {
+          "approximation_failure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approximation Failure"
+          },
+          "divergence_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divergence Count"
+          },
+          "findings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "max_r_hat": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max R Hat"
+          },
+          "min_effective_sample_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Effective Sample Size"
+          },
+          "particle_effective_sample_size": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Particle Effective Sample Size"
+          },
+          "schema_version": {
+            "const": "inference-diagnostics/v1",
+            "default": "inference-diagnostics/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "InferenceDiagnostics",
+        "type": "object"
+      },
       "InferenceDiagnosticsResponse": {
         "properties": {
           "cached_entries": {
@@ -12554,6 +12669,199 @@
           "operations"
         ],
         "title": "InferenceDiagnosticsResponse",
+        "type": "object"
+      },
+      "InferenceIdentity": {
+        "additionalProperties": false,
+        "description": "Effective algorithm identity saved separately from the model recipe.",
+        "properties": {
+          "algorithm_id": {
+            "enum": [
+              "analytic-gaussian",
+              "nuts",
+              "finite-discrete-enumeration",
+              "gibbs",
+              "smc-particle",
+              "laplace",
+              "bounded-variational"
+            ],
+            "title": "Algorithm Id",
+            "type": "string"
+          },
+          "algorithm_version": {
+            "minLength": 1,
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "approximation_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approximation Kind"
+          },
+          "approximation_limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Approximation Limitations",
+            "type": "array"
+          },
+          "chains": {
+            "anyOf": [
+              {
+                "maximum": 64.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chains"
+          },
+          "convergence_criteria": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Convergence Criteria",
+            "type": "object"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/InferenceDiagnostics"
+          },
+          "draws": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draws"
+          },
+          "fallback_policy": {
+            "const": "forbid_implicit_switch",
+            "default": "forbid_implicit_switch",
+            "title": "Fallback Policy",
+            "type": "string"
+          },
+          "identity_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Identity Digest",
+            "type": "string"
+          },
+          "parameterization": {
+            "minLength": 1,
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "particles": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Particles"
+          },
+          "policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Policy Digest",
+            "type": "string"
+          },
+          "resource_limits": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Resource Limits",
+            "type": "object"
+          },
+          "role": {
+            "enum": [
+              "exact",
+              "sampling",
+              "approximation",
+              "initializer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "inference-identity/v1",
+            "default": "inference-identity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "warmup": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warmup"
+          }
+        },
+        "required": [
+          "algorithm_id",
+          "algorithm_version",
+          "role",
+          "policy_digest",
+          "parameterization",
+          "diagnostics",
+          "identity_digest"
+        ],
+        "title": "InferenceIdentity",
         "type": "object"
       },
       "InputFieldDefinition": {
@@ -14351,6 +14659,1162 @@
         "title": "ModelAssetState",
         "type": "object"
       },
+      "ModelExplorationAdoptionMemo": {
+        "additionalProperties": false,
+        "properties": {
+          "adopted_recipe_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adopted Recipe Id"
+          },
+          "decision": {
+            "enum": [
+              "adopt",
+              "no_adopt",
+              "continue_research"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "rationale",
+          "recorded_at"
+        ],
+        "title": "ModelExplorationAdoptionMemo",
+        "type": "object"
+      },
+      "ModelExplorationAdoptionMemoRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "adopted_recipe_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adopted Recipe Id"
+          },
+          "decision": {
+            "enum": [
+              "adopt",
+              "no_adopt",
+              "continue_research"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "decision",
+          "rationale"
+        ],
+        "title": "ModelExplorationAdoptionMemoRequest",
+        "type": "object"
+      },
+      "ModelExplorationAttemptFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "recovery_hint": {
+            "minLength": 1,
+            "title": "Recovery Hint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "recovery_hint"
+        ],
+        "title": "ModelExplorationAttemptFailure",
+        "type": "object"
+      },
+      "ModelExplorationAttemptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "ModelExplorationAttemptRequest",
+        "type": "object"
+      },
+      "ModelExplorationAttemptResult": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_size_bytes": {
+            "minimum": 0.0,
+            "title": "Artifact Size Bytes",
+            "type": "integer"
+          },
+          "build_receipt_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Build Receipt Digest",
+            "type": "string"
+          },
+          "build_seconds": {
+            "minimum": 0.0,
+            "title": "Build Seconds",
+            "type": "number"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "package_id": {
+            "minLength": 1,
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_path": {
+            "minLength": 1,
+            "title": "Package Path",
+            "type": "string"
+          },
+          "peak_memory_bytes": {
+            "minimum": 0.0,
+            "title": "Peak Memory Bytes",
+            "type": "integer"
+          },
+          "prediction_latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prediction Latency Ms"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationTargetResult"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "package_id",
+          "package_path",
+          "manifest_digest",
+          "build_seconds",
+          "peak_memory_bytes",
+          "artifact_size_bytes",
+          "capabilities",
+          "targets",
+          "build_receipt_digest"
+        ],
+        "title": "ModelExplorationAttemptResult",
+        "type": "object"
+      },
+      "ModelExplorationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_dataset_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Canonical Dataset Digest",
+            "type": "string"
+          },
+          "canonical_dataset_revision_id": {
+            "minLength": 1,
+            "title": "Canonical Dataset Revision Id",
+            "type": "string"
+          },
+          "feature_identity": {
+            "$ref": "#/components/schemas/ModelExplorationFeatureIdentity"
+          },
+          "materialized_training_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Materialized Training Sha256",
+            "type": "string"
+          },
+          "profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "source_lifecycle": {
+            "$ref": "#/components/schemas/SourceLifecycleProvenance"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationTargetContext"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
+          "task_contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "training_snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Training Snapshot Digest",
+            "type": "string"
+          },
+          "training_snapshot_id": {
+            "minLength": 1,
+            "title": "Training Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "task_contract_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "training_snapshot_id",
+          "training_snapshot_digest",
+          "canonical_dataset_revision_id",
+          "canonical_dataset_digest",
+          "materialized_training_sha256",
+          "source_lifecycle",
+          "feature_identity",
+          "targets"
+        ],
+        "title": "ModelExplorationContext",
+        "type": "object"
+      },
+      "ModelExplorationEnvironment": {
+        "additionalProperties": false,
+        "properties": {
+          "optional_dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationOptionalDependency"
+            },
+            "title": "Optional Dependencies",
+            "type": "array"
+          },
+          "platform": {
+            "minLength": 1,
+            "title": "Platform",
+            "type": "string"
+          },
+          "python_version": {
+            "minLength": 1,
+            "title": "Python Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "model-playground-environment/v1",
+            "default": "model-playground-environment/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "python_version",
+          "platform",
+          "optional_dependencies"
+        ],
+        "title": "ModelExplorationEnvironment",
+        "type": "object"
+      },
+      "ModelExplorationFeatureIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_recipe_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Recipe Digest"
+          },
+          "feature_recipe_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Recipe Id"
+          },
+          "feature_recipe_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Recipe Version"
+          },
+          "feature_state_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Feature State Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "model-exploration-feature-identity/v1",
+            "default": "model-exploration-feature-identity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "canonical_task_pipeline",
+              "feature_recipe"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "feature_state_digest"
+        ],
+        "title": "ModelExplorationFeatureIdentity",
+        "type": "object"
+      },
+      "ModelExplorationOptionalDependency": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "package": {
+            "minLength": 1,
+            "title": "Package",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "package",
+          "available"
+        ],
+        "title": "ModelExplorationOptionalDependency",
+        "type": "object"
+      },
+      "ModelExplorationRecipeAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "minLength": 1,
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "execution_instance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Instance Id"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelExplorationAttemptFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "hypothesis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelHypothesisIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inference_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipe_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "registration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelExplorationRegistrationReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelExplorationAttemptResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "interrupted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "recipe_id",
+          "sequence",
+          "status",
+          "recipe_digest",
+          "started_at"
+        ],
+        "title": "ModelExplorationRecipeAttempt",
+        "type": "object"
+      },
+      "ModelExplorationRecipeSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "ready",
+              "ready_expensive",
+              "unavailable_missing_dependency",
+              "needs_feature_recipe",
+              "needs_validation_plan",
+              "needs_target_contract",
+              "capacity_exceeded",
+              "specialized_only",
+              "out_of_scope"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "comparison_role": {
+            "enum": [
+              "baseline",
+              "candidate",
+              "specialized"
+            ],
+            "title": "Comparison Role",
+            "type": "string"
+          },
+          "effective_parameters": {
+            "additionalProperties": true,
+            "title": "Effective Parameters",
+            "type": "object"
+          },
+          "hypothesis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelHypothesisIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inference_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inference_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Unavailable Reason"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "lifecycle": {
+            "enum": [
+              "production",
+              "candidate",
+              "experimental",
+              "unavailable",
+              "no_adopt",
+              "specialized"
+            ],
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "predictive_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Predictive Capabilities",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "recipe_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "recipe_version": {
+            "minLength": 1,
+            "title": "Recipe Version",
+            "type": "string"
+          },
+          "required_dependency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Dependency"
+          },
+          "target_readiness": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationTargetReadiness"
+            },
+            "minItems": 1,
+            "title": "Target Readiness",
+            "type": "array"
+          },
+          "task_structure": {
+            "enum": [
+              "standard_independent_targets",
+              "task_specific_specialized"
+            ],
+            "title": "Task Structure",
+            "type": "string"
+          },
+          "training_cost": {
+            "enum": [
+              "light",
+              "moderate",
+              "high"
+            ],
+            "title": "Training Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "recipe_version",
+          "recipe_digest",
+          "label",
+          "lifecycle",
+          "availability",
+          "reasons",
+          "comparison_role",
+          "training_cost",
+          "predictive_capabilities",
+          "target_readiness",
+          "task_structure",
+          "effective_parameters"
+        ],
+        "title": "ModelExplorationRecipeSelection",
+        "type": "object"
+      },
+      "ModelExplorationRegistrationReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "active_package_changed": {
+            "const": false,
+            "default": false,
+            "title": "Active Package Changed",
+            "type": "boolean"
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "reference_id": {
+            "minLength": 1,
+            "title": "Reference Id",
+            "type": "string"
+          },
+          "registered_at": {
+            "format": "date-time",
+            "title": "Registered At",
+            "type": "string"
+          },
+          "storage_scope": {
+            "const": "personal",
+            "default": "personal",
+            "title": "Storage Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registered_at",
+          "reference_id",
+          "manifest_digest"
+        ],
+        "title": "ModelExplorationRegistrationReceipt",
+        "type": "object"
+      },
+      "ModelExplorationRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "ModelExplorationRegistrationRequest",
+        "type": "object"
+      },
+      "ModelExplorationRun": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_memo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelExplorationAdoptionMemo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationRecipeAttempt"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ModelExplorationRunDefinition"
+          },
+          "execution_payload_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Execution Payload Digest",
+            "type": "string"
+          },
+          "execution_revision": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Execution Revision",
+            "type": "integer"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "model-exploration-run/v1",
+            "default": "model-exploration-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "definition",
+          "execution_payload_digest",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ModelExplorationRun",
+        "type": "object"
+      },
+      "ModelExplorationRunCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "compute_budget": {
+            "default": "standard",
+            "enum": [
+              "quick",
+              "standard",
+              "research"
+            ],
+            "title": "Compute Budget",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "selected_recipe_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Selected Recipe Ids",
+            "type": "array"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "training_snapshot_id": {
+            "minLength": 1,
+            "title": "Training Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "profile_revision_id",
+          "training_snapshot_id",
+          "selected_recipe_ids"
+        ],
+        "title": "ModelExplorationRunCreateRequest",
+        "type": "object"
+      },
+      "ModelExplorationRunDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "compute_budget": {
+            "enum": [
+              "quick",
+              "standard",
+              "research"
+            ],
+            "title": "Compute Budget",
+            "type": "string"
+          },
+          "compute_budget_version": {
+            "const": "model-playground-budget/v1",
+            "default": "model-playground-budget/v1",
+            "title": "Compute Budget Version",
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ModelExplorationContext"
+          },
+          "context_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Context Digest",
+            "type": "string"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/ModelExplorationEnvironment"
+          },
+          "seed_policy": {
+            "const": "recipe_fixed_and_persisted",
+            "default": "recipe_fixed_and_persisted",
+            "title": "Seed Policy",
+            "type": "string"
+          },
+          "selected_recipes": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationRecipeSelection"
+            },
+            "minItems": 1,
+            "title": "Selected Recipes",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "context",
+          "selected_recipes",
+          "compute_budget",
+          "environment",
+          "context_digest"
+        ],
+        "title": "ModelExplorationRunDefinition",
+        "type": "object"
+      },
+      "ModelExplorationTargetContext": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "fold_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Fold Digest",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 1.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "split_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Split Digest",
+            "type": "string"
+          },
+          "target_key": {
+            "minLength": 1,
+            "title": "Target Key",
+            "type": "string"
+          },
+          "training_snapshot_cohort_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Training Snapshot Cohort Digest",
+            "type": "string"
+          },
+          "validation_plan": {
+            "$ref": "#/components/schemas/ValidationPlan"
+          },
+          "validation_plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Validation Plan Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "row_count",
+          "training_snapshot_cohort_digest",
+          "cohort_digest",
+          "split_digest",
+          "fold_digest",
+          "validation_plan",
+          "validation_plan_digest"
+        ],
+        "title": "ModelExplorationTargetContext",
+        "type": "object"
+      },
+      "ModelExplorationTargetReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_count": {
+            "minimum": 0.0,
+            "title": "Feature Count",
+            "type": "integer"
+          },
+          "independent_group_count": {
+            "minimum": 0.0,
+            "title": "Independent Group Count",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "ready_expensive",
+              "unavailable_missing_dependency",
+              "needs_feature_recipe",
+              "needs_validation_plan",
+              "needs_target_contract",
+              "capacity_exceeded",
+              "specialized_only",
+              "out_of_scope"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_key": {
+            "minLength": 1,
+            "title": "Target Key",
+            "type": "string"
+          },
+          "target_kind": {
+            "minLength": 1,
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "target_kind",
+          "status",
+          "reasons",
+          "row_count",
+          "independent_group_count",
+          "feature_count"
+        ],
+        "title": "ModelExplorationTargetReadiness",
+        "type": "object"
+      },
+      "ModelExplorationTargetResult": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "fold_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Fold Digest",
+            "type": "string"
+          },
+          "inference_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inference_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Unavailable Reason"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "target_key": {
+            "minLength": 1,
+            "title": "Target Key",
+            "type": "string"
+          },
+          "validation_plan_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Validation Plan Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "cohort_digest",
+          "fold_digest",
+          "validation_plan_digest",
+          "metrics"
+        ],
+        "title": "ModelExplorationTargetResult",
+        "type": "object"
+      },
+      "ModelHypothesisIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "card_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Card Digest",
+            "type": "string"
+          },
+          "card_id": {
+            "minLength": 1,
+            "title": "Card Id",
+            "type": "string"
+          },
+          "card_version": {
+            "minLength": 1,
+            "title": "Card Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "card_version",
+          "card_digest"
+        ],
+        "title": "ModelHypothesisIdentity",
+        "type": "object"
+      },
       "ModelIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -15567,6 +17031,27 @@
           "quality_report"
         ],
         "title": "ModelPackageStatus",
+        "type": "object"
+      },
+      "ModelPlaygroundContextPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ModelExplorationContext"
+          },
+          "recipes": {
+            "items": {
+              "$ref": "#/components/schemas/ModelExplorationRecipeSelection"
+            },
+            "title": "Recipes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "context",
+          "recipes"
+        ],
+        "title": "ModelPlaygroundContextPreview",
         "type": "object"
       },
       "ModelQualityReport": {
@@ -28723,6 +30208,141 @@
         "title": "SourceLifecycleIdentity",
         "type": "object"
       },
+      "SourceLifecycleProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_dataset_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Canonical Dataset Digest",
+            "type": "string"
+          },
+          "canonical_dataset_revision_id": {
+            "minLength": 1,
+            "title": "Canonical Dataset Revision Id",
+            "type": "string"
+          },
+          "connector_configuration_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Connector Configuration Digest",
+            "type": "string"
+          },
+          "connector_id": {
+            "minLength": 1,
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "curation_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "curation_run_id": {
+            "minLength": 1,
+            "title": "Curation Run Id",
+            "type": "string"
+          },
+          "materialization_adapter_id": {
+            "minLength": 1,
+            "title": "Materialization Adapter Id",
+            "type": "string"
+          },
+          "materialization_adapter_version": {
+            "minLength": 1,
+            "title": "Materialization Adapter Version",
+            "type": "string"
+          },
+          "materialized_training_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Materialized Training Sha256",
+            "type": "string"
+          },
+          "profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "minLength": 1,
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "raw_snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "raw_snapshot_id": {
+            "minLength": 1,
+            "title": "Raw Snapshot Id",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "minLength": 1,
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 1.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "source_adapter_id": {
+            "minLength": 1,
+            "title": "Source Adapter Id",
+            "type": "string"
+          },
+          "source_adapter_version": {
+            "minLength": 1,
+            "title": "Source Adapter Version",
+            "type": "string"
+          },
+          "training_selection_policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Training Selection Policy Digest",
+            "type": "string"
+          },
+          "training_snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Training Snapshot Digest",
+            "type": "string"
+          },
+          "training_snapshot_id": {
+            "minLength": 1,
+            "title": "Training Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector_id",
+          "connector_configuration_digest",
+          "source_adapter_id",
+          "source_adapter_version",
+          "raw_snapshot_id",
+          "raw_snapshot_digest",
+          "recipe_id",
+          "recipe_digest",
+          "curation_run_id",
+          "curation_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "canonical_dataset_revision_id",
+          "canonical_dataset_digest",
+          "training_snapshot_id",
+          "training_snapshot_digest",
+          "training_selection_policy_digest",
+          "materialization_adapter_id",
+          "materialization_adapter_version",
+          "materialized_training_sha256",
+          "row_count"
+        ],
+        "title": "SourceLifecycleProvenance",
+        "type": "object"
+      },
       "SparseBlend": {
         "additionalProperties": false,
         "description": "Canonical core blend. Ratios and fill are percentages, not fractions.",
@@ -30637,6 +32257,139 @@
         "title": "UnitConversion",
         "type": "object"
       },
+      "ValidationPlan": {
+        "additionalProperties": false,
+        "description": "Allow-listed split meaning recorded by a standard training recipe.",
+        "properties": {
+          "class_balance_policy": {
+            "anyOf": [
+              {
+                "const": "require_each_training_fold",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Balance Policy"
+          },
+          "fixed_assignment_source_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Assignment Source Digest"
+          },
+          "fixed_group_assignments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FixedGroupFoldAssignment"
+            },
+            "title": "Fixed Group Assignments",
+            "type": "array"
+          },
+          "folds": {
+            "anyOf": [
+              {
+                "maximum": 20.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folds"
+          },
+          "gap": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Gap",
+            "type": "integer"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "enum": [
+                  "parent_key",
+                  "replicate_context",
+                  "observation_id"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "holdout_fraction": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 0.5,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holdout Fraction"
+          },
+          "minimum_train_size": {
+            "default": 2,
+            "minimum": 2.0,
+            "title": "Minimum Train Size",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "validation-plan/v1",
+            "default": "validation-plan/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "default": 20260730,
+            "maximum": 4294967295.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strategy": {
+            "enum": [
+              "kfold",
+              "grouped_kfold",
+              "stratified_kfold",
+              "stratified_grouped_kfold",
+              "temporal_holdout",
+              "grouped_temporal"
+            ],
+            "title": "Strategy",
+            "type": "string"
+          },
+          "time_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Key"
+          }
+        },
+        "required": [
+          "strategy"
+        ],
+        "title": "ValidationPlan",
+        "type": "object"
+      },
       "ValueUnitConversion": {
         "additionalProperties": false,
         "properties": {
@@ -32458,6 +34211,371 @@
         "summary": "Get Model Library Catalog",
         "tags": [
           "model-library"
+        ]
+      }
+    },
+    "/api/model-playground/preview": {
+      "get": {
+        "operationId": "preview_context_api_model_playground_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profile_revision_id",
+            "required": true,
+            "schema": {
+              "title": "Profile Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "training_snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Training Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compute_budget",
+            "required": false,
+            "schema": {
+              "default": "standard",
+              "enum": [
+                "quick",
+                "standard",
+                "research"
+              ],
+              "title": "Compute Budget",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPlaygroundContextPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Context",
+        "tags": [
+          "model-playground"
+        ]
+      }
+    },
+    "/api/model-playground/runs": {
+      "get": {
+        "operationId": "list_runs_api_model_playground_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelExplorationRun"
+                  },
+                  "title": "Response List Runs Api Model Playground Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "model-playground"
+        ]
+      },
+      "post": {
+        "operationId": "create_run_api_model_playground_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelExplorationRunCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelExplorationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Run",
+        "tags": [
+          "model-playground"
+        ]
+      }
+    },
+    "/api/model-playground/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_model_playground_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelExplorationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "model-playground"
+        ]
+      }
+    },
+    "/api/model-playground/runs/{run_id}/adoption-memo": {
+      "put": {
+        "operationId": "record_adoption_memo_api_model_playground_runs__run_id__adoption_memo_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelExplorationAdoptionMemoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelExplorationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Adoption Memo",
+        "tags": [
+          "model-playground"
+        ]
+      }
+    },
+    "/api/model-playground/runs/{run_id}/attempts/{attempt_id}/register": {
+      "post": {
+        "operationId": "register_attempt_api_model_playground_runs__run_id__attempts__attempt_id__register_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelExplorationRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelExplorationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Attempt",
+        "tags": [
+          "model-playground"
+        ]
+      }
+    },
+    "/api/model-playground/runs/{run_id}/recipes/{recipe_id}/attempts": {
+      "post": {
+        "operationId": "execute_recipe_api_model_playground_runs__run_id__recipes__recipe_id__attempts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recipe_id",
+            "required": true,
+            "schema": {
+              "title": "Recipe Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelExplorationAttemptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelExplorationRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Recipe",
+        "tags": [
+          "model-playground"
         ]
       }
     },
