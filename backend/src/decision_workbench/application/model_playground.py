@@ -607,6 +607,11 @@ class ModelPlaygroundUseCases:
         canonical = canonical_training_dataset(builder.task_id, data, contract)
         feature_pipeline = canonical["feature_pipeline"]
         feature_count = len(feature_pipeline["features"])
+        has_categorical_features = any(
+            group.key == "categorical" and group.fields
+            for group in contract.task_definition.input_groups
+        )
+        missing_policy_available = "missing_policy" in feature_pipeline
         targets_by_key = {
             item.target_key: item for item in builder.target_cohorts
         }
@@ -696,13 +701,13 @@ class ModelPlaygroundUseCases:
                         target_kind=outputs[target_key].target_kind,
                         status="specialized_only",
                         reasons=tuple(reasons),
-                        row_count=target_context.row_count,
+                        row_count=len(compiled_targets[target_key].y),
                         independent_group_count=len(
                             set(compiled_targets[target_key].validation_groups)
                         ),
                         feature_count=feature_count,
                     )
-                    for target_key, target_context in zip(
+                    for target_key, _target_context in zip(
                         targets_by_key,
                         target_contexts,
                         strict=True,
@@ -734,44 +739,61 @@ class ModelPlaygroundUseCases:
                         target_kind=outputs[target_key].target_kind,
                         status="out_of_scope",
                         reasons=(reasons[-1],),
-                        row_count=target_context.row_count,
+                        row_count=len(compiled_targets[target_key].y),
                         independent_group_count=len(
                             set(compiled_targets[target_key].validation_groups)
                         ),
                         feature_count=feature_count,
                     )
-                    for target_key, target_context in zip(
+                    for target_key, _target_context in zip(
                         targets_by_key,
                         target_contexts,
                         strict=True,
                     )
                 )
             elif entry.builder_status == "standard_builder":
-                for target_key, target_context in zip(
+                for target_key, _target_context in zip(
                     targets_by_key,
                     target_contexts,
                     strict=True,
                 ):
-                    values = [
-                        float(row["outputs"][target_key])
-                        for row in canonical["rows"]
-                        if target_key in row["outputs"]
-                    ]
+                    compiled = compiled_targets[target_key]
                     resolution = resolve_estimator_contract_readiness(
                         estimator_id=entry.estimator_id,
                         output=outputs[target_key],
                         validation_plan=validation_plans[target_key],
                         feature_recipe=None,
                         canonical_feature_count=feature_count,
-                        row_count=target_context.row_count,
-                        independent_group_count=len(
-                            set(compiled_targets[target_key].validation_groups)
+                        smooth_term_count=feature_count,
+                        total_basis_columns=(
+                            feature_count
+                            * int(
+                                getattr(
+                                    recipe,
+                                    "max_basis_per_feature",
+                                    1,
+                                )
+                            )
                         ),
-                        observed_target_min=min(values) if values else None,
-                        observed_targets_are_integers=(
-                            all(value.is_integer() for value in values)
-                            if values
-                            else None
+                        has_categorical_features=has_categorical_features,
+                        row_count=len(compiled.y),
+                        independent_group_count=len(
+                            set(compiled.validation_groups)
+                        ),
+                        has_missing_features=bool(
+                            compiled.imputed_feature_indices
+                        ),
+                        missing_policy=(
+                            "ready"
+                            if (
+                                not compiled.imputed_feature_indices
+                                or missing_policy_available
+                            )
+                            else "missing"
+                        ),
+                        observed_target_min=float(compiled.y.min()),
+                        observed_targets_are_integers=bool(
+                            (compiled.y == compiled.y.astype(int)).all()
                         ),
                     )
                     statuses.append(resolution.status)
@@ -798,7 +820,7 @@ class ModelPlaygroundUseCases:
                             target_kind=outputs[target_key].target_kind,
                             status=target_status,
                             reasons=resolution.reasons,
-                            row_count=target_context.row_count,
+                            row_count=len(compiled.y),
                             independent_group_count=len(
                                 set(
                                     compiled_targets[
