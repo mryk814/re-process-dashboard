@@ -146,8 +146,36 @@ class _DensePosteriorPredictor:
             samples, family = self._continuous_samples(output, rng, draw_indices)
             quantiles = quantile_summary(samples)
             statistic = "median" if family == "lognormal" else "mean"
-            point = float(np.median(samples) if statistic == "median" else np.mean(samples))
-            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"}, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
+            point = float(
+                np.median(samples)
+                if statistic == "median"
+                else (
+                    np.mean(output[:, 0])
+                    if family == "student_t"
+                    else np.mean(samples)
+                )
+            )
+            distribution: dict[str, object] = {
+                "family": family,
+                "support": "positive" if family == "lognormal" else "real",
+            }
+            if family == "student_t":
+                location = output[:, 0]
+                scale = self._scale("obs_scale", 1.0, draw_indices)
+                degrees_of_freedom = self._scale("df", 5.0, draw_indices)
+                component_variance = (
+                    scale**2
+                    * degrees_of_freedom
+                    / (degrees_of_freedom - 2.0)
+                )
+                predictive_variance = float(
+                    np.mean(component_variance + location**2)
+                    - np.mean(location) ** 2
+                )
+                distribution["std"] = float(
+                    np.sqrt(max(0.0, predictive_variance))
+                )
+            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution=distribution, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
         if family == "bernoulli_logit":
             probabilities = _sigmoid(output[:, 0])
             probability = float(np.mean(probabilities))

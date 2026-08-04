@@ -92,6 +92,11 @@ class StandardEstimatorEntry(ContractModel):
         "distribution_candidate",
         "specialized_path",
     ]
+    adoption_status: Literal[
+        "production",
+        "experimental",
+        "no_adopt",
+    ] = "production"
     builder_status: BuilderStatus
     runtime_status: RuntimeStatus
     runtime_type: Annotated[str, Field(min_length=1)] | None
@@ -212,6 +217,7 @@ def compatible_standard_estimator_ids(
         entry.estimator_id
         for entry in _CATALOG.entries
         if entry.builder_status == "standard_builder"
+        and entry.adoption_status == "production"
         and target_kinds.issubset(set(entry.target_kinds))
     )
 
@@ -406,6 +412,74 @@ _CATALOG = StandardEstimatorCatalog(
                 "probability are unavailable.",
                 "Additive quantile regression remains a separate unimplemented "
                 "candidate.",
+            ),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="student-t-linear-regression.v1",
+            label="Robust Student-t linear regression",
+            target_kinds=("continuous",),
+            role="distribution_candidate",
+            adoption_status="production",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields(
+                "student-t-linear-regression.v1"
+            )["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields(
+                "student-t-linear-regression.v1"
+            )["artifact_format"],
+            required_dependency="numpyro",
+            limits=EstimatorLimits(
+                min_rows=6,
+                max_rows=5_000,
+                min_independent_groups=4,
+                max_features=64,
+            ),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=(
+                "kfold",
+                "grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal",
+            ),
+            predictive_capabilities=(
+                "point",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution",
+            ),
+            quality_metrics=(
+                "mae",
+                "rmse",
+                "median_absolute_error",
+                "mean_log_predictive_density",
+                "interval_coverage_90",
+                "mean_interval_width",
+                "extreme_residual_mae",
+                "posterior_convergence",
+            ),
+            fixed_parameters=_fixed_parameters(
+                "student-t-linear-regression.v1"
+            ),
+            training_cost="high",
+            known_limitations=(
+                "Student-t likelihood does not accept or repair unit mismatches, "
+                "impossible values, parsing errors, duplicate identity conflicts, "
+                "or input mistakes; those remain Data Quality failures.",
+                "The location function is linear; heavy tails do not repair missing "
+                "nonlinear structure.",
+                "Degrees of freedom are conditional on the fixed bounded 2.1 to 30 "
+                "policy and are not an unrestricted tail search.",
+                "q05-q95 is a posterior predictive interval for a new observation, "
+                "not a latent-mean credible interval or a coverage guarantee.",
+                "Target posteriors are fitted separately and do not provide "
+                "cross-target joint samples.",
+                "Posterior draws remain inside the safe Package/runtime; raw "
+                "samples and decomposed uncertainty components are not exposed.",
+                "Production adoption means explicit availability as a distribution "
+                "candidate; it is not an automatic winner over Ridge.",
             ),
         ),
         StandardEstimatorEntry(

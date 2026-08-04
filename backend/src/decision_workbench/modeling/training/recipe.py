@@ -76,6 +76,27 @@ class QuantileLinearRegressionEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class StudentTLinearRegressionEstimatorRecipe(ContractModel):
+    estimator_id: Literal["student-t-linear-regression.v1"] = (
+        "student-t-linear-regression.v1"
+    )
+    inference_preset: Literal[
+        "quick-evidence",
+        "standard-evidence",
+    ] = "standard-evidence"
+    df_policy: Literal[
+        "bounded-beta-2-5-on-2p1-30"
+    ] = "bounded-beta-2-5-on-2p1-30"
+    coefficient_prior_scale: Literal[1.0] = 1.0
+    intercept_prior_scale: Literal[2.0] = 2.0
+    observation_scale_prior: Literal["half-normal-1"] = "half-normal-1"
+    target_accept_probability: Literal[0.9] = 0.9
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**31 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
 class LightGBMRegressionEstimatorRecipe(ContractModel):
     estimator_id: Literal["lightgbm-regression.v1"] = "lightgbm-regression.v1"
     num_boost_round: Annotated[int, Field(ge=1, le=5_000)] = 200
@@ -124,6 +145,7 @@ ConcreteEstimatorRecipe = (
     | ExactGPEstimatorRecipe
     | BayesianAdditiveSplineEstimatorRecipe
     | QuantileLinearRegressionEstimatorRecipe
+    | StudentTLinearRegressionEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -139,6 +161,7 @@ ESTIMATOR_IDS = (
     "exact-gp-rbf.v1",
     "bayesian-additive-spline.v1",
     "quantile-linear-regression.v1",
+    "student-t-linear-regression.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -350,6 +373,36 @@ def validate_recipe_capability(
             if target.goal_probability != "unavailable":
                 errors.append(
                     f"{target.target}: quantile linear cannot provide goal probability"
+                )
+            continue
+        if recipe.estimator_id == "student-t-linear-regression.v1":
+            if tuple(target.point_statistics) != ("mean",):
+                errors.append(
+                    f"{target.target}: Student-t linear point statistic must be mean"
+                )
+            if not target.standard_deviation:
+                errors.append(
+                    f"{target.target}: Student-t linear exposes predictive standard deviation"
+                )
+            if not target.quantiles:
+                errors.append(
+                    f"{target.target}: Student-t linear exposes predictive quantiles"
+                )
+            if target.samples:
+                errors.append(
+                    f"{target.target}: Student-t linear does not expose raw posterior samples"
+                )
+            if not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: Student-t linear exposes a Student-t distribution"
+                )
+            if target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: Student-t linear does not expose decomposed uncertainty components"
+                )
+            if target.goal_probability != "distribution":
+                errors.append(
+                    f"{target.target}: Student-t linear requires distribution goal probability"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):

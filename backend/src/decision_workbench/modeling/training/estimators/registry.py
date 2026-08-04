@@ -61,6 +61,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=quantile_linear.ARTIFACT_SUFFIX,
             artifact_format=quantile_linear.ARTIFACT_FORMAT,
         )
+    if estimator_id == "student-t-linear-regression.v1":
+        from . import student_t_linear
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, student_t_linear.train),
+            runtime_type=student_t_linear.RUNTIME_TYPE,
+            artifact_suffix=student_t_linear.ARTIFACT_SUFFIX,
+            artifact_format=student_t_linear.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 

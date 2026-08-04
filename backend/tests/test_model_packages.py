@@ -190,6 +190,30 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
     )
     if family == "bernoulli_logit":
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
+    if family == "student_t":
+        locations = (
+            np.linspace(0.1, 0.4, 12) * 0.1
+            + np.linspace(-0.2, 0.2, 12)
+        )
+        expected_std = np.sqrt(
+            0.3**2 * 6.0 / (6.0 - 2.0)
+            + np.var(locations)
+        )
+        assert first.point_estimate == pytest.approx(0.025)
+        assert first.distribution["std"] == pytest.approx(expected_std)
+    if family == "normal":
+        locations = (
+            np.linspace(0.1, 0.4, 12) * 0.1
+            + np.linspace(-0.2, 0.2, 12)
+        )
+        expected_samples = (
+            locations
+            + 0.3 * np.random.default_rng(19).standard_normal(12)
+        )
+        assert first.point_estimate == pytest.approx(
+            float(np.mean(expected_samples))
+        )
+        assert "std" not in first.distribution
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:
         assert first.point_estimate >= 0 and first.quantiles["0.05"] >= 0
     if target_kind in {"count", "ordinal"}:
