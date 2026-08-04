@@ -39,6 +39,7 @@ from decision_workbench.contracts.model_library_contracts import (
 from decision_workbench.contracts.task_contracts import (
     persisted_task_definition_payload,
 )
+from decision_workbench.data.profile_family_registry import supported_task_ids
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
@@ -126,14 +127,20 @@ def _package_targets(manifest: dict[str, Any]) -> tuple[str, ...]:
 
 def _package_lifecycle_ids(
     manifest: dict[str, Any],
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, str | None]:
     provenance = _record(manifest.get("provenance"))
     lifecycle = _record(provenance.get("source_lifecycle"))
     connector_id = lifecycle.get("connector_id")
     snapshot_id = lifecycle.get("training_snapshot_id")
+    profile_revision_id = lifecycle.get("profile_revision_id")
     return (
         connector_id if isinstance(connector_id, str) else None,
         snapshot_id if isinstance(snapshot_id, str) else None,
+        (
+            profile_revision_id
+            if isinstance(profile_revision_id, str)
+            else None
+        ),
     )
 
 
@@ -193,6 +200,7 @@ class ModelLibraryCatalogService:
         *,
         connector_id: str | None = None,
         training_snapshot_id: str | None = None,
+        profile_revision_id: str | None = None,
     ) -> ModelLibraryDataReference:
         views = [
             view
@@ -232,6 +240,18 @@ class ModelLibraryCatalogService:
             )
             is not None
         ]
+        direct_profile = (
+            self.workspace_catalog.get_profile_revision(
+                profile_revision_id,
+                include_archived=True,
+            )
+            if profile_revision_id
+            else None
+        )
+        if direct_profile is not None and all(
+            profile.id != direct_profile.id for profile in profiles
+        ):
+            profiles.append(direct_profile)
         assets = [
             asset
             for dataset in datasets
@@ -305,11 +325,32 @@ class ModelLibraryCatalogService:
                 for member in view.members
             )
         ]
-        connector_id, training_snapshot_id = _package_lifecycle_ids(manifest)
+        (
+            connector_id,
+            training_snapshot_id,
+            lifecycle_profile_revision_id,
+        ) = _package_lifecycle_ids(manifest)
+        lifecycle_profile = (
+            self.workspace_catalog.get_profile_revision(
+                lifecycle_profile_revision_id,
+                include_archived=True,
+            )
+            if lifecycle_profile_revision_id
+            else None
+        )
+        trusted_profile_revision_id = (
+            lifecycle_profile.id
+            if lifecycle_profile is not None
+            and package.task_id
+            in supported_task_ids(lifecycle_profile.effective_profile_json)
+            and lifecycle_profile.profile_digest == profile_digest
+            else None
+        )
         return self._data_reference_for_view_ids(
             view_ids,
             connector_id=connector_id,
             training_snapshot_id=training_snapshot_id,
+            profile_revision_id=trusted_profile_revision_id,
         )
 
     @staticmethod

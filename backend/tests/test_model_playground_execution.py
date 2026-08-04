@@ -303,3 +303,17 @@ def test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity(
         ).resolve()
     )
     assert receipt.package_locator != additive.result.package_path
+    library_response = client.get("/api/model-library")
+    assert library_response.status_code == 200
+    registered_package = next(
+        item
+        for item in library_response.json()["packages"]
+        if item["package_id"] == additive.result.package_id
+    )
+    assert registered_package["data_references"]["profile_revision_ids"] == [
+        revision.id
+    ]
+    assert (
+        registered_package["data_references"]["training_snapshot_id"]
+        == snapshot.id
+    )
