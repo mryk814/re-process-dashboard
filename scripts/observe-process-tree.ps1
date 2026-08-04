@@ -44,12 +44,16 @@ function Read-LastCompletedTest {
         return $null
     }
     $match = Get-Content -LiteralPath $StdoutPath -Tail 400 -ErrorAction SilentlyContinue |
-        Select-String -Pattern '^(backend/tests/\S+::\S+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)(?:\s|$)' |
+        Select-String -Pattern '^(?:(backend/tests/\S+::\S+)\s+(?:PASSED|FAILED|SKIPPED|XFAIL|XPASS)|\[gw\d+\]\s+\[\s*\d+%\]\s+(?:PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(backend/tests/\S+::\S+))(?:\s|$)' |
         Select-Object -Last 1
     if ($null -eq $match) {
         return $null
     }
-    return $match.Matches[0].Groups[1].Value
+    $directTest = $match.Matches[0].Groups[1].Value
+    if ($directTest) {
+        return $directTest
+    }
+    return $match.Matches[0].Groups[2].Value
 }
 
 function Write-Heartbeat {

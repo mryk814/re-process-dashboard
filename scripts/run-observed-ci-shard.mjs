@@ -11,10 +11,17 @@ import { pathToFileURL } from "node:url";
 export const runnerObservationSchemaVersion = "verification-runner-observation/v1";
 
 export function lastCompletedPytest(output) {
-  const matches = output.matchAll(
-    /^(backend\/tests\/\S+::\S+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)(?:\s|$)/gm,
-  );
-  return [...matches].at(-1)?.[1] ?? null;
+  let lastCompletedTest = null;
+  for (const line of output.split(/\r?\n/)) {
+    const direct = line.match(
+      /^(backend\/tests\/\S+::\S+)\s+(?:PASSED|FAILED|SKIPPED|XFAIL|XPASS)(?:\s|$)/,
+    );
+    const xdist = line.match(
+      /^\[gw\d+\]\s+\[\s*\d+%\]\s+(?:PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(backend\/tests\/\S+::\S+)(?:\s|$)/,
+    );
+    lastCompletedTest = direct?.[1] ?? xdist?.[1] ?? lastCompletedTest;
+  }
+  return lastCompletedTest;
 }
 
 function readJson(path) {

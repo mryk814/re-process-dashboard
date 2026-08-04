@@ -13,7 +13,7 @@ import {
 test("runner observation keeps the exact child exit, peak RSS, and last completed test", () => {
   const stdout = [
     "backend/tests/test_first.py::test_one PASSED [ 10%]",
-    "backend/tests/test_second.py::test_two SKIPPED [ 11%]",
+    "[gw2] [ 11%] SKIPPED backend/tests/test_second.py::test_two",
   ].join("\n");
   assert.equal(
     lastCompletedPytest(stdout),
