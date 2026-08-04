@@ -268,6 +268,16 @@ def test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity(
     assert additive.inference_identity is not None
     assert additive.inference_identity.algorithm_id == "analytic-gaussian"
     assert ridge.result is not None and additive.result is not None
+    assert all(
+        item.inference_identity is None
+        and item.inference_unavailable_reason
+        for item in ridge.result.targets
+    )
+    assert all(
+        item.inference_identity is not None
+        and item.inference_identity.algorithm_id == "analytic-gaussian"
+        for item in additive.result.targets
+    )
     assert [
         (item.target_key, item.cohort_digest, item.fold_digest)
         for item in ridge.result.targets

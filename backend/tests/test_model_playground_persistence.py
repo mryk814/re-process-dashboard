@@ -194,6 +194,7 @@ def _run(*, status: str | None = None):
                 fold_digest=fold_digest,
                 validation_plan_digest=plan_digest,
                 metrics={"mae": 1.0},
+                inference_unavailable_reason="not posterior inference",
             )
             attempt_values.update(
                 finished_at=NOW,

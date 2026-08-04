@@ -970,6 +970,9 @@ class ModelPlaygroundUseCases:
             )
         )
         evidence = quality.validation_evidence or {}
+        predictors = {
+            item.target: item for item in package.manifest.predictors
+        }
         expected_targets = {
             item.target_key: item for item in run.definition.context.targets
         }
@@ -1002,6 +1005,17 @@ class ModelPlaygroundUseCases:
                     fold_digest=actual.fold_digest,
                     validation_plan_digest=actual.validation_plan_digest,
                     metrics=metrics,
+                    inference_identity=(
+                        predictors[metric.target].inference_identity
+                    ),
+                    inference_unavailable_reason=(
+                        None
+                        if predictors[metric.target].inference_identity
+                        is not None
+                        else (
+                            "このpredictorはposterior inferenceを使用しません"
+                        )
+                    ),
                 )
             )
         artifact_size = sum(

@@ -284,6 +284,26 @@ class ModelExplorationTargetResult(ModelPlaygroundContract):
     fold_digest: Digest
     validation_plan_digest: Digest
     metrics: dict[str, float | int | str | None]
+    inference_identity: InferenceIdentity | None = None
+    inference_unavailable_reason: str | None = None
+
+    @model_validator(mode="after")
+    def inference_evidence_is_explicit(self) -> "ModelExplorationTargetResult":
+        if (
+            self.inference_identity is None
+            and not self.inference_unavailable_reason
+        ):
+            raise ValueError(
+                "target result without Inference Identity requires a reason"
+            )
+        if (
+            self.inference_identity is not None
+            and self.inference_unavailable_reason is not None
+        ):
+            raise ValueError(
+                "target result cannot claim both inference identity and absence"
+            )
+        return self
 
 
 class ModelExplorationAttemptResult(ModelPlaygroundContract):
