@@ -29,4 +29,3 @@ def migrate_model_exploration_runs(database: str | Path) -> None:
             f"CREATE INDEX IF NOT EXISTS idx_{TABLE}_updated "
             f"ON {TABLE}(updated_at DESC, id)"
         )
-
