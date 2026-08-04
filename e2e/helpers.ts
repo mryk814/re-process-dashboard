@@ -65,7 +65,16 @@ export async function resolveProjectBinding(
   taskId: string,
   selector: BindingSelector = {},
 ): Promise<ProjectBinding> {
-  const response = await request.get(`${apiBaseUrl}/api/project-creation-options`);
+  const creationOptionsUrl = `${apiBaseUrl}/api/project-creation-options`;
+  let response: APIResponse;
+  try {
+    response = await request.get(creationOptionsUrl);
+  } catch {
+    // The Windows asyncio server can reset an idle keep-alive connection while
+    // the serial suite changes fixtures. Retry only this idempotent catalog
+    // read; an HTTP response still fails without a retry below.
+    response = await request.get(creationOptionsUrl);
+  }
   expect(response.status(), "project-creation-options").toBe(200);
   const options = await response.json() as CreationOptions;
   const digest = options.task_contract_digests[taskId];

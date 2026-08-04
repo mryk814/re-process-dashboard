@@ -3,7 +3,12 @@ import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
 test("material Graph fixtures support evidence review and explicit goal-search promotion", async ({ page }) => {
+  const catalogResponsePromise = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/prediction-graphs/catalog"
+  ));
   await page.goto("/?view=chain-studio");
+  const catalogResponse = await catalogResponsePromise;
+  expect(catalogResponse.status(), await catalogResponse.text()).toBe(200);
 
   const catalog = page.getByRole("group", { name: "Node一覧" }).locator("select");
   await expect(catalog.locator("option", { hasText: "Graph比較用: 引張強さ" })).toHaveCount(1);
