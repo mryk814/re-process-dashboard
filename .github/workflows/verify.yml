@@ -194,7 +194,7 @@ jobs:
           PLAYWRIGHT_HTML_OUTPUT_DIR: artifacts/playwright/${{ matrix.shard.id }}/html
           PLAYWRIGHT_BLOB_OUTPUT_DIR: artifacts/playwright/${{ matrix.shard.id }}/blob
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: artifacts/playwright/${{ matrix.shard.id }}/junit.xml
-        run: node scripts/verification-ci.mjs run-shard --plan artifacts/verification/ci-plan.json --shard ${{ matrix.shard.id }} --output artifacts/verification/shards/${{ matrix.shard.id }}.json
+        run: node scripts/run-observed-ci-shard.mjs --plan artifacts/verification/ci-plan.json --shard ${{ matrix.shard.id }} --output artifacts/verification/shards/${{ matrix.shard.id }}.json
 
       - name: Upload shard diagnostics and Playwright reports
         id: upload-diagnostics

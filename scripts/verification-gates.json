@@ -97,13 +97,13 @@
       "runner": {"executable": "npm", "args": ["run", "security:audit"]}
     },
     "full-pytest": {
-      "command": "uv run --extra dev python -m pytest --durations=20 --durations-min=1",
+      "command": "uv run --extra dev python -m pytest -vv --durations=20 --durations-min=1",
       "purpose": "backendの科学・永続化・API契約を横断検証する。",
       "estimatedMinutes": "12-20",
       "platform": "any",
       "riskCategories": ["backend", "persistence", "model-package"],
       "absorbs": ["focused-pytest", "security-boundary-tests", "model-package-contract-tests", "legacy-workspace"],
-      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest", "--durations=20", "--durations-min=1"]}
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest", "-vv", "--durations=20", "--durations-min=1"]}
     },
     "web-unit": {
       "command": "npm run test -w apps/web",
@@ -146,12 +146,12 @@
       "runner": {"executable": "npm", "args": ["run", "build", "-w", "apps/web"]}
     },
     "verification-policy-tests": {
-      "command": "node --test scripts/verification-gates.test.mjs scripts/run-main-acceptance.test.mjs scripts/run-isolated-e2e.test.mjs e2e/suite-inventory.test.mjs",
+      "command": "node --test scripts/verification-gates.test.mjs scripts/run-observed-ci-shard.test.mjs scripts/run-main-acceptance.test.mjs scripts/run-isolated-e2e.test.mjs e2e/suite-inventory.test.mjs",
       "purpose": "risk分類、gate選択、acceptance重複排除、focused test authority、E2E suite inventoryの契約を検証する。",
       "estimatedMinutes": "<1",
       "platform": "any",
       "riskCategories": ["verification-tooling"],
-      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs", "scripts/run-main-acceptance.test.mjs", "scripts/run-isolated-e2e.test.mjs", "e2e/suite-inventory.test.mjs"]}
+      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs", "scripts/run-observed-ci-shard.test.mjs", "scripts/run-main-acceptance.test.mjs", "scripts/run-isolated-e2e.test.mjs", "e2e/suite-inventory.test.mjs"]}
     },
     "checkpoint-acceptance": {
       "command": "npm run verify:checkpoint",
