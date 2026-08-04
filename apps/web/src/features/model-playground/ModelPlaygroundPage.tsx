@@ -219,15 +219,15 @@ function RunSurface({
   const [memoRecipe, setMemoRecipe] = useState(run.adoptionMemo?.recipeId ?? "");
   const [memoRationale, setMemoRationale] = useState(run.adoptionMemo?.rationale ?? "");
   const [copiedPath, setCopiedPath] = useState("");
-  const [copyError, setCopyError] = useState("");
+  const [copyErrorAttemptId, setCopyErrorAttemptId] = useState("");
 
-  async function copyPath(path: string) {
-    setCopyError("");
+  async function copyPath(attemptId: string, path: string) {
+    setCopyErrorAttemptId("");
     try {
       await navigator.clipboard.writeText(path);
       setCopiedPath(path);
     } catch {
-      setCopyError("Package locatorをコピーできませんでした。locatorを選択してコピーしてください。");
+      setCopyErrorAttemptId(attemptId);
     }
   }
 
@@ -273,11 +273,21 @@ function RunSurface({
           {attempt.registration && <div className="playground-registration" role="status">
             <strong>Model Libraryに登録済み</strong>
             <span>active Packageは変更していません。</span>
-            <label>Package locator<code>{attempt.registration.packageLocator}</code></label>
-            <button className="text-button" type="button" onClick={() => void copyPath(attempt.registration!.packageLocator)}>
+            <label>Package locator
+              <input
+                type="text"
+                readOnly
+                aria-label={`${attempt.recipeLabel} Package locator`}
+                value={attempt.registration.packageLocator}
+                onFocus={(event) => event.currentTarget.select()}
+              />
+            </label>
+            <button className="text-button" type="button" onClick={() => void copyPath(attempt.attemptId, attempt.registration!.packageLocator)}>
               {copiedPath === attempt.registration.packageLocator ? "コピー済み" : "locatorをコピー"}
             </button>
-            {copyError && <span role="alert">{copyError}</span>}
+            {copyErrorAttemptId === attempt.attemptId && <span role="alert">
+              Package locatorをコピーできませんでした。上のlocatorを選択してコピーしてください。
+            </span>}
           </div>}
         </article>)}
       </div>
