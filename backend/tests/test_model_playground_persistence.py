@@ -13,11 +13,13 @@ from decision_workbench.application.model_playground import (
 from decision_workbench.contracts.model_playground_contracts import (
     ModelExplorationAttemptResult,
     ModelExplorationContext,
+    ModelExplorationEnvironment,
     ModelExplorationFeatureIdentity,
     ModelExplorationRecipeAttempt,
     ModelExplorationRecipeSelection,
     ModelExplorationRunDefinition,
     ModelExplorationTargetContext,
+    ModelExplorationTargetReadiness,
     ModelExplorationTargetResult,
     semantic_digest,
 )
@@ -138,6 +140,18 @@ def _run(*, status: str | None = None):
         comparison_role="baseline",
         training_cost="light",
         predictive_capabilities=("point",),
+        target_readiness=(
+            ModelExplorationTargetReadiness(
+                target_key="target",
+                target_kind="continuous",
+                status="ready",
+                reasons=("ready",),
+                row_count=4,
+                independent_group_count=2,
+                feature_count=1,
+            ),
+        ),
+        task_structure="standard_independent_targets",
         effective_parameters=parameters,
         inference_unavailable_reason="not posterior inference",
     )
@@ -145,6 +159,11 @@ def _run(*, status: str | None = None):
         "context": context,
         "selected_recipes": (selection,),
         "compute_budget": "standard",
+        "environment": ModelExplorationEnvironment(
+            python_version="3.13",
+            platform="test",
+            optional_dependencies=(),
+        ),
     }
     definition = ModelExplorationRunDefinition(
         **definition_values,

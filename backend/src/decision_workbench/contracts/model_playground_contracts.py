@@ -106,6 +106,16 @@ class ModelHypothesisIdentity(ModelPlaygroundContract):
     card_digest: Digest
 
 
+class ModelExplorationTargetReadiness(ModelPlaygroundContract):
+    target_key: Annotated[str, Field(min_length=1)]
+    target_kind: Annotated[str, Field(min_length=1)]
+    status: RecipeAvailability
+    reasons: Annotated[tuple[str, ...], Field(min_length=1)]
+    row_count: Annotated[int, Field(ge=0)]
+    independent_group_count: Annotated[int, Field(ge=0)]
+    feature_count: Annotated[int, Field(ge=0)]
+
+
 class ModelExplorationRecipeSelection(ModelPlaygroundContract):
     recipe_id: Annotated[str, Field(min_length=1)]
     recipe_version: Annotated[str, Field(min_length=1)]
@@ -118,6 +128,14 @@ class ModelExplorationRecipeSelection(ModelPlaygroundContract):
     required_dependency: str | None = None
     training_cost: Literal["light", "moderate", "high"]
     predictive_capabilities: tuple[str, ...]
+    target_readiness: Annotated[
+        tuple[ModelExplorationTargetReadiness, ...],
+        Field(min_length=1),
+    ]
+    task_structure: Literal[
+        "standard_independent_targets",
+        "task_specific_specialized",
+    ]
     effective_parameters: dict[str, Any]
     hypothesis: ModelHypothesisIdentity | None = None
     inference_identity: InferenceIdentity | None = None
@@ -152,6 +170,9 @@ class ModelExplorationRecipeSelection(ModelPlaygroundContract):
             and self.lifecycle != "unavailable"
         ):
             raise ValueError("unavailable recipe must use unavailable lifecycle")
+        target_keys = [item.target_key for item in self.target_readiness]
+        if len(target_keys) != len(set(target_keys)):
+            raise ValueError("target readiness identities must be unique")
         return self
 
 
@@ -217,6 +238,10 @@ class ModelExplorationRunDefinition(ModelPlaygroundContract):
     compute_budget_version: Literal["model-playground-budget/v1"] = (
         "model-playground-budget/v1"
     )
+    seed_policy: Literal["recipe_fixed_and_persisted"] = (
+        "recipe_fixed_and_persisted"
+    )
+    environment: "ModelExplorationEnvironment"
     context_digest: Digest
     warnings: tuple[str, ...] = ()
 
@@ -236,6 +261,21 @@ class ModelExplorationRunDefinition(ModelPlaygroundContract):
         ):
             raise ValueError("a Run can only select executable recipes")
         return self
+
+
+class ModelExplorationOptionalDependency(ModelPlaygroundContract):
+    package: Annotated[str, Field(min_length=1)]
+    available: bool
+    version: str | None = None
+
+
+class ModelExplorationEnvironment(ModelPlaygroundContract):
+    schema_version: Literal["model-playground-environment/v1"] = (
+        "model-playground-environment/v1"
+    )
+    python_version: Annotated[str, Field(min_length=1)]
+    platform: Annotated[str, Field(min_length=1)]
+    optional_dependencies: tuple[ModelExplorationOptionalDependency, ...]
 
 
 class ModelExplorationTargetResult(ModelPlaygroundContract):

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
 import time
 import tracemalloc
 from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -33,6 +37,8 @@ from decision_workbench.contracts.model_playground_contracts import (
     ModelExplorationAttemptResult,
     ModelExplorationContext,
     ModelExplorationFeatureIdentity,
+    ModelExplorationEnvironment,
+    ModelExplorationOptionalDependency,
     ModelExplorationRecipeAttempt,
     ModelExplorationRecipeSelection,
     ModelExplorationRegistrationReceipt,
@@ -40,6 +46,7 @@ from decision_workbench.contracts.model_playground_contracts import (
     ModelExplorationRunCreateRequest,
     ModelExplorationRunDefinition,
     ModelExplorationTargetContext,
+    ModelExplorationTargetReadiness,
     ModelExplorationTargetResult,
     ModelHypothesisIdentity,
     ModelPlaygroundContextPreview,
@@ -178,6 +185,39 @@ def _inference_identity(
     )
 
 
+def _environment_identity() -> ModelExplorationEnvironment:
+    packages = tuple(
+        sorted(
+            {
+                entry.required_dependency
+                for entry in standard_estimator_catalog().entries
+                if entry.required_dependency is not None
+            }
+        )
+    )
+    dependencies: list[ModelExplorationOptionalDependency] = []
+    for package in packages:
+        available = find_spec(package) is not None
+        package_version: str | None = None
+        if available:
+            try:
+                package_version = version(package)
+            except PackageNotFoundError:
+                package_version = "available-version-unknown"
+        dependencies.append(
+            ModelExplorationOptionalDependency(
+                package=package,
+                available=available,
+                version=package_version,
+            )
+        )
+    return ModelExplorationEnvironment(
+        python_version=sys.version.split()[0],
+        platform=platform.platform(),
+        optional_dependencies=tuple(dependencies),
+    )
+
+
 class ModelPlaygroundUseCases:
     def __init__(
         self,
@@ -289,6 +329,7 @@ class ModelPlaygroundUseCases:
             "context": context,
             "selected_recipes": selected,
             "compute_budget": request.compute_budget,
+            "environment": _environment_identity(),
             "warnings": warnings,
         }
         definition = ModelExplorationRunDefinition(
@@ -642,11 +683,30 @@ class ModelPlaygroundUseCases:
         for entry in standard_estimator_catalog().entries:
             reasons: list[str] = []
             statuses: list[str] = []
+            target_readiness: list[ModelExplorationTargetReadiness] = []
             if entry.builder_status != "standard_builder":
                 effective_parameters = dict(entry.fixed_parameters)
                 statuses.append("external_verified_package_only")
                 reasons.append(
                     "検証済み外部Package専用でstandard builderは提供されていません"
+                )
+                target_readiness.extend(
+                    ModelExplorationTargetReadiness(
+                        target_key=target_key,
+                        target_kind=outputs[target_key].target_kind,
+                        status="specialized_only",
+                        reasons=tuple(reasons),
+                        row_count=target_context.row_count,
+                        independent_group_count=len(
+                            set(compiled_targets[target_key].validation_groups)
+                        ),
+                        feature_count=feature_count,
+                    )
+                    for target_key, target_context in zip(
+                        targets_by_key,
+                        target_contexts,
+                        strict=True,
+                    )
                 )
             else:
                 options = _recipe_options(
@@ -667,6 +727,24 @@ class ModelPlaygroundUseCases:
                 statuses.append("out_of_scope")
                 reasons.append(
                     "Prediction Taskのtarget semanticsまたはrecipe policyの対象外です"
+                )
+                target_readiness.extend(
+                    ModelExplorationTargetReadiness(
+                        target_key=target_key,
+                        target_kind=outputs[target_key].target_kind,
+                        status="out_of_scope",
+                        reasons=(reasons[-1],),
+                        row_count=target_context.row_count,
+                        independent_group_count=len(
+                            set(compiled_targets[target_key].validation_groups)
+                        ),
+                        feature_count=feature_count,
+                    )
+                    for target_key, target_context in zip(
+                        targets_by_key,
+                        target_contexts,
+                        strict=True,
+                    )
                 )
             elif entry.builder_status == "standard_builder":
                 for target_key, target_context in zip(
@@ -698,6 +776,39 @@ class ModelPlaygroundUseCases:
                     )
                     statuses.append(resolution.status)
                     reasons.extend(resolution.reasons)
+                    target_status = resolution.status
+                    if (
+                        target_status == "out_of_scope"
+                        and any(
+                            "maximum" in reason
+                            or "minimum" in reason
+                            or "capacity" in reason
+                            for reason in resolution.reasons
+                        )
+                    ):
+                        target_status = "capacity_exceeded"
+                    if (
+                        target_status == "ready"
+                        and entry.training_cost == "high"
+                    ):
+                        target_status = "ready_expensive"
+                    target_readiness.append(
+                        ModelExplorationTargetReadiness(
+                            target_key=target_key,
+                            target_kind=outputs[target_key].target_kind,
+                            status=target_status,
+                            reasons=resolution.reasons,
+                            row_count=target_context.row_count,
+                            independent_group_count=len(
+                                set(
+                                    compiled_targets[
+                                        target_key
+                                    ].validation_groups
+                                )
+                            ),
+                            feature_count=feature_count,
+                        )
+                    )
             status = (
                 "ready"
                 if statuses and all(item == "ready" for item in statuses)
@@ -757,6 +868,12 @@ class ModelPlaygroundUseCases:
                     required_dependency=entry.required_dependency,
                     training_cost=entry.training_cost or "moderate",
                     predictive_capabilities=entry.predictive_capabilities,
+                    target_readiness=tuple(target_readiness),
+                    task_structure=(
+                        "task_specific_specialized"
+                        if status == "specialized_only"
+                        else "standard_independent_targets"
+                    ),
                     effective_parameters=effective_parameters,
                     hypothesis=hypothesis,
                     inference_identity=inference_identity,
