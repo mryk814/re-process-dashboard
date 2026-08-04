@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import json
+import os
 from pathlib import Path
 
 import pytest
@@ -39,6 +41,36 @@ def _database(root: Path, branch: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(f"workspace:{branch}".encode())
     return path
+
+
+def _marked_database(root: Path, branch: str, workspace_id: str) -> Path:
+    workspace = root / ".dev-workspaces" / workspace_id
+    workspace.mkdir(parents=True)
+    database = workspace / "workspace.db"
+    database.write_bytes(f"workspace:{branch}".encode())
+    for name in ("data-library", "profiles", "tasks", "models"):
+        (workspace / name).mkdir()
+    (workspace / "workspace-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "dev-workspace-manifest/v1",
+                "workspace_id": workspace_id,
+                "workspace_kind": "branch-default",
+                "checkout_identity": "test-checkout",
+                "checkout_root": str(root.resolve()),
+                "branch_identity": branch,
+                "resources": {
+                    "database": "workspace.db",
+                    "data_library": "data-library",
+                    "profiles": "profiles",
+                    "tasks": "tasks",
+                    "models": "models",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return database
 
 
 def test_workspace_list_is_read_only_and_reports_branch_time_and_size(
@@ -156,3 +188,78 @@ def test_workspace_prune_removes_only_explicit_stale_workspace_family(
     assert source.read_bytes() == b"source"
     assert package.read_text(encoding="utf-8") == "{}"
     assert main.exists()
+
+
+def test_marked_workspace_list_is_cleanup_dry_run_and_prune_is_root_scoped(
+    tmp_path: Path,
+) -> None:
+    database = _marked_database(
+        tmp_path,
+        "codex/stale",
+        "codex-stale-branch-checkout",
+    )
+    unrelated = tmp_path / "data" / "source" / "source.xlsx"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_bytes(b"source")
+
+    inventory = list_branch_workspaces(tmp_path, context=_context())
+
+    marked = next(item for item in inventory if item["path"] == str(database.resolve()))
+    assert marked["origin"] == "launcher-marker"
+    assert marked["prunable"] is True
+    assert database.exists()
+    result = prune_branch_workspace(
+        tmp_path,
+        database=database,
+        context=_context(),
+    )
+    assert result["removed"] == [str(database.parent)]
+    assert not database.parent.exists()
+    assert unrelated.read_bytes() == b"source"
+
+
+def test_marked_workspace_prune_refuses_active_lock_and_missing_marker(
+    tmp_path: Path,
+) -> None:
+    active = _marked_database(tmp_path, "codex/stale", "active-workspace")
+    (active.parent / "workspace-active.json").write_text(
+        json.dumps({"pid": os.getpid()}),
+        encoding="utf-8",
+    )
+    missing_marker = _marked_database(
+        tmp_path,
+        "codex/stale",
+        "missing-marker-workspace",
+    )
+    (missing_marker.parent / "workspace-manifest.json").unlink()
+
+    with pytest.raises(WorkspacePruneRefused, match="active-server"):
+        prune_branch_workspace(tmp_path, database=active, context=_context())
+    with pytest.raises(WorkspacePruneRefused, match="marker"):
+        prune_branch_workspace(
+            tmp_path,
+            database=missing_marker,
+            context=_context(),
+        )
+
+    assert active.exists()
+    assert missing_marker.exists()
+
+
+def test_marked_workspace_prune_refuses_symlink_or_reparse_point(
+    tmp_path: Path,
+) -> None:
+    database = _marked_database(tmp_path, "codex/stale", "linked-workspace")
+    external = tmp_path / "external"
+    external.mkdir()
+    link = database.parent / "models" / "outside"
+    try:
+        link.symlink_to(external, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation is unavailable in this Windows session")
+
+    with pytest.raises(WorkspacePruneRefused, match="symlink/reparse"):
+        prune_branch_workspace(tmp_path, database=database, context=_context())
+
+    assert database.exists()
+    assert external.exists()

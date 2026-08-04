@@ -28,6 +28,9 @@ from decision_workbench.data.profiles.schema import (
     unit_conversion,
 )
 from decision_workbench.modeling.model_lifecycle import dataset_profile_digest
+from decision_workbench.bootstrap.dev_workspace_storage import (
+    validate_personal_or_dev_store,
+)
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 _PROFILE_SCHEMA_VERSION = "dataset-input-profile/v2"
@@ -67,13 +70,10 @@ def personal_profile_store_path() -> Path:
 def validate_personal_profile_store_path(path: Path | None = None) -> Path:
     """Reject a personal store inside the source checkout."""
 
-    store = (path or personal_profile_store_path()).expanduser().resolve()
-    if store == _REPOSITORY_ROOT or store.is_relative_to(_REPOSITORY_ROOT):
-        raise ValueError(
-            "Personal Profile store must be outside the repository. "
-            "Set WORKBENCH_PROFILE_STORE_PATH to a user-owned directory."
-        )
-    return store
+    return validate_personal_or_dev_store(
+        path or personal_profile_store_path(),
+        resource_kind="profile",
+    )
 
 
 def personal_profile_paths(path: Path | None = None) -> tuple[Path, ...]:

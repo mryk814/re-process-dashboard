@@ -74,12 +74,24 @@ export type ApiWorkspaceHealth = {
   ready: boolean;
   resources_loading_error: string | null;
   workspace: {
+    id: string | null;
+    checkout_identity: string | null;
+    root_path: string | null;
+    manifest_path: string | null;
     database_path: string;
     data_library_path: string;
+    profile_store_path: string;
+    task_store_path: string;
+    model_store_path: string | null;
+    bundled_assets_root: string;
     kind: string;
+    storage_scope: string;
+    cleanup_policy: string;
+    backup_target: string;
   };
   storage: {
     ready: boolean;
+    profile_store: ApiWorkspaceStorage;
     task_store: ApiWorkspaceStorage;
     model_store: ApiWorkspaceStorage;
     next_action: string;

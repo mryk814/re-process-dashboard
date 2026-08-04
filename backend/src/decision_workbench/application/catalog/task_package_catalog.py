@@ -25,6 +25,7 @@ from decision_workbench.contracts.subsystem_availability import (
 from decision_workbench.contracts.chain_contracts import ChainRevision
 from decision_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from decision_workbench.modeling.model_lifecycle import validate_lifecycle_metadata
+from decision_workbench.data.profile_workbench import personal_profile_store_path
 from decision_workbench.modeling.packages.contracts import PREDICTOR_RUNTIME_TYPES
 from decision_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from decision_workbench.persistence.store import Store
@@ -89,6 +90,32 @@ class TaskPackageCatalog:
             else None
         )
         task_store = _storage_status(self.state.task_store_path, "個人Task")
+        workspace_id = os.getenv("WORKBENCH_WORKSPACE_ID", "").strip() or None
+        workspace_root_value = os.getenv(
+            "WORKBENCH_DEV_WORKSPACE_ROOT", ""
+        ).strip()
+        workspace_root = (
+            Path(workspace_root_value).resolve()
+            if workspace_root_value
+            else None
+        )
+        manifest_value = os.getenv(
+            "WORKBENCH_DEV_WORKSPACE_MANIFEST", ""
+        ).strip()
+        manifest_path = Path(manifest_value).resolve() if manifest_value else None
+        checkout_identity = None
+        if manifest_path is not None:
+            try:
+                checkout_identity = json.loads(
+                    manifest_path.read_text(encoding="utf-8")
+                ).get("checkout_identity")
+            except (json.JSONDecodeError, OSError):
+                checkout_identity = None
+        profile_path = personal_profile_store_path()
+        profile_store = _storage_status(
+            profile_path,
+            "個人Profile",
+        )
         model_store = _storage_status(
             self.state.model_store_path,
             "個人Model / Package",
@@ -129,12 +156,54 @@ class TaskPackageCatalog:
                 item.model_dump(mode="json") for item in optional_subsystems
             ],
             "workspace": {
+                "id": workspace_id,
+                "checkout_identity": checkout_identity,
+                "root_path": (
+                    str(workspace_root)
+                    if workspace_root is not None
+                    else None
+                ),
+                "manifest_path": (
+                    str(manifest_path)
+                    if manifest_path is not None
+                    else None
+                ),
                 "database_path": str(self.state.workspace_database),
                 "data_library_path": str(self.state.data_library_root),
+                "profile_store_path": str(profile_path),
+                "task_store_path": str(self.state.task_store_path),
+                "model_store_path": (
+                    str(self.state.model_store_path)
+                    if self.state.model_store_path is not None
+                    else None
+                ),
+                "bundled_assets_root": str(
+                    Path(__file__).resolve().parents[5]
+                ),
                 "kind": self.state.workspace_kind,
+                "storage_scope": (
+                    "checkout-local sandbox"
+                    if self.state.workspace_kind == "branch-default"
+                    else "user-owned persistent storage"
+                ),
+                "cleanup_policy": (
+                    "workspace manifestを確認して明示的にprune"
+                    if self.state.workspace_kind == "branch-default"
+                    else "自動削除しない"
+                ),
+                "backup_target": (
+                    str(workspace_root)
+                    if workspace_root is not None
+                    else str(self.state.workspace_database)
+                ),
             },
             "storage": {
-                "ready": task_store["available"] and model_store["available"],
+                "ready": (
+                    profile_store["available"]
+                    and task_store["available"]
+                    and model_store["available"]
+                ),
+                "profile_store": profile_store,
                 "task_store": task_store,
                 "model_store": model_store,
                 "next_action": "保存先を確認してCSV onboardingへ戻ってください。",

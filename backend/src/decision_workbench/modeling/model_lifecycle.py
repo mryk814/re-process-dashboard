@@ -37,6 +37,9 @@ from decision_workbench.task_composition.catalog import (
     task_module,
 )
 from decision_workbench.task_composition.ports import DataDescriptor
+from decision_workbench.bootstrap.dev_workspace_storage import (
+    validate_personal_or_dev_store,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
@@ -68,12 +71,11 @@ def personal_model_store_path() -> Path:
 
 
 def validate_personal_model_store_path(store_root: Path) -> Path:
-    root = store_root.expanduser().resolve()
-    if root == REPOSITORY_ROOT or REPOSITORY_ROOT in root.parents:
-        raise PackageContractError(
-            "personal model store must be outside the repository"
-        )
-    return root
+    return validate_personal_or_dev_store(
+        store_root,
+        resource_kind="model",
+        error_type=PackageContractError,
+    )
 
 
 def ensure_available_packages_config(store_root: Path) -> Path:
