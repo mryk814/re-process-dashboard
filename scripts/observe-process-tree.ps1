@@ -7,7 +7,7 @@ param(
     [string]$OutputPath,
     [Parameter(Mandatory = $true)]
     [string]$StopPath,
-    [int]$PollMilliseconds = 2000
+    [int]$PollMilliseconds = 10000
 )
 
 $ErrorActionPreference = "Stop"

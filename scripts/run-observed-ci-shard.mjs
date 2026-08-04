@@ -73,6 +73,13 @@ export function finalRunnerObservation({
   };
 }
 
+export function withRunnerObservation(report, observation) {
+  return {
+    ...report,
+    runnerObservation: observation,
+  };
+}
+
 function option(args, name) {
   const index = args.indexOf(name);
   return index >= 0 ? args[index + 1] : undefined;
@@ -93,6 +100,7 @@ async function observeBackendShard(args) {
   mkdirSync(diagnosticsDirectory, { recursive: true });
   const heartbeatPath = resolve(diagnosticsDirectory, "runner-observation-heartbeat.json");
   const observationPath = resolve(diagnosticsDirectory, "runner-observation.json");
+  const shardReportPath = resolve(option(args, "--output"));
   const stopPath = resolve(diagnosticsDirectory, "runner-observation.stop");
   const stdoutPath = resolve(diagnosticsDirectory, "full-pytest.stdout.log");
   const child = spawn(
@@ -136,6 +144,14 @@ async function observeBackendShard(args) {
   });
   mkdirSync(dirname(observationPath), { recursive: true });
   writeFileSync(observationPath, `${JSON.stringify(observation, null, 2)}\n`, "utf8");
+  const shardReport = readJson(shardReportPath);
+  if (shardReport) {
+    writeFileSync(
+      shardReportPath,
+      `${JSON.stringify(withRunnerObservation(shardReport, observation), null, 2)}\n`,
+      "utf8",
+    );
+  }
   return result.code ?? 1;
 }
 

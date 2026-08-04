@@ -6,6 +6,7 @@ import {
   finalRunnerObservation,
   lastCompletedPytest,
   runnerObservationSchemaVersion,
+  withRunnerObservation,
 } from "./run-observed-ci-shard.mjs";
 
 
@@ -50,6 +51,10 @@ test("runner observation keeps the exact child exit, peak RSS, and last complete
   assert.equal(report.lastCompletedTest, "backend/tests/test_second.py::test_two");
   assert.equal(report.runnerIdentity.githubRunAttempt, "2");
   assert.equal(report.runnerIdentity.runnerOS, "Windows");
+  assert.deepEqual(
+    withRunnerObservation({ status: "passed" }, report),
+    { status: "passed", runnerObservation: report },
+  );
 });
 
 
@@ -64,5 +69,6 @@ test("workflow supervises shard execution and full pytest exposes test identity"
   assert.ok(fullPytest.runner.args.includes("-vv"));
   assert.match(observer, /peakTreeWorkingSetBytes/);
   assert.match(observer, /lastCompletedTest/);
+  assert.match(observer, /\[int\]\$PollMilliseconds = 10000/);
   assert.match(observer, /Move-Item .* -Force/);
 });
