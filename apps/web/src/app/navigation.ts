@@ -14,6 +14,7 @@ export const WORKBENCH_VIEWS = [
   "chain-graph",
   "chain-studio",
   "model-library",
+  "model-playground",
   "workspace",
   "quality",
   "lineage",
@@ -84,6 +85,8 @@ export type NavigationIntent = Readonly<{
   preparedProjectBinding?: PreparedProjectBinding;
   modelLibraryProject?: ModelLibraryProjectIntent;
   modelLibraryData?: ModelLibraryDataIntent;
+  modelPlaygroundRunId?: string;
+  modelPlaygroundTarget?: string;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -298,6 +301,12 @@ export function readNavigationIntent(
     preparedProjectBinding,
     modelLibraryProject,
     modelLibraryData,
+    modelPlaygroundRunId: normalizedView === "model-playground"
+      ? params.get("model_run") || undefined
+      : undefined,
+    modelPlaygroundTarget: normalizedView === "model-playground"
+      ? params.get("model_target") || undefined
+      : undefined,
   });
 }
 
@@ -348,6 +357,12 @@ export function navigationUrl(intent: NavigationIntent): string {
   }
   if ((intent.view === "data-library" || intent.view === "model-library") && intent.modelLibraryData?.packageReferenceId) {
     params.set("focus_package", intent.modelLibraryData.packageReferenceId);
+  }
+  if (intent.view === "model-playground" && intent.modelPlaygroundRunId) {
+    params.set("model_run", intent.modelPlaygroundRunId);
+  }
+  if (intent.view === "model-playground" && intent.modelPlaygroundTarget) {
+    params.set("model_target", intent.modelPlaygroundTarget);
   }
   if (
     (intent.view === "data-library" || intent.view === "profile-workbench")
@@ -457,5 +472,7 @@ export function withView(
     preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
     modelLibraryProject: view === "project" ? current.modelLibraryProject : undefined,
     modelLibraryData: view === "data-library" || view === "model-library" ? current.modelLibraryData : undefined,
+    modelPlaygroundRunId: view === "model-playground" ? current.modelPlaygroundRunId : undefined,
+    modelPlaygroundTarget: view === "model-playground" ? current.modelPlaygroundTarget : undefined,
   });
 }

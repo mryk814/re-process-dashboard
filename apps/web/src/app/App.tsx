@@ -17,6 +17,7 @@ import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality"
 import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage, type PreparedCsvProjectBinding } from "../features/data-library";
 import { ModelLibraryPage } from "../features/model-library";
+import { ModelPlaygroundPage } from "../features/model-playground";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
@@ -377,7 +378,7 @@ function App() {
       || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
-  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio" || tab === "model-library";
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio" || tab === "model-library" || tab === "model-playground";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -601,10 +602,10 @@ function App() {
           </button>
           <button
             type="button"
-            className={tab === "model-library" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
+            className={tab === "model-library" || tab === "model-playground" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
             aria-label="Model Library"
             data-short-label="Model"
-            aria-current={tab === "model-library" || tab === "chain-studio" ? "page" : undefined}
+            aria-current={tab === "model-library" || tab === "model-playground" || tab === "chain-studio" ? "page" : undefined}
             onClick={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
           >
             <HomeNavIcon icon="model" />
@@ -817,6 +818,16 @@ function App() {
             });
           }}
           onStartProject={startProjectFromModelLibrary}
+        />}
+        {tab === "model-playground" && <ModelPlaygroundPage
+          state={{ kind: "loading" }}
+          selectedTarget={navigation.modelPlaygroundTarget}
+          onBack={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
+          onTargetChange={(modelPlaygroundTarget) => navigate({
+            view: "model-playground",
+            modelPlaygroundRunId: navigation.modelPlaygroundRunId,
+            modelPlaygroundTarget,
+          }, true)}
         />}
         {tab === "profile-workbench" && <ProfileWorkbenchPage
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
