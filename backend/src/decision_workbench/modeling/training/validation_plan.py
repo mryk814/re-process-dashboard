@@ -23,6 +23,11 @@ ValidationStrategy = Literal[
 ]
 
 
+class FixedGroupFoldAssignment(ContractModel):
+    group_key: Annotated[str, Field(min_length=1)]
+    fold: Annotated[int, Field(ge=0, le=19)]
+
+
 class ValidationRowRole(str, Enum):
     MODEL_TRAIN = "model_train"
     CALIBRATION = "calibration"
@@ -58,6 +63,8 @@ class ValidationPlan(ContractModel):
     gap: Annotated[int, Field(ge=0)] = 0
     minimum_train_size: Annotated[int, Field(ge=2)] = 2
     class_balance_policy: Literal["require_each_training_fold"] | None = None
+    fixed_group_assignments: tuple[FixedGroupFoldAssignment, ...] = ()
+    fixed_assignment_source_digest: str | None = None
 
     @model_validator(mode="after")
     def strategy_fields_match(self) -> "ValidationPlan":
@@ -92,6 +99,30 @@ class ValidationPlan(ContractModel):
             )
         if not temporal and (self.gap != 0 or self.minimum_train_size != 2):
             raise ValueError("gap and minimum_train_size belong to temporal plans")
+        if bool(self.fixed_group_assignments) != bool(
+            self.fixed_assignment_source_digest
+        ):
+            raise ValueError(
+                "fixed fold assignments require one source identity"
+            )
+        if self.fixed_group_assignments:
+            if self.strategy not in {
+                "grouped_kfold",
+                "stratified_grouped_kfold",
+            }:
+                raise ValueError(
+                    "fixed group assignments require grouped k-fold validation"
+                )
+            assert self.folds is not None
+            groups = [item.group_key for item in self.fixed_group_assignments]
+            if len(groups) != len(set(groups)):
+                raise ValueError("fixed validation groups must be unique")
+            if any(item.fold >= self.folds for item in self.fixed_group_assignments):
+                raise ValueError("fixed validation fold is outside the plan")
+            if {
+                item.fold for item in self.fixed_group_assignments
+            } != set(range(self.folds)):
+                raise ValueError("fixed validation assignments must cover every fold")
         return self
 
 
@@ -153,6 +184,27 @@ def _kfold_assignment(
     plan: ValidationPlan,
 ) -> tuple[tuple[tuple[str, int], ...], np.ndarray, int]:
     assert plan.folds is not None
+    if plan.fixed_group_assignments:
+        unique_groups = set(keys)
+        assignments = tuple(
+            (item.group_key, item.fold)
+            for item in plan.fixed_group_assignments
+        )
+        assigned_groups = {item[0] for item in assignments}
+        if assigned_groups != unique_groups:
+            missing = sorted(unique_groups - assigned_groups)
+            extra = sorted(assigned_groups - unique_groups)
+            raise ValueError(
+                f"{target}: fixed validation groups disagree with the cohort; "
+                f"missing={missing}, extra={extra}"
+            )
+        folds = plan.folds
+        by_key = dict(assignments)
+        fold_ids = np.asarray([by_key[key] for key in keys], dtype=int)
+        if plan.strategy == "stratified_grouped_kfold":
+            _require_binary(target, labels)
+            _assert_training_classes(target, labels, fold_ids, folds)
+        return tuple(sorted(assignments)), fold_ids, folds
     if plan.strategy in {"kfold", "stratified_kfold"}:
         assignment_keys = list(keys)
         if len(set(assignment_keys)) != len(assignment_keys):

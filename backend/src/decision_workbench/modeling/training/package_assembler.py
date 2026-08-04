@@ -24,6 +24,9 @@ from decision_workbench.modeling.model_lifecycle import (
     task_input_contract_digest,
 )
 from decision_workbench.modeling.model_package_verify import verify_model_package
+from decision_workbench.modeling.packages.contracts import (
+    SourceLifecycleProvenance,
+)
 from decision_workbench.modeling.training.estimators import estimator_implementation
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
@@ -293,6 +296,7 @@ def _build(
     package_version: str,
     positive_targets: frozenset[str],
     feature_recipe: FeatureRecipe | None,
+    source_lifecycle: SourceLifecycleProvenance | None,
 ) -> None:
     canonical_paths = tuple(
         field.path
@@ -786,6 +790,15 @@ def _build(
                 f"standard-model-training/v1:{recipe.estimator_id}"
             ),
             "dataset_profile_id": canonical["dataset_profile_digest"],
+            **(
+                {
+                    "source_lifecycle": source_lifecycle.model_dump(
+                        mode="json"
+                    )
+                }
+                if source_lifecycle is not None
+                else {}
+            ),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -811,6 +824,7 @@ def build_standard_model_package(
     replace: bool,
     positive_targets: frozenset[str] = frozenset(),
     feature_recipe: FeatureRecipe | None = None,
+    source_lifecycle: SourceLifecycleProvenance | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
         _build(
@@ -824,6 +838,7 @@ def build_standard_model_package(
             package_version=package_version,
             positive_targets=positive_targets,
             feature_recipe=feature_recipe,
+            source_lifecycle=source_lifecycle,
         )
         verify_model_package(
             staging,

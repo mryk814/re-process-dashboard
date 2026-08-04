@@ -172,6 +172,7 @@ def promote_personal_package(
     *,
     profile: Path | None = None,
     task_store: Path,
+    link_task_bundle: bool = True,
 ) -> dict[str, Any]:
     validated_task_store = validate_personal_task_store_path(task_store)
     package = package.resolve(strict=True)
@@ -194,7 +195,11 @@ def promote_personal_package(
         promoted = True
     report = verify_model_package(destination, task_id=task_id, source=source, profile=profile)
     available = register_available_package(destination, config_path=available_config)
-    link_promoted_package(task_id, destination, store=validated_task_store)
+    task_bundle_linked = (
+        link_promoted_package(task_id, destination, store=validated_task_store)
+        if link_task_bundle
+        else False
+    )
     return {
         "task_id": task_id,
         "promoted": promoted,
@@ -204,6 +209,7 @@ def promote_personal_package(
         "restart_required": False,
         "available_package": destination.relative_to(available_config.parent).as_posix(),
         "available_package_count": len(available.packages),
+        "task_bundle_linked": task_bundle_linked,
     }
 
 

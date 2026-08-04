@@ -27,6 +27,10 @@ from decision_workbench.persistence.workspace_catalog import (
     CatalogConflictError,
     WorkspaceCatalog,
 )
+from decision_workbench.persistence.data_lifecycle_repository import (
+    DataLifecycleRepository,
+    LifecycleResourceNotFoundError,
+)
 from decision_workbench.persistence.sqlite_connection import sqlite_connection
 from decision_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
@@ -293,6 +297,7 @@ def register_available_packages(
         if (asset := catalog.get_data_asset(dataset.data_asset_id)) is not None
         and (profile := catalog.get_profile_revision(dataset.profile_revision_id)) is not None
     }
+    lifecycle_repository = DataLifecycleRepository(catalog.path)
     registered = 0
     for reference in references:
         try:
@@ -309,9 +314,42 @@ def register_available_packages(
             package = ModelPackageLoader().load(package_root)
             training_id = package.manifest.provenance.training_data_id
             profile_id = package.manifest.provenance.dataset_profile_id
-            if not training_id.startswith("sha256:") or (
-                training_id.removeprefix("sha256:"), profile_id
-            ) not in available_training:
+            lifecycle = package.manifest.provenance.source_lifecycle
+            lifecycle_available = False
+            if lifecycle is not None:
+                try:
+                    snapshot = lifecycle_repository.get_training_snapshot(
+                        lifecycle.training_snapshot_id
+                    )
+                    revision = lifecycle_repository.get_canonical_revision(
+                        lifecycle.canonical_dataset_revision_id
+                    )
+                except LifecycleResourceNotFoundError:
+                    lifecycle_available = False
+                else:
+                    profile = catalog.get_profile_revision(
+                        lifecycle.profile_revision_id,
+                        include_archived=True,
+                    )
+                    lifecycle_available = (
+                        snapshot.snapshot_digest
+                        == lifecycle.training_snapshot_digest
+                        and snapshot.canonical_dataset_revision_id
+                        == lifecycle.canonical_dataset_revision_id
+                        and revision.dataset_digest
+                        == lifecycle.canonical_dataset_digest
+                        and profile is not None
+                        and profile.profile_digest == lifecycle.profile_digest
+                    )
+            if (
+                not training_id.startswith("sha256:")
+                or (
+                    training_id.removeprefix("sha256:"),
+                    profile_id,
+                )
+                not in available_training
+                and not lifecycle_available
+            ):
                 continue
             if package.manifest.task_id not in registry.task_ids:
                 raise WorkspaceCatalogBootstrapError(

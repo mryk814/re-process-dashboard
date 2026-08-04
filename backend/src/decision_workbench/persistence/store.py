@@ -41,6 +41,12 @@ from decision_workbench.persistence.evidence_repository import EvidenceRepositor
 from decision_workbench.persistence.lineage_review_migration import (
     migrate_lineage_reviews,
 )
+from decision_workbench.persistence.model_playground_migration import (
+    migrate_model_exploration_runs,
+)
+from decision_workbench.persistence.model_playground_repository import (
+    ModelExplorationRepository,
+)
 from decision_workbench.persistence.project_design_space_migration import (
     migrate_project_design_spaces,
 )
@@ -106,6 +112,7 @@ from decision_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJEC
 
 class Store(
     WorkbenchUnitOfWork,
+    ModelExplorationRepository,
     ChainRepository,
     PredictionGraphDraftRepository,
     ProjectRepository,
@@ -155,6 +162,7 @@ class Store(
         migrate_data_lifecycle_payloads(self.path)
         migrate_data_lifecycle_summaries(self.path)
         migrate_training_snapshot_selection_audit(self.path)
+        migrate_model_exploration_runs(self.path)
         install_project_archive_write_guards(self.path)
         validate_sqlite_foreign_keys(self.path)
 

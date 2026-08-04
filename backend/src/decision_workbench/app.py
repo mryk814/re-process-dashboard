@@ -33,6 +33,7 @@ from decision_workbench.api.errors import (
 )
 from decision_workbench.api.inference import router as inference_router
 from decision_workbench.api.model_library import router as model_library_router
+from decision_workbench.api.model_playground import router as model_playground_router
 from decision_workbench.api.profile_workbench import (
     router as profile_workbench_router,
 )
@@ -142,6 +143,7 @@ def create_app(
     app.include_router(catalog_router)
     app.include_router(data_library_router)
     app.include_router(model_library_router)
+    app.include_router(model_playground_router)
     app.include_router(csv_task_onboarding_router)
     app.include_router(sample_gallery_router)
     app.include_router(data_lifecycle_router)
