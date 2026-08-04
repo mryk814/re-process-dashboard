@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdirSync,
+  existsSync,
   readFileSync,
   realpathSync,
   writeFileSync,
@@ -107,7 +108,29 @@ function manifestPayload(workspace) {
 
 export function materializeDevWorkspace(workspace) {
   if (workspace.source !== "branch-default" || !workspace.workspaceRoot) return;
-  mkdirSync(workspace.workspaceRoot, { recursive: true });
+  const expected = `${JSON.stringify(workspace.manifest, null, 2)}\n`;
+  if (existsSync(workspace.workspaceRoot)) {
+    let current;
+    try {
+      current = readFileSync(workspace.workspaceManifestPath, "utf8");
+    } catch (error) {
+      throw new Error(
+        `既存の開発Workspaceにlauncher markerがありません: ${workspace.workspaceRoot}`,
+        { cause: error },
+      );
+    }
+    if (current !== expected) {
+      throw new Error(
+        `既存の開発Workspace markerが現在のidentityと一致しません: ${workspace.workspaceManifestPath}`,
+      );
+    }
+  } else {
+    mkdirSync(workspace.workspaceRoot, { recursive: true });
+    writeFileSync(workspace.workspaceManifestPath, expected, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+  }
   for (const resource of [
     workspace.dataLibrary,
     workspace.personalProfileStore,
@@ -116,18 +139,6 @@ export function materializeDevWorkspace(workspace) {
   ]) {
     mkdirSync(resource, { recursive: true });
   }
-  const expected = `${JSON.stringify(workspace.manifest, null, 2)}\n`;
-  if (workspace.workspaceManifestPath && (() => {
-    try {
-      return readFileSync(workspace.workspaceManifestPath, "utf8") === expected;
-    } catch {
-      return false;
-    }
-  })()) return;
-  writeFileSync(workspace.workspaceManifestPath, expected, {
-    encoding: "utf8",
-    flag: "w",
-  });
 }
 
 export function resolveDevWorkspace({ mainWorkspace = false } = {}) {
