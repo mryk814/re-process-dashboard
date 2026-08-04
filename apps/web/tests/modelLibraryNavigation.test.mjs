@@ -164,6 +164,24 @@ test("describes quantile Package semantics without implying normal uncertainty",
   );
 });
 
+test("describes Student-t Package tails without weakening Data Quality", async () => {
+  const { packagePredictiveMeaning } = await import("../src/shared/modelLibrary.ts");
+  assert.equal(
+    packagePredictiveMeaning([{
+      runtime_type: "numpyro.dense_posterior.v1",
+      predictive_family: "student_t",
+    }]),
+    "Student-t heavy-tail likelihood · 妥当な大残差の影響を抑えるmodelであり、入力ミスや単位不整合を許容しません · dfは2.1–30に制約したposterior · q05–q95は新観測の事後予測区間（潜在平均の信用区間ではありません）",
+  );
+  assert.equal(
+    packagePredictiveMeaning([{
+      runtime_type: "numpyro.dense_posterior.v1",
+      predictive_family: "normal",
+    }]),
+    null,
+  );
+});
+
 test("a new Graph draft keeps the published Decision Output evidence boundary", async () => {
   const { draftDefinitionFromCatalog } = await import("../src/shared/modelLibrary.ts");
   const definition = {

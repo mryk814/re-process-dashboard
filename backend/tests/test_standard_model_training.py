@@ -13,6 +13,9 @@ from pydantic import ValidationError
 
 from decision_workbench.modeling.model_lifecycle import canonical_training_dataset
 from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.contracts.sampling_identity_contracts import (
+    SamplingRequest,
+)
 from decision_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.training.estimators import exact_gp
@@ -900,6 +903,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
             "exact-gp-rbf.v1",
             "bayesian-additive-spline.v1",
             "quantile-linear-regression.v1",
+            "student-t-linear-regression.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -909,6 +913,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
             "exact-gp-rbf.v1",
             "bayesian-additive-spline.v1",
             "quantile-linear-regression.v1",
+            "student-t-linear-regression.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -1256,6 +1261,83 @@ def test_model_workflow_builds_bayesian_additive_with_typed_intervals(
         point["latent_mean_credible_interval"]["estimand"] == "latent_mean"
         for point in curve["points"]
     )
+
+
+def test_model_workflow_builds_verified_student_t_posterior_package(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("numpyro")
+    package = tmp_path / "heat-treatment-student-t"
+    dataset_path = tmp_path / "heat-treatment-feature-dataset.json"
+    result = build_package(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        package,
+        dataset_path,
+        package_id="heat-treatment-student-t-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="student-t-linear-regression.v1",
+        estimator_options={
+            "folds": 3,
+            "inference_preset": "standard-evidence",
+            "seed": 793,
+        },
+    )
+
+    loaded = ModelPackageLoader().load(package)
+    assert result["package"]["task_id"] == "heat-treatment-tradeoff-v1"
+    assert {
+        predictor.runtime_type for predictor in loaded.manifest.predictors
+    } == {"numpyro.dense_posterior.v1"}
+    assert {
+        predictor.predictive_family for predictor in loaded.manifest.predictors
+    } == {"student_t"}
+    assert all(
+        predictor.inference_identity is not None
+        and predictor.inference_identity.algorithm_id == "nuts"
+        and predictor.inference_identity.diagnostics.status == "passed"
+        and predictor.inference_identity.fallback_policy
+        == "forbid_implicit_switch"
+        for predictor in loaded.manifest.predictors
+    )
+    quality = json.loads(
+        (package / "reports" / "quality-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert all(
+        target["interval_coverage_method"]
+        == "posterior-predictive-interval"
+        and target["mean_log_predictive_density"] is not None
+        and target["median_absolute_error"] is not None
+        and target["extreme_residual_mae"] is not None
+        for target in quality["targets"]
+    )
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    features = dataset["rows"][0]["features"]
+    for predictor_spec in loaded.manifest.predictors:
+        predictor = loaded.load_predictor(predictor_spec.id)
+        summary = predictor.predict(
+            {
+                name: float(features[name])
+                for name in predictor_spec.feature_names
+            },
+            sampling_request=SamplingRequest.for_package_verification(
+                seed=17,
+                posterior_draw_count=predictor.draws,
+            ),
+        )
+        assert summary.point_statistic == "mean"
+        assert summary.distribution["family"] == "student_t"
+        assert summary.distribution["std"] > 0
+        assert summary.prediction_interval is not None
+        assert summary.prediction_interval.method == "bayesian"
+        assert summary.sampling_identity is not None
+        assert (
+            summary.sampling_identity.model_inference_identity_digest
+            == predictor_spec.inference_identity.identity_digest
+        )
 
 
 def test_model_workflow_builds_verified_quantile_linear_package(

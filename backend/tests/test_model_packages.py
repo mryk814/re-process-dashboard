@@ -85,7 +85,14 @@ def _npy_bytes(values: np.ndarray) -> bytes:
     return output.getvalue()
 
 
-def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: str = "continuous", output_width: int = 1) -> Path:
+def _write_package(
+    tmp_path: Path,
+    *,
+    family: str = "student_t",
+    target_kind: str = "continuous",
+    output_width: int = 1,
+    mixture_moments: bool = False,
+) -> Path:
     root = tmp_path / family
     (root / "feature-pipeline").mkdir(parents=True)
     (root / "model-artifacts").mkdir()
@@ -115,6 +122,10 @@ def _write_package(tmp_path: Path, *, family: str = "student_t", target_kind: st
     model = root / "model-artifacts" / "posterior.npz"
     np.savez(model, **arrays)
     config: dict[str, object] = {"activation": "tanh"}
+    if mixture_moments:
+        config["predictive_moment_semantics"] = (
+            "posterior-mixture-location-mean-total-std/v1"
+        )
     if family == "ordinal_logit":
         config["thresholds"] = [-0.5, 0.7]
         config["categories"] = ["low", "middle", "high"]
@@ -190,12 +201,91 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
     )
     if family == "bernoulli_logit":
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
+    if family == "student_t":
+        assert "std" not in first.distribution
+    if family == "normal":
+        locations = (
+            np.linspace(0.1, 0.4, 12) * 0.1
+            + np.linspace(-0.2, 0.2, 12)
+        )
+        expected_samples = (
+            locations
+            + 0.3 * np.random.default_rng(19).standard_normal(12)
+        )
+        assert first.point_estimate == pytest.approx(
+            float(np.mean(expected_samples))
+        )
+        assert "std" not in first.distribution
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:
         assert first.point_estimate >= 0 and first.quantiles["0.05"] >= 0
     if target_kind in {"count", "ordinal"}:
         assert all(float(value).is_integer() for value in first.quantiles.values())
     if family == "ordinal_logit":
         assert 0 <= first.point_estimate <= 2
+
+
+def test_student_t_mixture_moments_are_an_explicit_package_semantic(
+    tmp_path: Path,
+) -> None:
+    package = ModelPackageLoader().load(
+        _write_package(tmp_path, mixture_moments=True)
+    )
+    predictor = package.load_predictor("target")
+    result = predictor.predict(
+        {"C": 0.1, "Mn": 1.4},
+        sampling_request=_numpyro_request(predictor, seed=19),
+    )
+    locations = (
+        np.linspace(0.1, 0.4, 12) * 0.1
+        + np.linspace(-0.2, 0.2, 12)
+    )
+    expected_std = np.sqrt(
+        0.3**2 * 6.0 / (6.0 - 2.0)
+        + np.var(locations)
+    )
+
+    assert result.point_estimate == pytest.approx(float(np.mean(locations)))
+    assert result.distribution["std"] == pytest.approx(expected_std)
+
+
+@pytest.mark.parametrize(
+    ("family", "field"),
+    [
+        ("student_t", "obs_scale"),
+        ("student_t", "df"),
+        ("negative_binomial_log", "dispersion"),
+    ],
+)
+def test_numpyro_adapter_rejects_nonfinite_distribution_parameters(
+    tmp_path: Path,
+    family: str,
+    field: str,
+) -> None:
+    root = _write_package(
+        tmp_path,
+        family=family,
+        target_kind="count" if family == "negative_binomial_log" else "continuous",
+    )
+    artifact = root / "model-artifacts" / "posterior.npz"
+    with np.load(artifact, allow_pickle=False) as current:
+        arrays = {name: current[name] for name in current.files}
+    arrays[field][0] = np.nan
+    np.savez(artifact, **arrays)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(
+        item
+        for item in manifest["artifacts"]
+        if item["path"] == "model-artifacts/posterior.npz"
+    )
+    entry.update(
+        sha256=hashlib.sha256(artifact.read_bytes()).hexdigest(),
+        bytes=artifact.stat().st_size,
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(PackageContractError, match="finite"):
+        ModelPackageLoader().load(root).load_predictor("target")
 
 
 @pytest.mark.parametrize(

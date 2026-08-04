@@ -168,6 +168,18 @@ class TargetQualityMetric(LifecycleModel):
     parent_conditions: Annotated[int, Field(ge=2)]
     mae: Annotated[float, Field(ge=0, allow_inf_nan=False)]
     rmse: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    median_absolute_error: Annotated[
+        float,
+        Field(ge=0, allow_inf_nan=False),
+    ] | None = None
+    mean_log_predictive_density: Annotated[
+        float,
+        Field(allow_inf_nan=False),
+    ] | None = None
+    extreme_residual_mae: Annotated[
+        float,
+        Field(ge=0, allow_inf_nan=False),
+    ] | None = None
     interval_coverage_90: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
     interval_coverage_method: Literal[
         "cross-fitted-oof-residual-quantiles",

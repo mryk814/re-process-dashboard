@@ -29074,6 +29074,16 @@
       "StandardEstimatorEntry": {
         "additionalProperties": false,
         "properties": {
+          "adoption_status": {
+            "default": "production",
+            "enum": [
+              "production",
+              "experimental",
+              "no_adopt"
+            ],
+            "title": "Adoption Status",
+            "type": "string"
+          },
           "artifact_format": {
             "anyOf": [
               {

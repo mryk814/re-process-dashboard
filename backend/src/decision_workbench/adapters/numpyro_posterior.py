@@ -146,8 +146,41 @@ class _DensePosteriorPredictor:
             samples, family = self._continuous_samples(output, rng, draw_indices)
             quantiles = quantile_summary(samples)
             statistic = "median" if family == "lognormal" else "mean"
-            point = float(np.median(samples) if statistic == "median" else np.mean(samples))
-            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"}, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
+            mixture_moments = (
+                family == "student_t"
+                and self.spec.config.get("predictive_moment_semantics")
+                == "posterior-mixture-location-mean-total-std/v1"
+            )
+            point = float(
+                np.median(samples)
+                if statistic == "median"
+                else (
+                    np.mean(output[:, 0])
+                    if mixture_moments
+                    else np.mean(samples)
+                )
+            )
+            distribution: dict[str, object] = {
+                "family": family,
+                "support": "positive" if family == "lognormal" else "real",
+            }
+            if mixture_moments:
+                location = output[:, 0]
+                scale = self._scale("obs_scale", 1.0, draw_indices)
+                degrees_of_freedom = self._scale("df", 5.0, draw_indices)
+                component_variance = (
+                    scale**2
+                    * degrees_of_freedom
+                    / (degrees_of_freedom - 2.0)
+                )
+                predictive_variance = float(
+                    np.mean(component_variance + location**2)
+                    - np.mean(location) ** 2
+                )
+                distribution["std"] = float(
+                    np.sqrt(max(0.0, predictive_variance))
+                )
+            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution=distribution, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
         if family == "bernoulli_logit":
             probabilities = _sigmoid(output[:, 0])
             probability = float(np.mean(probabilities))
@@ -237,10 +270,15 @@ class NumpyroDensePosteriorAdapter:
         if output_width != expected_width:
             raise PackageContractError(f"{predictor.predictive_family} requires output width {expected_width}")
         for name in ("obs_scale", "dispersion"):
+            if name in extras and not np.isfinite(extras[name]).all():
+                raise PackageContractError(f"{name} must be finite")
             if name in extras and np.any(extras[name] <= 0):
                 raise PackageContractError(f"{name} must be positive")
-        if "df" in extras and np.any(extras["df"] <= 2):
-            raise PackageContractError("student_t df must be greater than 2")
+        if "df" in extras:
+            if not np.isfinite(extras["df"]).all():
+                raise PackageContractError("student_t df must be finite")
+            if np.any(extras["df"] <= 2):
+                raise PackageContractError("student_t df must be greater than 2")
         if predictor.predictive_family == "ordinal_logit":
             thresholds = predictor.config.get("thresholds")
             categories = predictor.config.get("categories")

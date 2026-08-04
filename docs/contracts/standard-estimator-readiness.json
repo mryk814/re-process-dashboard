@@ -9,6 +9,7 @@
         "continuous"
       ],
       "role": "interpretable_baseline",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "builtin.linear.v1",
@@ -56,6 +57,7 @@
         "continuous"
       ],
       "role": "nonlinear_candidate",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "builtin.exact_gp.v1",
@@ -106,6 +108,7 @@
         "continuous"
       ],
       "role": "interpretable_nonlinear_candidate",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "builtin.additive_terms.v1",
@@ -172,6 +175,7 @@
         "continuous"
       ],
       "role": "distribution_candidate",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "builtin.quantile_linear.v1",
@@ -227,12 +231,81 @@
       ]
     },
     {
+      "estimator_id": "student-t-linear-regression.v1",
+      "label": "Robust Student-t linear regression",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "distribution_candidate",
+      "adoption_status": "production",
+      "builder_status": "standard_builder",
+      "runtime_status": "ready",
+      "runtime_type": "numpyro.dense_posterior.v1",
+      "artifact_status": "ready",
+      "artifact_format": "bounded-npz",
+      "required_dependency": "numpyro",
+      "limits": {
+        "min_rows": 6,
+        "max_rows": 5000,
+        "min_independent_groups": 4,
+        "max_features": 64,
+        "max_smooth_terms": null,
+        "max_basis_columns": null,
+        "max_categorical_levels": null
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "standard_deviation",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "median_absolute_error",
+        "mean_log_predictive_density",
+        "interval_coverage_90",
+        "mean_interval_width",
+        "extreme_residual_mae",
+        "posterior_convergence"
+      ],
+      "fixed_parameters": {
+        "inference_preset": "standard-evidence",
+        "df_policy": "bounded-beta-2-5-on-2p1-30",
+        "coefficient_prior_scale": 1.0,
+        "intercept_prior_scale": 2.0,
+        "observation_scale_prior": "half-normal-1",
+        "target_accept_probability": 0.9,
+        "folds": 5,
+        "seed": 20260730
+      },
+      "training_cost": "high",
+      "known_limitations": [
+        "Student-t likelihood does not accept or repair unit mismatches, impossible values, parsing errors, duplicate identity conflicts, or input mistakes; those remain Data Quality failures.",
+        "The location function is linear; heavy tails do not repair missing nonlinear structure.",
+        "Degrees of freedom are conditional on the fixed bounded 2.1 to 30 policy and are not an unrestricted tail search.",
+        "q05-q95 is a posterior predictive interval for a new observation, not a latent-mean credible interval or a coverage guarantee.",
+        "Target posteriors are fitted separately and do not provide cross-target joint samples.",
+        "Posterior draws remain inside the safe Package/runtime; raw samples and decomposed uncertainty components are not exposed.",
+        "Production adoption means explicit availability as a distribution candidate; it is not an automatic winner over Ridge."
+      ]
+    },
+    {
       "estimator_id": "numpyro-lognormal-external.v1",
       "label": "Verified lognormal Package",
       "target_kinds": [
         "continuous_positive"
       ],
       "role": "specialized_path",
+      "adoption_status": "production",
       "builder_status": "external_verified_package_only",
       "runtime_status": "ready",
       "runtime_type": "numpyro.dense_posterior.v1",
@@ -277,6 +350,7 @@
         "continuous"
       ],
       "role": "nonlinear_candidate",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "lightgbm.booster.v1",
@@ -326,6 +400,7 @@
         "binary"
       ],
       "role": "interpretable_baseline",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "sklearn.skops.v1",
@@ -377,6 +452,7 @@
         "binary"
       ],
       "role": "nonlinear_candidate",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "lightgbm.booster.v1",
@@ -426,6 +502,7 @@
         "count"
       ],
       "role": "interpretable_baseline",
+      "adoption_status": "production",
       "builder_status": "standard_builder",
       "runtime_status": "ready",
       "runtime_type": "sklearn.skops.v1",
@@ -475,6 +552,7 @@
         "ordinal"
       ],
       "role": "specialized_path",
+      "adoption_status": "production",
       "builder_status": "external_verified_package_only",
       "runtime_status": "ready",
       "runtime_type": "numpyro.dense_posterior.v1",

@@ -101,6 +101,30 @@ def test_standard_predictor_projects_actual_capability_instead_of_active_package
     assert projected_quantile.standard_deviation is False
     assert projected_quantile.parametric_distribution is False
 
+    student_t_predictor = _manifest().predictors[3].model_copy(
+        update={
+            "runtime_type": "numpyro.dense_posterior.v1",
+            "architecture_id": "dense_mlp_v1",
+            "predictive_family": "student_t",
+            "config": {
+                "training": {
+                    "estimator_id": "student-t-linear-regression.v1",
+                },
+            },
+        }
+    )
+    projected_student_t = standard_predictor_capability(
+        student_t_predictor,
+        active_gp_capability,
+    )
+    assert projected_student_t.point_statistics == ("mean",)
+    assert projected_student_t.standard_deviation is True
+    assert projected_student_t.quantiles is True
+    assert projected_student_t.samples is False
+    assert projected_student_t.parametric_distribution is True
+    assert projected_student_t.uncertainty_components is False
+    assert projected_student_t.goal_probability == "unavailable"
+
 
 def test_standard_predictor_rejects_unknown_recipe_metadata() -> None:
     predictor = _manifest().predictors[0].model_copy(

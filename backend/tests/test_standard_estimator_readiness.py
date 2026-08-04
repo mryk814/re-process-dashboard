@@ -88,6 +88,28 @@ def test_catalog_covers_production_target_kinds_and_safe_artifacts() -> None:
         "quantile_crossing_count",
     }.issubset(quantile.quality_metrics)
     assert any("not a normal" in item for item in quantile.known_limitations)
+    student_t = next(
+        entry
+        for entry in catalog.entries
+        if entry.estimator_id == "student-t-linear-regression.v1"
+    )
+    assert student_t.runtime_type == "numpyro.dense_posterior.v1"
+    assert student_t.artifact_format == "bounded-npz"
+    assert student_t.required_dependency == "numpyro"
+    assert student_t.adoption_status == "production"
+    assert student_t.fixed_parameters["df_policy"] == (
+        "bounded-beta-2-5-on-2p1-30"
+    )
+    assert {
+        "mean_log_predictive_density",
+        "interval_coverage_90",
+        "mean_interval_width",
+        "posterior_convergence",
+    }.issubset(student_t.quality_metrics)
+    assert any(
+        "Data Quality failures" in item
+        for item in student_t.known_limitations
+    )
 
 
 def test_shipped_catalog_entries_are_derived_from_the_recipe_and_trainer_registries() -> None:
