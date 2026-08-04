@@ -858,6 +858,11 @@ class ModelPlaygroundUseCases:
             inference_identity, inference_reason = _inference_identity(
                 entry.estimator_id
             )
+            adoption_status = getattr(
+                entry,
+                "adoption_status",
+                "production",
+            )
             selections.append(
                 ModelExplorationRecipeSelection(
                     recipe_id=entry.estimator_id,
@@ -871,7 +876,7 @@ class ModelPlaygroundUseCases:
                     ),
                     label=entry.label,
                     lifecycle=(
-                        "production"
+                        adoption_status
                         if status == "ready"
                         else (
                             "specialized"
