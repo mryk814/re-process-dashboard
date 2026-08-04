@@ -35,12 +35,12 @@ normal residual fixtureではStudent-tのMAE lossを35%以内とする反証条�
 bundled `heat-treatment-tradeoff-v1`を3-fold・同一cohortで比較した。
 自動winner selectionは行っていない。
 
-| target | recipe | OOF MAE | OOF RMSE | q05–q95 coverage |
-| --- | --- | ---: | ---: | ---: |
-| hardness_hv | Ridge | 19.3157 | 23.9257 | 90.29% |
-| hardness_hv | Student-t | 19.3236 | 23.9312 | 90.33% |
-| charpy_j | Ridge | 6.8562 | 8.6102 | 90.46% |
-| charpy_j | Student-t | 6.8604 | 8.6135 | 89.96% |
+| target | recipe | OOF MAE | OOF RMSE | mean log predictive density | q05–q95 coverage | mean width |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| hardness_hv | Ridge | 19.3157 | 23.9257 | — | 90.29% | — |
+| hardness_hv | Student-t | 19.3236 | 23.9312 | -4.5976 | 90.33% | 78.7995 |
+| charpy_j | Ridge | 6.8562 | 8.6102 | — | 90.46% | — |
+| charpy_j | Student-t | 6.8604 | 8.6135 | -3.5745 | 89.96% | 28.2143 |
 
 実Taskでのclean-data efficiency lossはMAEで0.04〜0.06%に留まり、
 posterior diagnosticsは全foldと最終fitで保存基準を満たした。
