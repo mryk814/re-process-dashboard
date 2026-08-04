@@ -5,7 +5,13 @@ test("inference runs only for changed candidates and visible selected curves", a
   let previewRequests = 0;
   let curveRequests = 0;
   let similarityRequests = 0;
-  const inferenceResponses: Array<{ kind: "preview" | "curve"; candidateId: string; status: number; body: unknown }> = [];
+  const inferenceResponses: Array<{
+    kind: "preview" | "curve";
+    candidateId: string;
+    status: number;
+    body: unknown;
+    parseError?: string;
+  }> = [];
   const failedInferenceRequests: string[] = [];
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
@@ -22,9 +28,19 @@ test("inference runs only for changed candidates and visible selected curves", a
     const kind = path.endsWith("/preview") ? "preview" : path.endsWith("/response-curve") ? "curve" : null;
     if (!kind) return;
     const candidateId = path.split("/").at(-2) ?? "";
-    void response.json().catch(() => null).then((body) => {
-      inferenceResponses.push({ kind, candidateId, status: response.status(), body });
-    });
+    void response.json()
+      .then((body) => {
+        inferenceResponses.push({ kind, candidateId, status: response.status(), body });
+      })
+      .catch((reason: unknown) => {
+        inferenceResponses.push({
+          kind,
+          candidateId,
+          status: response.status(),
+          body: null,
+          parseError: reason instanceof Error ? reason.message : String(reason),
+        });
+      });
   });
 
   await page.goto("/?view=candidates&project=default");
@@ -70,8 +86,24 @@ test("inference runs only for changed candidates and visible selected curves", a
   expect(previewRequests).toBe(3);
   await expect(page.locator(".response-curves-panel")).toHaveAttribute("data-candidate-id", selectedCandidateId!);
   await expect.poll(() => curveRequests).toBeGreaterThanOrEqual(2);
-  await expect.poll(() => inferenceResponses.filter((item) => item.kind === "curve").length).toBeGreaterThanOrEqual(2);
-  const firstCurve = inferenceResponses.find((item) => item.kind === "curve" && item.candidateId === selectedCandidateId);
+  await expect.poll(() => {
+    const successful = inferenceResponses.some((item) => (
+      item.kind === "curve"
+      && item.candidateId === selectedCandidateId
+      && item.status === 200
+      && item.body !== null
+    ));
+    return {
+      successful,
+      parseErrors: inferenceResponses.flatMap((item) => item.parseError ? [item.parseError] : []),
+    };
+  }).toEqual({ successful: true, parseErrors: expect.any(Array) });
+  const firstCurve = inferenceResponses.find((item) => (
+    item.kind === "curve"
+    && item.candidateId === selectedCandidateId
+    && item.status === 200
+    && item.body !== null
+  ));
   expect(firstCurve).toEqual(expect.objectContaining({ candidateId: selectedCandidateId, status: 200 }));
   // 17 is the project's default response_curve_points.
   expect(firstCurve?.body).toEqual(expect.objectContaining({ target: expect.any(String), points: expect.any(Array), point_count: 17 }));
@@ -110,9 +142,19 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => previewRequests).toBe(4);
   await expect.poll(() => curveRequests).toBe(curvesBeforeCreatedPreview + 4);
   await expect.poll(() => inferenceResponses.some((item) => item.kind === "preview" && item.candidateId === createdCandidateId)).toBe(true);
-  await expect.poll(() => inferenceResponses.some((item) => item.kind === "curve" && item.candidateId === createdCandidateId)).toBe(true);
+  await expect.poll(() => inferenceResponses.some((item) => (
+    item.kind === "curve"
+    && item.candidateId === createdCandidateId
+    && item.status === 200
+    && item.body !== null
+  ))).toBe(true);
   const createdPreview = inferenceResponses.find((item) => item.kind === "preview" && item.candidateId === createdCandidateId);
-  const createdCurve = inferenceResponses.find((item) => item.kind === "curve" && item.candidateId === createdCandidateId);
+  const createdCurve = inferenceResponses.find((item) => (
+    item.kind === "curve"
+    && item.candidateId === createdCandidateId
+    && item.status === 200
+    && item.body !== null
+  ));
   expect(createdPreview).toEqual(expect.objectContaining({ status: 200 }));
   expect(createdPreview?.body).toEqual(expect.objectContaining({ canonical_input: expect.any(Object), predictions: expect.any(Object) }));
   expect(createdCurve).toEqual(expect.objectContaining({ status: 200 }));

@@ -19,6 +19,9 @@ from decision_workbench.application.data_library import DataLibraryUseCases
 from decision_workbench.application.model_library import (
     ModelLibraryCatalogService,
 )
+from decision_workbench.application.model_playground import (
+    ModelPlaygroundUseCases,
+)
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.application.prediction_graphs import (
     PredictionGraphUseCases,
@@ -192,6 +195,25 @@ def get_model_library_catalog_service(
         workspace_catalog=context.workspace_catalog,
         task_registry=context.task_registry,
         transform_catalog=contribution.transform_catalog,
+    )
+
+
+def get_model_playground_use_cases(
+    request: Request,
+) -> ModelPlaygroundUseCases:
+    state = request.app.state
+    context = get_runtime_context(request)
+    model_store_path = getattr(state, "model_store_path", None)
+    if model_store_path is None:
+        raise HTTPException(503, "personal Model Storeが利用できません")
+    return ModelPlaygroundUseCases(
+        store=state.store,
+        workspace_catalog=context.workspace_catalog,
+        task_registry=context.task_registry,
+        model_store_path=Path(model_store_path),
+        task_store_path=Path(state.task_store_path),
+        package_origins=state.model_package_origins,
+        execution_instance_id=state.model_playground_execution_instance_id,
     )
 
 

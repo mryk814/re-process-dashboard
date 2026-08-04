@@ -140,6 +140,11 @@ export const suiteInventory = {
     cleanupOwner: "fresh DB disposal",
     reason: "Model Libraryから固定identityを確認し、Prediction Graph draftとProject作成導線を検証する。",
   },
+  "model-playground.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB and personal store disposal",
+    reason: "固定Training Snapshotで実recipeを比較し、failure/retry、reload、Model Library登録receiptを検証する。",
+  },
   "navigation-intent.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",

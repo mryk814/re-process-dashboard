@@ -277,7 +277,15 @@ class TabularTrainingSnapshotMaterializer:
             records.append(row.canonical_record)
 
         columns = self._materialized_columns(profile)
-        encoded = self._encode_csv(records, columns)
+        encoded = self._encode_csv(
+            records,
+            columns,
+            header_row_index=(
+                profile.curation_recipe.header_row_index
+                if profile.curation_recipe is not None
+                else 0
+            ),
+        )
         destination = destination.resolve()
         source_root = READ_ONLY_SOURCE_ROOT.resolve()
         if destination == source_root or source_root in destination.parents:
@@ -364,10 +372,14 @@ class TabularTrainingSnapshotMaterializer:
     def _encode_csv(
         records: list[dict[str, Any]],
         columns: tuple[str, ...],
+        *,
+        header_row_index: int,
     ) -> bytes:
         from io import StringIO
 
         stream = StringIO(newline="")
+        for _ in range(header_row_index):
+            stream.write("\n")
         writer = csv.DictWriter(
             stream,
             fieldnames=columns,

@@ -14,6 +14,7 @@ export const WORKBENCH_VIEWS = [
   "chain-graph",
   "chain-studio",
   "model-library",
+  "model-playground",
   "workspace",
   "quality",
   "lineage",
@@ -84,6 +85,11 @@ export type NavigationIntent = Readonly<{
   preparedProjectBinding?: PreparedProjectBinding;
   modelLibraryProject?: ModelLibraryProjectIntent;
   modelLibraryData?: ModelLibraryDataIntent;
+  modelPlaygroundRunId?: string;
+  modelPlaygroundTarget?: string;
+  modelPlaygroundTaskId?: string;
+  modelPlaygroundProfileRevisionId?: string;
+  modelPlaygroundTrainingSnapshotId?: string;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -298,6 +304,21 @@ export function readNavigationIntent(
     preparedProjectBinding,
     modelLibraryProject,
     modelLibraryData,
+    modelPlaygroundRunId: normalizedView === "model-playground"
+      ? params.get("model_run") || undefined
+      : undefined,
+    modelPlaygroundTarget: normalizedView === "model-playground"
+      ? params.get("model_target") || undefined
+      : undefined,
+    modelPlaygroundTaskId: normalizedView === "model-playground"
+      ? params.get("model_task") || undefined
+      : undefined,
+    modelPlaygroundProfileRevisionId: normalizedView === "model-playground"
+      ? params.get("model_profile_revision") || undefined
+      : undefined,
+    modelPlaygroundTrainingSnapshotId: normalizedView === "model-playground"
+      ? params.get("model_training_snapshot") || undefined
+      : undefined,
   });
 }
 
@@ -348,6 +369,21 @@ export function navigationUrl(intent: NavigationIntent): string {
   }
   if ((intent.view === "data-library" || intent.view === "model-library") && intent.modelLibraryData?.packageReferenceId) {
     params.set("focus_package", intent.modelLibraryData.packageReferenceId);
+  }
+  if (intent.view === "model-playground" && intent.modelPlaygroundRunId) {
+    params.set("model_run", intent.modelPlaygroundRunId);
+  }
+  if (intent.view === "model-playground" && intent.modelPlaygroundTarget) {
+    params.set("model_target", intent.modelPlaygroundTarget);
+  }
+  if (intent.view === "model-playground" && !intent.modelPlaygroundRunId) {
+    if (intent.modelPlaygroundTaskId) params.set("model_task", intent.modelPlaygroundTaskId);
+    if (intent.modelPlaygroundProfileRevisionId) {
+      params.set("model_profile_revision", intent.modelPlaygroundProfileRevisionId);
+    }
+    if (intent.modelPlaygroundTrainingSnapshotId) {
+      params.set("model_training_snapshot", intent.modelPlaygroundTrainingSnapshotId);
+    }
   }
   if (
     (intent.view === "data-library" || intent.view === "profile-workbench")
@@ -457,5 +493,10 @@ export function withView(
     preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
     modelLibraryProject: view === "project" ? current.modelLibraryProject : undefined,
     modelLibraryData: view === "data-library" || view === "model-library" ? current.modelLibraryData : undefined,
+    modelPlaygroundRunId: view === "model-playground" ? current.modelPlaygroundRunId : undefined,
+    modelPlaygroundTarget: view === "model-playground" ? current.modelPlaygroundTarget : undefined,
+    modelPlaygroundTaskId: view === "model-playground" ? current.modelPlaygroundTaskId : undefined,
+    modelPlaygroundProfileRevisionId: view === "model-playground" ? current.modelPlaygroundProfileRevisionId : undefined,
+    modelPlaygroundTrainingSnapshotId: view === "model-playground" ? current.modelPlaygroundTrainingSnapshotId : undefined,
   });
 }

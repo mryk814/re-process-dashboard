@@ -729,6 +729,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/model-playground/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Context */
+        get: operations["preview_context_api_model_playground_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/model-playground/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_model_playground_runs_get"];
+        put?: never;
+        /** Create Run */
+        post: operations["create_run_api_model_playground_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/model-playground/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_model_playground_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/model-playground/runs/{run_id}/adoption-memo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Record Adoption Memo */
+        put: operations["record_adoption_memo_api_model_playground_runs__run_id__adoption_memo_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/model-playground/runs/{run_id}/attempts/{attempt_id}/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Attempt */
+        post: operations["register_attempt_api_model_playground_runs__run_id__attempts__attempt_id__register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/model-playground/runs/{run_id}/recipes/{recipe_id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute Recipe */
+        post: operations["execute_recipe_api_model_playground_runs__run_id__recipes__recipe_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graph-drafts": {
         parameters: {
             query?: never;
@@ -7402,6 +7505,13 @@ export interface components {
             /** Value */
             value: number | string;
         };
+        /** FixedGroupFoldAssignment */
+        FixedGroupFoldAssignment: {
+            /** Fold */
+            fold: number;
+            /** Group Key */
+            group_key: string;
+        };
         /** GraphGoalTermInput */
         GraphGoalTermInput: {
             /**
@@ -7585,6 +7695,38 @@ export interface components {
             /** Value */
             value?: number | null;
         };
+        /**
+         * InferenceDiagnostics
+         * @description Common effective diagnostics without pretending every algorithm has R-hat.
+         */
+        InferenceDiagnostics: {
+            /** Approximation Failure */
+            approximation_failure?: boolean | null;
+            /** Divergence Count */
+            divergence_count?: number | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: string[];
+            /** Max R Hat */
+            max_r_hat?: number | null;
+            /** Min Effective Sample Size */
+            min_effective_sample_size?: number | null;
+            /** Particle Effective Sample Size */
+            particle_effective_sample_size?: number | null;
+            /**
+             * Schema Version
+             * @default inference-diagnostics/v1
+             * @constant
+             */
+            schema_version: "inference-diagnostics/v1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "failed" | "not_applicable";
+        };
         /** InferenceDiagnosticsResponse */
         InferenceDiagnosticsResponse: {
             /** Cached Entries */
@@ -7595,6 +7737,68 @@ export interface components {
             operations: {
                 [key: string]: components["schemas"]["OperationDiagnostic"];
             };
+        };
+        /**
+         * InferenceIdentity
+         * @description Effective algorithm identity saved separately from the model recipe.
+         */
+        InferenceIdentity: {
+            /**
+             * Algorithm Id
+             * @enum {string}
+             */
+            algorithm_id: "analytic-gaussian" | "nuts" | "finite-discrete-enumeration" | "gibbs" | "smc-particle" | "laplace" | "bounded-variational";
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Approximation Kind */
+            approximation_kind?: string | null;
+            /**
+             * Approximation Limitations
+             * @default []
+             */
+            approximation_limitations: string[];
+            /** Chains */
+            chains?: number | null;
+            /** Convergence Criteria */
+            convergence_criteria?: {
+                [key: string]: number | string;
+            };
+            diagnostics: components["schemas"]["InferenceDiagnostics"];
+            /** Draws */
+            draws?: number | null;
+            /**
+             * Fallback Policy
+             * @default forbid_implicit_switch
+             * @constant
+             */
+            fallback_policy: "forbid_implicit_switch";
+            /** Identity Digest */
+            identity_digest: string;
+            /** Parameterization */
+            parameterization: string;
+            /** Particles */
+            particles?: number | null;
+            /** Policy Digest */
+            policy_digest: string;
+            /** Resource Limits */
+            resource_limits?: {
+                [key: string]: number | string;
+            };
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "exact" | "sampling" | "approximation" | "initializer";
+            /**
+             * Schema Version
+             * @default inference-identity/v1
+             * @constant
+             */
+            schema_version: "inference-identity/v1";
+            /** Seed */
+            seed?: number | null;
+            /** Warmup */
+            warmup?: number | null;
         };
         /** InputFieldDefinition */
         InputFieldDefinition: {
@@ -8301,6 +8505,406 @@ export interface components {
              */
             recovery_hint: string;
         };
+        /** ModelExplorationAdoptionMemo */
+        ModelExplorationAdoptionMemo: {
+            /** Adopted Recipe Id */
+            adopted_recipe_id?: string | null;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "adopt" | "no_adopt" | "continue_research";
+            /** Rationale */
+            rationale: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** ModelExplorationAdoptionMemoRequest */
+        ModelExplorationAdoptionMemoRequest: {
+            /** Adopted Recipe Id */
+            adopted_recipe_id?: string | null;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "adopt" | "no_adopt" | "continue_research";
+            /** Expected Revision */
+            expected_revision: number;
+            /** Rationale */
+            rationale: string;
+        };
+        /** ModelExplorationAttemptFailure */
+        ModelExplorationAttemptFailure: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Recovery Hint */
+            recovery_hint: string;
+        };
+        /** ModelExplorationAttemptRequest */
+        ModelExplorationAttemptRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** ModelExplorationAttemptResult */
+        ModelExplorationAttemptResult: {
+            /** Artifact Size Bytes */
+            artifact_size_bytes: number;
+            /** Build Receipt Digest */
+            build_receipt_digest: string;
+            /** Build Seconds */
+            build_seconds: number;
+            /** Capabilities */
+            capabilities: string[];
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Package Id */
+            package_id: string;
+            /** Package Path */
+            package_path: string;
+            /** Peak Memory Bytes */
+            peak_memory_bytes: number;
+            /** Prediction Latency Ms */
+            prediction_latency_ms?: number | null;
+            /** Targets */
+            targets: components["schemas"]["ModelExplorationTargetResult"][];
+        };
+        /** ModelExplorationContext */
+        ModelExplorationContext: {
+            /** Canonical Dataset Digest */
+            canonical_dataset_digest: string;
+            /** Canonical Dataset Revision Id */
+            canonical_dataset_revision_id: string;
+            feature_identity: components["schemas"]["ModelExplorationFeatureIdentity"];
+            /** Materialized Training Sha256 */
+            materialized_training_sha256: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            source_lifecycle: components["schemas"]["SourceLifecycleProvenance"];
+            /** Targets */
+            targets: components["schemas"]["ModelExplorationTargetContext"][];
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+            /** Training Snapshot Digest */
+            training_snapshot_digest: string;
+            /** Training Snapshot Id */
+            training_snapshot_id: string;
+        };
+        /** ModelExplorationEnvironment */
+        ModelExplorationEnvironment: {
+            /** Optional Dependencies */
+            optional_dependencies: components["schemas"]["ModelExplorationOptionalDependency"][];
+            /** Platform */
+            platform: string;
+            /** Python Version */
+            python_version: string;
+            /**
+             * Schema Version
+             * @default model-playground-environment/v1
+             * @constant
+             */
+            schema_version: "model-playground-environment/v1";
+        };
+        /** ModelExplorationFeatureIdentity */
+        ModelExplorationFeatureIdentity: {
+            /** Feature Recipe Digest */
+            feature_recipe_digest?: string | null;
+            /** Feature Recipe Id */
+            feature_recipe_id?: string | null;
+            /** Feature Recipe Version */
+            feature_recipe_version?: string | null;
+            /** Feature State Digest */
+            feature_state_digest: string;
+            /**
+             * Schema Version
+             * @default model-exploration-feature-identity/v1
+             * @constant
+             */
+            schema_version: "model-exploration-feature-identity/v1";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "canonical_task_pipeline" | "feature_recipe";
+        };
+        /** ModelExplorationOptionalDependency */
+        ModelExplorationOptionalDependency: {
+            /** Available */
+            available: boolean;
+            /** Package */
+            package: string;
+            /** Version */
+            version?: string | null;
+        };
+        /** ModelExplorationRecipeAttempt */
+        ModelExplorationRecipeAttempt: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Execution Instance Id */
+            execution_instance_id?: string | null;
+            failure?: components["schemas"]["ModelExplorationAttemptFailure"] | null;
+            /** Finished At */
+            finished_at?: string | null;
+            hypothesis?: components["schemas"]["ModelHypothesisIdentity"] | null;
+            inference_identity?: components["schemas"]["InferenceIdentity"] | null;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            registration?: components["schemas"]["ModelExplorationRegistrationReceipt"] | null;
+            result?: components["schemas"]["ModelExplorationAttemptResult"] | null;
+            /** Sequence */
+            sequence: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "completed" | "failed" | "interrupted";
+        };
+        /** ModelExplorationRecipeSelection */
+        ModelExplorationRecipeSelection: {
+            /**
+             * Availability
+             * @enum {string}
+             */
+            availability: "ready" | "ready_expensive" | "unavailable_missing_dependency" | "needs_feature_recipe" | "needs_validation_plan" | "needs_target_contract" | "capacity_exceeded" | "specialized_only" | "out_of_scope";
+            /**
+             * Comparison Role
+             * @enum {string}
+             */
+            comparison_role: "baseline" | "candidate" | "specialized";
+            /** Effective Parameters */
+            effective_parameters: {
+                [key: string]: unknown;
+            };
+            hypothesis?: components["schemas"]["ModelHypothesisIdentity"] | null;
+            inference_identity?: components["schemas"]["InferenceIdentity"] | null;
+            /** Inference Unavailable Reason */
+            inference_unavailable_reason?: string | null;
+            /** Label */
+            label: string;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "production" | "candidate" | "experimental" | "unavailable" | "no_adopt" | "specialized";
+            /** Predictive Capabilities */
+            predictive_capabilities: string[];
+            /** Reasons */
+            reasons: string[];
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** Recipe Version */
+            recipe_version: string;
+            /** Required Dependency */
+            required_dependency?: string | null;
+            /** Target Readiness */
+            target_readiness: components["schemas"]["ModelExplorationTargetReadiness"][];
+            /**
+             * Task Structure
+             * @enum {string}
+             */
+            task_structure: "standard_independent_targets" | "task_specific_specialized";
+            /**
+             * Training Cost
+             * @enum {string}
+             */
+            training_cost: "light" | "moderate" | "high";
+        };
+        /** ModelExplorationRegistrationReceipt */
+        ModelExplorationRegistrationReceipt: {
+            /**
+             * Active Package Changed
+             * @default false
+             * @constant
+             */
+            active_package_changed: false;
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Package Locator */
+            package_locator: string;
+            /** Reference Id */
+            reference_id: string;
+            /**
+             * Registered At
+             * Format: date-time
+             */
+            registered_at: string;
+            /**
+             * Storage Scope
+             * @default personal
+             * @constant
+             */
+            storage_scope: "personal";
+        };
+        /** ModelExplorationRegistrationRequest */
+        ModelExplorationRegistrationRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** ModelExplorationRun */
+        ModelExplorationRun: {
+            adoption_memo?: components["schemas"]["ModelExplorationAdoptionMemo"] | null;
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: components["schemas"]["ModelExplorationRecipeAttempt"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            definition: components["schemas"]["ModelExplorationRunDefinition"];
+            /** Execution Payload Digest */
+            execution_payload_digest: string;
+            /**
+             * Execution Revision
+             * @default 1
+             */
+            execution_revision: number;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Schema Version
+             * @default model-exploration-run/v1
+             * @constant
+             */
+            schema_version: "model-exploration-run/v1";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ModelExplorationRunCreateRequest */
+        ModelExplorationRunCreateRequest: {
+            /**
+             * Compute Budget
+             * @default standard
+             * @enum {string}
+             */
+            compute_budget: "quick" | "standard" | "research";
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Selected Recipe Ids */
+            selected_recipe_ids: string[];
+            /** Task Id */
+            task_id: string;
+            /** Training Snapshot Id */
+            training_snapshot_id: string;
+        };
+        /** ModelExplorationRunDefinition */
+        ModelExplorationRunDefinition: {
+            /**
+             * Compute Budget
+             * @enum {string}
+             */
+            compute_budget: "quick" | "standard" | "research";
+            /**
+             * Compute Budget Version
+             * @default model-playground-budget/v1
+             * @constant
+             */
+            compute_budget_version: "model-playground-budget/v1";
+            context: components["schemas"]["ModelExplorationContext"];
+            /** Context Digest */
+            context_digest: string;
+            environment: components["schemas"]["ModelExplorationEnvironment"];
+            /**
+             * Seed Policy
+             * @default recipe_fixed_and_persisted
+             * @constant
+             */
+            seed_policy: "recipe_fixed_and_persisted";
+            /** Selected Recipes */
+            selected_recipes: components["schemas"]["ModelExplorationRecipeSelection"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** ModelExplorationTargetContext */
+        ModelExplorationTargetContext: {
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Fold Digest */
+            fold_digest: string;
+            /** Row Count */
+            row_count: number;
+            /** Split Digest */
+            split_digest: string;
+            /** Target Key */
+            target_key: string;
+            /** Training Snapshot Cohort Digest */
+            training_snapshot_cohort_digest: string;
+            validation_plan: components["schemas"]["ValidationPlan"];
+            /** Validation Plan Digest */
+            validation_plan_digest: string;
+        };
+        /** ModelExplorationTargetReadiness */
+        ModelExplorationTargetReadiness: {
+            /** Feature Count */
+            feature_count: number;
+            /** Independent Group Count */
+            independent_group_count: number;
+            /** Reasons */
+            reasons: string[];
+            /** Row Count */
+            row_count: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "ready_expensive" | "unavailable_missing_dependency" | "needs_feature_recipe" | "needs_validation_plan" | "needs_target_contract" | "capacity_exceeded" | "specialized_only" | "out_of_scope";
+            /** Target Key */
+            target_key: string;
+            /** Target Kind */
+            target_kind: string;
+        };
+        /** ModelExplorationTargetResult */
+        ModelExplorationTargetResult: {
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Fold Digest */
+            fold_digest: string;
+            inference_identity?: components["schemas"]["InferenceIdentity"] | null;
+            /** Inference Unavailable Reason */
+            inference_unavailable_reason?: string | null;
+            /** Metrics */
+            metrics: {
+                [key: string]: number | string | null;
+            };
+            /** Target Key */
+            target_key: string;
+            /** Validation Plan Digest */
+            validation_plan_digest: string;
+        };
+        /** ModelHypothesisIdentity */
+        ModelHypothesisIdentity: {
+            /** Card Digest */
+            card_digest: string;
+            /** Card Id */
+            card_id: string;
+            /** Card Version */
+            card_version: string;
+        };
         /** ModelIdentity */
         ModelIdentity: {
             /**
@@ -8757,6 +9361,12 @@ export interface components {
             task_id: string;
             /** Version */
             version: string;
+        };
+        /** ModelPlaygroundContextPreview */
+        ModelPlaygroundContextPreview: {
+            context: components["schemas"]["ModelExplorationContext"];
+            /** Recipes */
+            recipes: components["schemas"]["ModelExplorationRecipeSelection"][];
         };
         /** ModelQualityReport */
         ModelQualityReport: {
@@ -13774,6 +14384,51 @@ export interface components {
             /** Training Snapshot Id */
             training_snapshot_id: string;
         };
+        /** SourceLifecycleProvenance */
+        SourceLifecycleProvenance: {
+            /** Canonical Dataset Digest */
+            canonical_dataset_digest: string;
+            /** Canonical Dataset Revision Id */
+            canonical_dataset_revision_id: string;
+            /** Connector Configuration Digest */
+            connector_configuration_digest: string;
+            /** Connector Id */
+            connector_id: string;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Curation Run Id */
+            curation_run_id: string;
+            /** Materialization Adapter Id */
+            materialization_adapter_id: string;
+            /** Materialization Adapter Version */
+            materialization_adapter_version: string;
+            /** Materialized Training Sha256 */
+            materialized_training_sha256: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Raw Snapshot Id */
+            raw_snapshot_id: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** Row Count */
+            row_count: number;
+            /** Source Adapter Id */
+            source_adapter_id: string;
+            /** Source Adapter Version */
+            source_adapter_version: string;
+            /** Training Selection Policy Digest */
+            training_selection_policy_digest: string;
+            /** Training Snapshot Digest */
+            training_snapshot_digest: string;
+            /** Training Snapshot Id */
+            training_snapshot_id: string;
+        };
         /**
          * SparseBlend
          * @description Canonical core blend. Ratios and fill are percentages, not fractions.
@@ -14538,6 +15193,55 @@ export interface components {
             source_unit: string;
             /** Target Unit */
             target_unit: string;
+        };
+        /**
+         * ValidationPlan
+         * @description Allow-listed split meaning recorded by a standard training recipe.
+         */
+        ValidationPlan: {
+            /** Class Balance Policy */
+            class_balance_policy?: "require_each_training_fold" | null;
+            /** Fixed Assignment Source Digest */
+            fixed_assignment_source_digest?: string | null;
+            /**
+             * Fixed Group Assignments
+             * @default []
+             */
+            fixed_group_assignments: components["schemas"]["FixedGroupFoldAssignment"][];
+            /** Folds */
+            folds?: number | null;
+            /**
+             * Gap
+             * @default 0
+             */
+            gap: number;
+            /** Group Key */
+            group_key?: ("parent_key" | "replicate_context" | "observation_id") | null;
+            /** Holdout Fraction */
+            holdout_fraction?: number | null;
+            /**
+             * Minimum Train Size
+             * @default 2
+             */
+            minimum_train_size: number;
+            /**
+             * Schema Version
+             * @default validation-plan/v1
+             * @constant
+             */
+            schema_version: "validation-plan/v1";
+            /**
+             * Seed
+             * @default 20260730
+             */
+            seed: number;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "kfold" | "grouped_kfold" | "stratified_kfold" | "stratified_grouped_kfold" | "temporal_holdout" | "grouped_temporal";
+            /** Time Key */
+            time_key?: string | null;
         };
         /** ValueUnitConversion */
         ValueUnitConversion: {
@@ -15902,6 +16606,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelLibraryCatalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    preview_context_api_model_playground_preview_get: {
+        parameters: {
+            query: {
+                compute_budget?: "quick" | "standard" | "research";
+                profile_revision_id: string;
+                task_id: string;
+                training_snapshot_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPlaygroundContextPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_runs_api_model_playground_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_run_api_model_playground_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelExplorationRunCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_run_api_model_playground_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    record_adoption_memo_api_model_playground_runs__run_id__adoption_memo_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelExplorationAdoptionMemoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    register_attempt_api_model_playground_runs__run_id__attempts__attempt_id__register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelExplorationRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    execute_recipe_api_model_playground_runs__run_id__recipes__recipe_id__attempts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelExplorationAttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelExplorationRun"];
                 };
             };
             /** @description Validation Error */

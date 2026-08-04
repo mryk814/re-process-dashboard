@@ -17,6 +17,7 @@ import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality"
 import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage, type PreparedCsvProjectBinding } from "../features/data-library";
 import { ModelLibraryPage } from "../features/model-library";
+import { ModelPlaygroundPage, useModelPlayground } from "../features/model-playground";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
@@ -147,6 +148,52 @@ function TaskUnavailablePanel({
     <p>プロジェクト概要では、保存済みの候補・予測・実測・判断履歴を引き続き確認できます。</p>
     <button type="button" className="primary-button" onClick={onOpenSettings}>参照状態を確認する</button>
   </div>;
+}
+
+function ModelPlaygroundRoute({
+  navigation,
+  navigate,
+}: {
+  navigation: NavigationIntent;
+  navigate: (intent: NavigationIntent, replace?: boolean) => void;
+}) {
+  const playground = useModelPlayground(
+    {
+      runId: navigation.modelPlaygroundRunId,
+      taskId: navigation.modelPlaygroundTaskId,
+      profileRevisionId: navigation.modelPlaygroundProfileRevisionId,
+      trainingSnapshotId: navigation.modelPlaygroundTrainingSnapshotId,
+    },
+    (runId, target) => navigate({
+      view: "model-playground",
+      modelPlaygroundRunId: runId,
+      modelPlaygroundTarget: target,
+    }, true),
+  );
+  const runContext = playground.rawRun?.definition.context;
+  return <ModelPlaygroundPage
+    state={playground.state}
+    actionError={playground.actionError}
+    selectedTarget={navigation.modelPlaygroundTarget}
+    busy={playground.busy}
+    onBack={() => navigate({ view: "model-library", modelLibraryTab: "packages" })}
+    onRetryLoad={playground.retryLoad}
+    onCreateRun={playground.createRun}
+    onTargetChange={(modelPlaygroundTarget) => navigate({
+      view: "model-playground",
+      modelPlaygroundRunId: navigation.modelPlaygroundRunId,
+      modelPlaygroundTarget,
+    }, true)}
+    onRetry={playground.retry}
+    onCreateNewRun={runContext ? () => navigate({
+      view: "model-playground",
+      modelPlaygroundTaskId: runContext.task_id,
+      modelPlaygroundProfileRevisionId: runContext.profile_revision_id,
+      modelPlaygroundTrainingSnapshotId: runContext.training_snapshot_id,
+    }) : undefined}
+    onRegister={playground.register}
+    onSaveMemo={playground.saveMemo}
+  />;
 }
 
 function readStartupNavigation(): NavigationIntent {
@@ -377,7 +424,7 @@ function App() {
       || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
-  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio" || tab === "model-library";
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio" || tab === "model-library" || tab === "model-playground";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -601,10 +648,10 @@ function App() {
           </button>
           <button
             type="button"
-            className={tab === "model-library" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
+            className={tab === "model-library" || tab === "model-playground" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
             aria-label="Model Library"
             data-short-label="Model"
-            aria-current={tab === "model-library" || tab === "chain-studio" ? "page" : undefined}
+            aria-current={tab === "model-library" || tab === "model-playground" || tab === "chain-studio" ? "page" : undefined}
             onClick={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
           >
             <HomeNavIcon icon="model" />
@@ -817,6 +864,16 @@ function App() {
             });
           }}
           onStartProject={startProjectFromModelLibrary}
+          onOpenPlayground={(intent) => navigate({
+            view: "model-playground",
+            modelPlaygroundTaskId: intent.taskId,
+            modelPlaygroundProfileRevisionId: intent.profileRevisionId,
+            modelPlaygroundTrainingSnapshotId: intent.trainingSnapshotId,
+          })}
+        />}
+        {tab === "model-playground" && <ModelPlaygroundRoute
+          navigation={navigation}
+          navigate={navigate}
         />}
         {tab === "profile-workbench" && <ProfileWorkbenchPage
           onOpenDataLibrary={() => navigate({ view: "data-library" })}

@@ -61,6 +61,10 @@ export type ApiPredictionGraphDraftSaveResult =
   | { status: "saved"; document: ApiPredictionGraphDraftDocument }
   | { status: "conflict"; conflict: ApiPredictionGraphDraftConflict };
 export type ApiModelLibraryCatalog = components["schemas"]["ModelLibraryCatalog"];
+export type ApiModelPlaygroundPreview = components["schemas"]["ModelPlaygroundContextPreview"];
+export type ApiModelExplorationRun = components["schemas"]["ModelExplorationRun"];
+export type ApiModelExplorationRunCreate = components["schemas"]["ModelExplorationRunCreateRequest"];
+export type ApiModelExplorationAdoptionMemo = components["schemas"]["ModelExplorationAdoptionMemoRequest"];
 export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
@@ -433,6 +437,53 @@ export const workbenchApi = {
   },
   async modelLibraryCatalog(signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/model-library", { signal }), "Model Libraryを取得できませんでした。");
+  },
+  async modelPlaygroundPreview(
+    taskId: string,
+    profileRevisionId: string,
+    trainingSnapshotId: string,
+    signal?: AbortSignal,
+  ) {
+    return requireData(await apiClient.GET("/api/model-playground/preview", {
+      params: {
+        query: {
+          task_id: taskId,
+          profile_revision_id: profileRevisionId,
+          training_snapshot_id: trainingSnapshotId,
+        },
+      },
+      signal,
+    }), "Model Playgroundの固定contextを取得できませんでした。");
+  },
+  async createModelExplorationRun(body: ApiModelExplorationRunCreate) {
+    return requireData(await apiClient.POST("/api/model-playground/runs", { body }), "Model Playground Runを作成できませんでした。");
+  },
+  async modelExplorationRun(runId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/model-playground/runs/{run_id}", {
+      params: { path: { run_id: runId } },
+      signal,
+    }), "Model Playground Runを取得できませんでした。");
+  },
+  async executeModelExplorationRecipe(runId: string, recipeId: string, expectedRevision: number) {
+    return requireData(await apiClient.POST("/api/model-playground/runs/{run_id}/recipes/{recipe_id}/attempts", {
+      params: { path: { run_id: runId, recipe_id: recipeId } },
+      body: { expected_revision: expectedRevision },
+    }), "選択したmodel recipeを実行できませんでした。");
+  },
+  async registerModelExplorationAttempt(runId: string, attemptId: string, expectedRevision: number) {
+    return requireData(await apiClient.POST("/api/model-playground/runs/{run_id}/attempts/{attempt_id}/register", {
+      params: { path: { run_id: runId, attempt_id: attemptId } },
+      body: { expected_revision: expectedRevision },
+    }), "Model PackageをModel Libraryへ登録できませんでした。");
+  },
+  async saveModelExplorationAdoptionMemo(
+    runId: string,
+    body: ApiModelExplorationAdoptionMemo,
+  ) {
+    return requireData(await apiClient.PUT("/api/model-playground/runs/{run_id}/adoption-memo", {
+      params: { path: { run_id: runId } },
+      body,
+    }), "Adoption memoを保存できませんでした。");
   },
   async createPredictionGraphDraft(content: ApiPredictionGraphDraftContent) {
     return requireData(await apiClient.POST("/api/prediction-graph-drafts", {
