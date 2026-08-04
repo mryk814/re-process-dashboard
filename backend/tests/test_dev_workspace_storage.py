@@ -38,6 +38,7 @@ def _marked_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setenv("WORKBENCH_DEV_WORKSPACE_ROOT", str(workspace))
     monkeypatch.setenv("WORKBENCH_DEV_WORKSPACE_MANIFEST", str(manifest))
     monkeypatch.setenv("WORKBENCH_WORKSPACE_ID", workspace.name)
+    monkeypatch.setenv("WORKBENCH_WORKSPACE_KIND", "branch-default")
     return workspace
 
 
@@ -82,3 +83,24 @@ def test_external_personal_store_remains_allowed(tmp_path: Path) -> None:
         store,
         resource_kind="profile",
     ) == store.resolve()
+
+
+def test_launcher_workspace_rejects_resource_symlink_before_resolving_outside(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace = _marked_workspace(monkeypatch, tmp_path)
+    external = tmp_path / "external-tasks"
+    external.mkdir()
+    tasks = workspace / "tasks"
+    try:
+        tasks.symlink_to(external, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation is unavailable in this Windows session")
+    try:
+        with pytest.raises(ValueError, match="symlink/reparse"):
+            validate_personal_or_dev_store(tasks, resource_kind="task")
+    finally:
+        tasks.unlink()
+        (workspace / "workspace-manifest.json").unlink()
+        workspace.rmdir()

@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 from decision_workbench.app import create_app
 from decision_workbench.bootstrap.startup import default_data_library_path
 from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.developer_experience.workspace_lifecycle import (
+    checkout_identity,
+)
 
 
 def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, app_resources: AppResources) -> None:
@@ -117,7 +120,8 @@ def test_dev_launcher_uses_one_ephemeral_token_for_api_and_vite_proxy() -> None:
     assert task_store == workspace_root / "tasks"
     assert model_store == workspace_root / "models"
     assert Path(payload["workspaceManifest"]) == workspace_root / "workspace-manifest.json"
-    assert payload["checkoutIdentity"] in payload["workspaceId"]
+    assert payload["checkoutIdentity"] == checkout_identity(root)
+    assert payload["workspaceId"].endswith(f"-{checkout_identity(root)}")
     assert not workspace_root.exists()
 
 

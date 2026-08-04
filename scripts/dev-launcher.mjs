@@ -165,28 +165,44 @@ const activeLockPath = workspace.workspaceRoot
   ? `${workspace.workspaceRoot}/workspace-active.json`
   : undefined;
 if (activeLockPath) {
-  try {
-    const current = JSON.parse(readFileSync(activeLockPath, "utf8"));
-    if (Number.isInteger(current.pid)) {
+  const lockPayload = `${JSON.stringify({
+    pid: process.pid,
+    workspace_id: workspace.workspaceName,
+  })}\n`;
+  let acquired = false;
+  for (let attempt = 0; attempt < 2 && !acquired; attempt += 1) {
+    try {
+      writeFileSync(activeLockPath, lockPayload, {
+        encoding: "utf8",
+        flag: "wx",
+      });
+      acquired = true;
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      let current;
+      try {
+        current = JSON.parse(readFileSync(activeLockPath, "utf8"));
+      } catch (readError) {
+        throw new Error(
+          `既存のWorkspace lockを検証できません: ${activeLockPath}`,
+          { cause: readError },
+        );
+      }
+      if (!Number.isInteger(current.pid) || current.pid <= 0) {
+        throw new Error(`既存のWorkspace lockに有効なpidがありません: ${activeLockPath}`);
+      }
       try {
         process.kill(current.pid, 0);
         throw new Error(
           `このWorkspaceは別のdev server (pid=${current.pid}) が使用中です。`,
         );
-      } catch (error) {
-        if (error?.code !== "ESRCH") throw error;
+      } catch (processError) {
+        if (processError?.code !== "ESRCH") throw processError;
       }
-    }
-  } catch (error) {
-    if (error?.code !== "ENOENT" && !String(error?.message).startsWith("Unexpected")) {
-      throw error;
+      unlinkSync(activeLockPath);
     }
   }
-  writeFileSync(
-    activeLockPath,
-    `${JSON.stringify({ pid: process.pid, workspace_id: workspace.workspaceName })}\n`,
-    { encoding: "utf8" },
-  );
+  if (!acquired) throw new Error(`Workspace lockを排他的に取得できません: ${activeLockPath}`);
 }
 
 const { default: concurrently } = await import("concurrently");

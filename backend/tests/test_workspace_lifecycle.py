@@ -11,6 +11,7 @@ from decision_workbench.developer_experience.workspace_lifecycle import (
     RepositoryWorkspaceContext,
     WorkspacePruneRefused,
     branch_workspace_name,
+    checkout_identity,
     list_branch_workspaces,
     prune_branch_workspace,
 )
@@ -43,7 +44,8 @@ def _database(root: Path, branch: str) -> Path:
     return path
 
 
-def _marked_database(root: Path, branch: str, workspace_id: str) -> Path:
+def _marked_database(root: Path, branch: str) -> Path:
+    workspace_id = f"{branch_workspace_name(branch)}-{checkout_identity(root)}"
     workspace = root / ".dev-workspaces" / workspace_id
     workspace.mkdir(parents=True)
     database = workspace / "workspace.db"
@@ -56,7 +58,7 @@ def _marked_database(root: Path, branch: str, workspace_id: str) -> Path:
                 "schema_version": "dev-workspace-manifest/v1",
                 "workspace_id": workspace_id,
                 "workspace_kind": "branch-default",
-                "checkout_identity": "test-checkout",
+                "checkout_identity": checkout_identity(root),
                 "checkout_root": str(root.resolve()),
                 "branch_identity": branch,
                 "resources": {
@@ -196,7 +198,6 @@ def test_marked_workspace_list_is_cleanup_dry_run_and_prune_is_root_scoped(
     database = _marked_database(
         tmp_path,
         "codex/stale",
-        "codex-stale-branch-checkout",
     )
     unrelated = tmp_path / "data" / "source" / "source.xlsx"
     unrelated.parent.mkdir(parents=True)
@@ -221,15 +222,14 @@ def test_marked_workspace_list_is_cleanup_dry_run_and_prune_is_root_scoped(
 def test_marked_workspace_prune_refuses_active_lock_and_missing_marker(
     tmp_path: Path,
 ) -> None:
-    active = _marked_database(tmp_path, "codex/stale", "active-workspace")
+    active = _marked_database(tmp_path, "codex/stale")
     (active.parent / "workspace-active.json").write_text(
         json.dumps({"pid": os.getpid()}),
         encoding="utf-8",
     )
     missing_marker = _marked_database(
         tmp_path,
-        "codex/stale",
-        "missing-marker-workspace",
+        "codex/other",
     )
     (missing_marker.parent / "workspace-manifest.json").unlink()
 
@@ -249,7 +249,7 @@ def test_marked_workspace_prune_refuses_active_lock_and_missing_marker(
 def test_marked_workspace_prune_refuses_symlink_or_reparse_point(
     tmp_path: Path,
 ) -> None:
-    database = _marked_database(tmp_path, "codex/stale", "linked-workspace")
+    database = _marked_database(tmp_path, "codex/stale")
     external = tmp_path / "external"
     external.mkdir()
     link = database.parent / "models" / "outside"

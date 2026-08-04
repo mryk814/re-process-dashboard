@@ -36,6 +36,13 @@ def branch_workspace_name(branch: str) -> str:
     return f"{normalized or 'unknown-checkout'}-{digest}"
 
 
+def checkout_identity(repository_root: Path) -> str:
+    canonical = str(repository_root.resolve())
+    if os.name == "nt":
+        canonical = canonical.replace("\\", "/").lower()
+    return sha256(canonical.encode("utf-8")).hexdigest()[:8]
+
+
 def repository_workspace_context(repository_root: Path) -> RepositoryWorkspaceContext:
     root = repository_root.resolve()
 
@@ -141,7 +148,11 @@ def _is_reparse_point(path: Path) -> bool:
     )
 
 
-def _marked_workspace(root: Path) -> tuple[dict[str, Any], Path]:
+def _marked_workspace(
+    root: Path,
+    *,
+    repository_root: Path,
+) -> tuple[dict[str, Any], Path]:
     if _is_reparse_point(root):
         raise WorkspacePruneRefused(f"symlink/reparse pointはpruneできません: {root}")
     manifest = root / "workspace-manifest.json"
@@ -152,12 +163,30 @@ def _marked_workspace(root: Path) -> tuple[dict[str, Any], Path]:
     except (json.JSONDecodeError, OSError) as exc:
         raise WorkspacePruneRefused(f"launcher markerを読めません: {manifest}") from exc
     resources = payload.get("resources")
+    branch = str(payload.get("branch_identity", "")).strip()
+    expected_checkout_identity = checkout_identity(repository_root)
+    expected_workspace_id = (
+        f"{branch_workspace_name(branch)}-{expected_checkout_identity}"
+        if branch
+        else ""
+    )
     if (
         payload.get("schema_version") != _MANIFEST_SCHEMA_VERSION
         or payload.get("workspace_kind") != "branch-default"
-        or payload.get("workspace_id") != root.name
-        or not isinstance(resources, dict)
-        or resources.get("database") != "workspace.db"
+        or payload.get("workspace_id") != expected_workspace_id
+        or root.name != expected_workspace_id
+        or payload.get("checkout_identity") != expected_checkout_identity
+        or not str(payload.get("checkout_root", "")).strip()
+        or Path(str(payload["checkout_root"])).expanduser().resolve()
+        != repository_root.resolve()
+        or resources
+        != {
+            "database": "workspace.db",
+            "data_library": "data-library",
+            "profiles": "profiles",
+            "tasks": "tasks",
+            "models": "models",
+        }
     ):
         raise WorkspacePruneRefused(f"launcher markerがworkspaceと一致しません: {manifest}")
     database = root / "workspace.db"
@@ -217,7 +246,10 @@ def list_branch_workspaces(
     result: list[dict[str, Any]] = []
     for workspace_root in sorted(path for path in dev_root.iterdir() if path.is_dir()):
         try:
-            payload, database = _marked_workspace(workspace_root)
+            payload, database = _marked_workspace(
+                workspace_root,
+                repository_root=root,
+            )
         except WorkspacePruneRefused:
             continue
         branch = str(payload.get("branch_identity", "")).strip() or None
@@ -307,7 +339,10 @@ def prune_branch_workspace(
 
     resolved_context = context or repository_workspace_context(root)
     if is_marked:
-        payload, declared_database = _marked_workspace(marked_root)
+        payload, declared_database = _marked_workspace(
+            marked_root,
+            repository_root=root,
+        )
         if declared_database.resolve() != target:
             raise WorkspacePruneRefused("launcher markerのDB宣言と対象が一致しません")
         branch = str(payload.get("branch_identity", "")).strip() or None
