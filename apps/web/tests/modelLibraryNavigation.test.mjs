@@ -146,6 +146,24 @@ test("a changed package handoff clears completed focus so Back can focus again",
   );
 });
 
+test("describes quantile Package semantics without implying normal uncertainty", async () => {
+  const { packagePredictiveMeaning } = await import("../src/shared/modelLibrary.ts");
+  assert.equal(
+    packagePredictiveMeaning([{
+      runtime_type: "builtin.quantile_linear.v1",
+      predictive_family: "empirical_quantiles",
+    }]),
+    "中央値とq05／q95を直接学習 · q05–q95は正規分布の90%区間ではありません · 分位点交差は補正せず利用不能",
+  );
+  assert.equal(
+    packagePredictiveMeaning([{
+      runtime_type: "builtin.linear.v1",
+      predictive_family: "empirical_quantiles",
+    }]),
+    null,
+  );
+});
+
 test("a new Graph draft keeps the published Decision Output evidence boundary", async () => {
   const { draftDefinitionFromCatalog } = await import("../src/shared/modelLibrary.ts");
   const definition = {

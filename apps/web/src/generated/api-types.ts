@@ -13946,7 +13946,7 @@ export interface components {
             estimator_id: string;
             /** Fixed Parameters */
             fixed_parameters: {
-                [key: string]: number | string | boolean | string[];
+                [key: string]: number | string | boolean | string[] | number[];
             };
             /**
              * Known Limitations
@@ -13971,7 +13971,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "interpretable_baseline" | "interpretable_nonlinear_candidate" | "nonlinear_candidate" | "specialized_path";
+            role: "interpretable_baseline" | "interpretable_nonlinear_candidate" | "nonlinear_candidate" | "distribution_candidate" | "specialized_path";
             /**
              * Runtime Status
              * @enum {string}

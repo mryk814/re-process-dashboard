@@ -89,6 +89,7 @@ class StandardEstimatorEntry(ContractModel):
         "interpretable_baseline",
         "interpretable_nonlinear_candidate",
         "nonlinear_candidate",
+        "distribution_candidate",
         "specialized_path",
     ]
     builder_status: BuilderStatus
@@ -112,7 +113,10 @@ class StandardEstimatorEntry(ContractModel):
         ...,
     ]
     quality_metrics: Annotated[tuple[str, ...], Field(min_length=1)]
-    fixed_parameters: dict[str, int | float | str | bool | tuple[str, ...]]
+    fixed_parameters: dict[
+        str,
+        int | float | str | bool | tuple[str, ...] | tuple[float, ...],
+    ]
     training_cost: Literal["light", "moderate", "high"] | None = None
     known_limitations: tuple[str, ...] = ()
 
@@ -350,6 +354,58 @@ _CATALOG = StandardEstimatorCatalog(
                 "with fixed basis and smoothing and plug-in observation noise.",
                 "Term contributions are associational model explanations, not "
                 "causal or independent intervention effects.",
+            ),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="quantile-linear-regression.v1",
+            label="Linear quantile regression",
+            target_kinds=("continuous",),
+            role="distribution_candidate",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields(
+                "quantile-linear-regression.v1"
+            )["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields(
+                "quantile-linear-regression.v1"
+            )["artifact_format"],
+            limits=EstimatorLimits(
+                min_rows=6,
+                max_rows=100_000,
+                min_independent_groups=4,
+                max_features=512,
+            ),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=(
+                "kfold",
+                "grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal",
+            ),
+            predictive_capabilities=("point", "quantiles"),
+            quality_metrics=(
+                "mae",
+                "rmse",
+                "pinball_loss_by_quantile",
+                "interval_coverage_90",
+                "mean_interval_width",
+                "quantile_crossing_count",
+            ),
+            fixed_parameters=_fixed_parameters(
+                "quantile-linear-regression.v1"
+            ),
+            training_cost="moderate",
+            known_limitations=(
+                "q05, q50, and q95 are fitted independently and can cross; "
+                "crossing is reported and prediction rejects it instead of sorting.",
+                "q05-q95 is a conditional quantile interval, not a normal "
+                "distribution or a guarantee of 90 percent observed coverage.",
+                "Mean, standard deviation, CDF, joint samples, and goal "
+                "probability are unavailable.",
+                "Additive quantile regression remains a separate unimplemented "
+                "candidate.",
             ),
         ),
         StandardEstimatorEntry(

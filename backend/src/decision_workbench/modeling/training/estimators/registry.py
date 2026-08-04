@@ -52,6 +52,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=bayesian_additive.ARTIFACT_SUFFIX,
             artifact_format=bayesian_additive.ARTIFACT_FORMAT,
         )
+    if estimator_id == "quantile-linear-regression.v1":
+        from . import quantile_linear
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, quantile_linear.train),
+            runtime_type=quantile_linear.RUNTIME_TYPE,
+            artifact_suffix=quantile_linear.ARTIFACT_SUFFIX,
+            artifact_format=quantile_linear.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 

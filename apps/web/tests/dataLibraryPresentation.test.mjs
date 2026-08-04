@@ -139,6 +139,35 @@ test("describes Bayesian additive uncertainty and interpretation limits", () => 
   });
 });
 
+test("describes learned quantiles without implying a normal interval", () => {
+  const modelPackage = {
+    package_id: "quantile-package",
+    manifest_json: {
+      predictors: [{
+        runtime_type: "builtin.quantile_linear.v1",
+        config: {
+          training: {
+            schema_version: "standard-training-metadata/v1",
+            estimator_id: "quantile-linear-regression.v1",
+            training_unit: "replicate_context_mean",
+            uncertainty: "conditional q05/q50/q95",
+          },
+        },
+      }],
+    },
+  };
+
+  assert.equal(modelPackageDisplayName(modelPackage), "線形分位点回帰");
+  assert.deepEqual(modelPackageDecisionSummary(modelPackage), {
+    label: "線形分位点回帰",
+    useCase: "中央値と非対称・入力依存の予測幅を直接比較したいとき",
+    trainingUnit: "同一条件の反復平均",
+    uncertainty: "conditional q05/q50/q95",
+    experimental: false,
+    caution: "q05–q95は正規分布の90%区間ではありません。分位点交差は補正せず、その入力を利用不能として扱います。",
+  });
+});
+
 test("shows Package versions and disambiguates repeated family/version labels", () => {
   const packages = [
     {

@@ -18,6 +18,7 @@ from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.training.estimators import exact_gp
 from decision_workbench.modeling.training.estimators import bayesian_additive
 from decision_workbench.modeling.training.estimators import lightgbm
+from decision_workbench.modeling.training.estimators import quantile_linear
 from decision_workbench.modeling.training.estimators import ridge
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
@@ -26,6 +27,9 @@ from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.recipe import validate_recipe_capability
 from decision_workbench.adapters.builtin_additive_terms import (
     BuiltinAdditiveTermsAdapter,
+)
+from decision_workbench.adapters.builtin_quantile_linear import (
+    BuiltinQuantileLinearAdapter,
 )
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
@@ -373,6 +377,106 @@ def test_bayesian_additive_recovers_main_effects_and_exposes_interaction_limit()
     assert np.sqrt(np.mean(
         (interaction_target - interaction_prediction) ** 2
     )) > 0.25
+
+
+def test_quantile_linear_is_fold_honest_and_keeps_crossing_visible(
+    tmp_path: Path,
+) -> None:
+    data = _training_set(
+        "heat-treatment-tradeoff-v1",
+        "hardness_hv",
+        "HV",
+    )
+    recipe = estimator_recipe(
+        "quantile-linear-regression.v1",
+        {"folds": 4, "penalty": 0.001},
+    )
+    predictions = quantile_linear._honest_predictions(data, recipe)
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+    changed = quantile_linear._honest_predictions(
+        replace(data, y=changed_y),
+        recipe,
+    )
+    np.testing.assert_allclose(
+        changed[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+    artifact = tmp_path / "quantile-linear.npz"
+    trained = quantile_linear.train(data, recipe, artifact)
+    assert trained.quality.quantile_pinball_losses is not None
+    assert set(trained.quality.quantile_pinball_losses) == {
+        "0.05",
+        "0.5",
+        "0.95",
+    }
+    assert trained.quality.mean_interval_width is not None
+    assert trained.quality.quantile_crossing_count is not None
+    if trained.quality.quantile_crossing_count:
+        assert trained.quality.quantile_crossing_observed_feature_bounds
+        assert (
+            trained.quality.quantile_crossing_scope
+            == "observed_outer_fold_rows_not_full_input_domain"
+        )
+    assert trained.diagnostics["crossing_policy"] == "reject"
+    assert (
+        trained.diagnostics["additive_quantile_status"]
+        == "not_implemented_separate_candidate"
+    )
+
+    class _Artifacts:
+        def artifact_path(self, _: str) -> Path:
+            return artifact
+
+    predictor = BuiltinQuantileLinearAdapter().load(
+        _Artifacts(),  # type: ignore[arg-type]
+        PredictorSpec.model_validate(trained.predictor),
+    )
+    feature_values = {
+        name: float(value)
+        for name, value in zip(data.feature_names, data.x[0], strict=True)
+    }
+    quantile_values = (
+        predictor.coefficients
+        @ np.asarray(list(feature_values.values()))
+        + predictor.intercepts
+    )
+    if np.all(np.diff(quantile_values) >= 0):
+        summary = predictor.predict(feature_values)
+        assert summary.point_statistic == "median"
+        assert summary.uncertainty_components is None
+        assert summary.distribution == {
+            "family": "empirical_quantiles",
+            "support": "runtime_defined",
+        }
+
+    crossing_artifact = tmp_path / "crossing.npz"
+    np.savez(
+        crossing_artifact,
+        quantile_levels=np.asarray([0.05, 0.5, 0.95]),
+        coefficients=np.asarray([[1.0], [0.0], [-1.0]]),
+        intercepts=np.zeros(3),
+    )
+    crossing_spec = PredictorSpec.model_validate({
+        **trained.predictor,
+        "artifact": crossing_artifact.as_posix(),
+        "feature_names": ["x"],
+    })
+
+    class _CrossingArtifacts:
+        def artifact_path(self, _: str) -> Path:
+            return crossing_artifact
+
+    crossing_predictor = BuiltinQuantileLinearAdapter().load(
+        _CrossingArtifacts(),  # type: ignore[arg-type]
+        crossing_spec,
+    )
+    with pytest.raises(PackageContractError, match="cross"):
+        crossing_predictor.predict({"x": 1.0})
 
 
 def test_ridge_outer_prediction_does_not_observe_held_out_targets() -> None:
@@ -795,6 +899,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
             "ridge.v1",
             "exact-gp-rbf.v1",
             "bayesian-additive-spline.v1",
+            "quantile-linear-regression.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -803,6 +908,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
             "ridge.v1",
             "exact-gp-rbf.v1",
             "bayesian-additive-spline.v1",
+            "quantile-linear-regression.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -1028,6 +1134,7 @@ def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
         estimators=(
             "ridge.v1",
             "bayesian-additive-spline.v1",
+            "quantile-linear-regression.v1",
             "exact-gp-rbf.v1",
             "lightgbm-regression.v1",
         ),
@@ -1044,7 +1151,7 @@ def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
     )
 
     assert result["selection"] is None
-    assert len(result["models"]) == 4
+    assert len(result["models"]) == 5
     for target, identity in result["evaluation"].items():
         assert target
         assert identity["cohort_digest"].startswith("sha256:")
@@ -1149,3 +1256,63 @@ def test_model_workflow_builds_bayesian_additive_with_typed_intervals(
         point["latent_mean_credible_interval"]["estimand"] == "latent_mean"
         for point in curve["points"]
     )
+
+
+def test_model_workflow_builds_verified_quantile_linear_package(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "heat-treatment-quantile-linear"
+    result = build_package(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        package,
+        tmp_path / "heat-treatment-feature-dataset.json",
+        package_id="heat-treatment-quantile-linear-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="quantile-linear-regression.v1",
+        estimator_options={"penalty": 0.001, "folds": 4},
+    )
+
+    loaded = ModelPackageLoader().load(package)
+    assert result["package"]["task_id"] == "heat-treatment-tradeoff-v1"
+    assert {
+        predictor.runtime_type for predictor in loaded.manifest.predictors
+    } == {"builtin.quantile_linear.v1"}
+    quality = json.loads(
+        (package / "reports" / "quality-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for target in quality["targets"]:
+        assert set(target["quantile_pinball_losses"]) == {
+            "0.05",
+            "0.5",
+            "0.95",
+        }
+        assert target["mean_interval_width"] >= 0
+        assert target["quantile_crossing_count"] >= 0
+        assert (
+            target["interval_coverage_method"]
+            == "outer-fold-conditional-quantiles"
+        )
+
+    dataset = json.loads(
+        (tmp_path / "heat-treatment-feature-dataset.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    features = dataset["rows"][0]["features"]
+    for predictor_spec in loaded.manifest.predictors:
+        values = {
+            name: float(features[name])
+            for name in predictor_spec.feature_names
+        }
+        try:
+            summary = loaded.load_predictor(predictor_spec.id).predict(values)
+        except PackageContractError as exc:
+            assert "cross" in str(exc)
+        else:
+            assert summary.point_statistic == "median"
+            assert set(summary.quantiles) == {"0.05", "0.5", "0.95"}
+            assert summary.distribution["family"] == "empirical_quantiles"

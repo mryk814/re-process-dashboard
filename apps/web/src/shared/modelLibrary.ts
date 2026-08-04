@@ -25,6 +25,18 @@ export type ModelLibraryDataIntent = Readonly<{
   packageReferenceId?: string;
 }>;
 
+export function packagePredictiveMeaning(
+  predictors: ReadonlyArray<{
+    runtime_type: string;
+    predictive_family: string;
+  }>,
+): string | null {
+  if (predictors.some((item) => item.runtime_type === "builtin.quantile_linear.v1")) {
+    return "中央値とq05／q95を直接学習 · q05–q95は正規分布の90%区間ではありません · 分位点交差は補正せず利用不能";
+  }
+  return null;
+}
+
 /**
  * A package handoff is focused at most once while its URL identity is active.
  * Changing identity clears the completed marker so browser back can focus the

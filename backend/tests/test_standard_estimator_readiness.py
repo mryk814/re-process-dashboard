@@ -75,6 +75,19 @@ def test_catalog_covers_production_target_kinds_and_safe_artifacts() -> None:
         if entry.artifact_status == "ready"
     )
     assert all(entry.limits.max_rows and entry.limits.max_features for entry in catalog.entries)
+    quantile = next(
+        entry
+        for entry in catalog.entries
+        if entry.estimator_id == "quantile-linear-regression.v1"
+    )
+    assert quantile.runtime_type == "builtin.quantile_linear.v1"
+    assert quantile.fixed_parameters["quantile_levels"] == (0.05, 0.5, 0.95)
+    assert {
+        "pinball_loss_by_quantile",
+        "mean_interval_width",
+        "quantile_crossing_count",
+    }.issubset(quantile.quality_metrics)
+    assert any("not a normal" in item for item in quantile.known_limitations)
 
 
 def test_shipped_catalog_entries_are_derived_from_the_recipe_and_trainer_registries() -> None:

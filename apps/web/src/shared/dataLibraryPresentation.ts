@@ -177,6 +177,8 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
       ? "LightGBM回帰"
       : estimatorIds.has("bayesian-additive-spline.v1")
         ? "Bayesian加法スプライン"
+      : estimatorIds.has("quantile-linear-regression.v1")
+        ? "線形分位点回帰"
       : estimatorIds.has("exact-gp-rbf.v1")
         ? "GP（Exact RBF）"
         : estimatorIds.has("ridge.v1")
@@ -313,6 +315,17 @@ export function modelPackageDecisionSummary(
         ?? "平均関数の信用区間と新しい観測値の予測区間",
       experimental,
       caution: "interactionは学習しません。相関した入力のterm形状は不安定になり得て、因果効果でも独立介入効果でもありません。",
+    };
+  }
+  if (estimatorIds.has("quantile-linear-regression.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "中央値と非対称・入力依存の予測幅を直接比較したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty
+        ?? "条件付きq05／q50／q95（実測coverageは別評価）",
+      experimental,
+      caution: "q05–q95は正規分布の90%区間ではありません。分位点交差は補正せず、その入力を利用不能として扱います。",
     };
   }
   if (estimatorIds.has("exact-gp-rbf.v1")) {
