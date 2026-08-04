@@ -123,7 +123,7 @@ def test_standard_predictor_projects_actual_capability_instead_of_active_package
     assert projected_student_t.samples is False
     assert projected_student_t.parametric_distribution is True
     assert projected_student_t.uncertainty_components is False
-    assert projected_student_t.goal_probability == "distribution"
+    assert projected_student_t.goal_probability == "unavailable"
 
 
 def test_standard_predictor_rejects_unknown_recipe_metadata() -> None:

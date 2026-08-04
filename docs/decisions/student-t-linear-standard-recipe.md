@@ -16,6 +16,8 @@ Student-t線形回帰を、continuous target向けのproduction
 
 - locationは線形で、代表値はStudent-t分布のmeanとする。
 - observation scaleと自由度を含むposteriorをNUTSで推定する。
+- production recipeのsamplingは2 chain、各256 warmup／256 draw、
+  R-hat 1.05以下、ESS 50以上、divergence 0へ固定する。
 - 自由度はBeta(2, 5)を`2.1 < df <= 30`へ写像する固定policyとし、
   無制限探索や任意prior UIを設けない。
 - q05–q95は新しい一観測のposterior predictive intervalであり、
@@ -57,3 +59,4 @@ Ridge、Additive等と同じcohortで比較し、tail仮説、interval、計算�
 - sampler failure後の暗黙fallback
 - target間joint posteriorの捏造
 - 自動active Package切替
+- 短縮sampling presetをproduction候補として公開すること

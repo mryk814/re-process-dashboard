@@ -146,12 +146,17 @@ class _DensePosteriorPredictor:
             samples, family = self._continuous_samples(output, rng, draw_indices)
             quantiles = quantile_summary(samples)
             statistic = "median" if family == "lognormal" else "mean"
+            mixture_moments = (
+                family == "student_t"
+                and self.spec.config.get("predictive_moment_semantics")
+                == "posterior-mixture-location-mean-total-std/v1"
+            )
             point = float(
                 np.median(samples)
                 if statistic == "median"
                 else (
                     np.mean(output[:, 0])
-                    if family == "student_t"
+                    if mixture_moments
                     else np.mean(samples)
                 )
             )
@@ -159,7 +164,7 @@ class _DensePosteriorPredictor:
                 "family": family,
                 "support": "positive" if family == "lognormal" else "real",
             }
-            if family == "student_t":
+            if mixture_moments:
                 location = output[:, 0]
                 scale = self._scale("obs_scale", 1.0, draw_indices)
                 degrees_of_freedom = self._scale("df", 5.0, draw_indices)
@@ -265,10 +270,15 @@ class NumpyroDensePosteriorAdapter:
         if output_width != expected_width:
             raise PackageContractError(f"{predictor.predictive_family} requires output width {expected_width}")
         for name in ("obs_scale", "dispersion"):
+            if name in extras and not np.isfinite(extras[name]).all():
+                raise PackageContractError(f"{name} must be finite")
             if name in extras and np.any(extras[name] <= 0):
                 raise PackageContractError(f"{name} must be positive")
-        if "df" in extras and np.any(extras["df"] <= 2):
-            raise PackageContractError("student_t df must be greater than 2")
+        if "df" in extras:
+            if not np.isfinite(extras["df"]).all():
+                raise PackageContractError("student_t df must be finite")
+            if np.any(extras["df"] <= 2):
+                raise PackageContractError("student_t df must be greater than 2")
         if predictor.predictive_family == "ordinal_logit":
             thresholds = predictor.config.get("thresholds")
             categories = predictor.config.get("categories")

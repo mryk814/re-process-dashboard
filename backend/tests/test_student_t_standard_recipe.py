@@ -78,7 +78,6 @@ def _student_recipe() -> Any:
     return estimator_recipe(
         "student-t-linear-regression.v1",
         {
-            "inference_preset": "quick-evidence",
             "folds": 3,
             "seed": 793,
         },
@@ -87,7 +86,13 @@ def _student_recipe() -> Any:
 
 def test_student_t_recipe_is_bounded_optional_and_explicitly_available() -> None:
     recipe = _student_recipe()
+    assert recipe.inference_preset == "standard-evidence"
     assert recipe.df_policy == "bounded-beta-2-5-on-2p1-30"
+    with pytest.raises(ValueError, match="standard-evidence"):
+        estimator_recipe(
+            recipe.estimator_id,
+            {"inference_preset": "quick-evidence"},
+        )
     entry = next(
         item
         for item in standard_estimator_catalog().entries
@@ -201,7 +206,20 @@ def test_student_t_rejects_malformed_values_before_robust_fit() -> None:
 
 def test_student_t_heavy_tail_gain_and_normal_efficiency_loss_are_bounded(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        student_t_linear,
+        "_settings",
+        lambda _: student_t_linear._InferenceSettings(
+            chains=2,
+            warmup=96,
+            draws=96,
+            max_r_hat=1.15,
+            min_ess=20.0,
+            max_divergences=0,
+        ),
+    )
     recipe = _student_recipe()
     ridge_recipe = estimator_recipe(
         "ridge.v1",

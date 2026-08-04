@@ -45,7 +45,7 @@ def standard_predictor_capability(
     elif estimator_id == "quantile-linear-regression.v1":
         predictive = (("median",), False, True, False, False, "unavailable")
     elif estimator_id == "student-t-linear-regression.v1":
-        predictive = (("mean",), True, True, True, False, "distribution")
+        predictive = (("mean",), True, True, True, False, "unavailable")
     elif estimator_id == "lightgbm-regression.v1" and predictor.predictive_family == "normal":
         predictive = (("mean",), True, True, True, True, "unavailable")
     elif estimator_id in {"ridge.v1", "lightgbm-regression.v1"}:

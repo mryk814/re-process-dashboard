@@ -80,10 +80,7 @@ class StudentTLinearRegressionEstimatorRecipe(ContractModel):
     estimator_id: Literal["student-t-linear-regression.v1"] = (
         "student-t-linear-regression.v1"
     )
-    inference_preset: Literal[
-        "quick-evidence",
-        "standard-evidence",
-    ] = "standard-evidence"
+    inference_preset: Literal["standard-evidence"] = "standard-evidence"
     df_policy: Literal[
         "bounded-beta-2-5-on-2p1-30"
     ] = "bounded-beta-2-5-on-2p1-30"
@@ -400,9 +397,9 @@ def validate_recipe_capability(
                 errors.append(
                     f"{target.target}: Student-t linear does not expose decomposed uncertainty components"
                 )
-            if target.goal_probability != "distribution":
+            if target.goal_probability != "unavailable":
                 errors.append(
-                    f"{target.target}: Student-t linear requires distribution goal probability"
+                    f"{target.target}: Student-t linear goal probability is not implemented"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):

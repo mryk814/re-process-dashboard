@@ -63,15 +63,6 @@ class _Fit:
 def _settings(
     recipe: StudentTLinearRegressionEstimatorRecipe,
 ) -> _InferenceSettings:
-    if recipe.inference_preset == "quick-evidence":
-        return _InferenceSettings(
-            chains=2,
-            warmup=96,
-            draws=96,
-            max_r_hat=1.15,
-            min_ess=20.0,
-            max_divergences=0,
-        )
     return _InferenceSettings(
         chains=2,
         warmup=256,
@@ -352,6 +343,7 @@ def _honest_predictions(
             "fold": int(fold),
             "training_rows": int(train_rows.sum()),
             "evaluation_rows": int(evaluate.sum()),
+            "predictive_sampling_seed": recipe.seed + 10_000 + int(fold),
             "inference_identity_digest": (
                 fitted.inference_identity.identity_digest
             ),
@@ -465,6 +457,9 @@ def train(
         "config": {
             "activation": "tanh",
             "location_statistic": "mean",
+            "predictive_moment_semantics": (
+                "posterior-mixture-location-mean-total-std/v1"
+            ),
             "df_policy": {
                 "id": recipe.df_policy,
                 "lower_exclusive": 2.0,
@@ -495,7 +490,9 @@ def train(
         "cohort_digest": data.cohort_digest,
         "fold_digest": data.fold_digest,
         "evaluation": "outer-fold-refit-with-fold-local-nuts",
-        "evaluation_predictive_sampling_seed": recipe.seed + 10_000,
+        "evaluation_predictive_sampling_seed_policy": (
+            "recipe-seed-plus-10000-plus-fold"
+        ),
         "fold_inference": fold_diagnostics,
         "final_inference_identity_digest": (
             final.inference_identity.identity_digest
