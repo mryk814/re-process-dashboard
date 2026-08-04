@@ -1266,6 +1266,7 @@ def test_model_workflow_builds_bayesian_additive_with_typed_intervals(
 def test_model_workflow_builds_verified_student_t_posterior_package(
     tmp_path: Path,
 ) -> None:
+    pytest.importorskip("numpyro")
     package = tmp_path / "heat-treatment-student-t"
     dataset_path = tmp_path / "heat-treatment-feature-dataset.json"
     result = build_package(

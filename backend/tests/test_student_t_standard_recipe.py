@@ -208,6 +208,7 @@ def test_student_t_heavy_tail_gain_and_normal_efficiency_loss_are_bounded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    pytest.importorskip("numpyro")
     monkeypatch.setattr(
         student_t_linear,
         "_settings",
