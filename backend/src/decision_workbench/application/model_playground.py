@@ -381,6 +381,7 @@ class ModelPlaygroundUseCases:
         run = self.get_run(run_id)
         if run.execution_revision != expected_revision:
             raise ModelExplorationRunConflictError(run)
+        self._require_idle_run(run)
         selection = next(
             (
                 item
@@ -463,6 +464,7 @@ class ModelPlaygroundUseCases:
         run = self.get_run(run_id)
         if run.execution_revision != expected_revision:
             raise ModelExplorationRunConflictError(run)
+        self._require_idle_run(run)
         if adopted_recipe_id is not None and not any(
             item.recipe_id == adopted_recipe_id and item.status == "completed"
             for item in run.attempts
@@ -495,6 +497,7 @@ class ModelPlaygroundUseCases:
         run = self.get_run(run_id)
         if run.execution_revision != expected_revision:
             raise ModelExplorationRunConflictError(run)
+        self._require_idle_run(run)
         index = next(
             (i for i, item in enumerate(run.attempts) if item.attempt_id == attempt_id),
             None,
@@ -543,6 +546,7 @@ class ModelPlaygroundUseCases:
             registered_at=_utcnow(),
             reference_id=ref.id,
             manifest_digest=attempt.result.manifest_digest,
+            package_locator=str(promoted["trusted_package"]),
         )
         attempts = list(run.attempts)
         attempts[index] = attempt.model_copy(update={"registration": receipt})
@@ -556,6 +560,13 @@ class ModelPlaygroundUseCases:
             updated,
             expected_revision=run.execution_revision,
         )
+
+    @staticmethod
+    def _require_idle_run(run: ModelExplorationRun) -> None:
+        if any(item.status == "running" for item in run.attempts):
+            raise ModelPlaygroundError(
+                "recipe実行中は同じRunの登録・memo保存・追加実行を開始できません"
+            )
 
     def _materialize(
         self,

@@ -27,6 +27,7 @@ export type PlaygroundAttemptView = Readonly<{
   }>;
   registration?: Readonly<{
     referenceId: string;
+    packageLocator: string;
     activePackageChanged: false;
   }>;
   capabilities: readonly string[];

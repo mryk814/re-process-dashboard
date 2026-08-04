@@ -305,6 +305,7 @@ test("Model Playground builds, resumes, retries, compares and registers fixed ev
   await expect(failedAdditive).toContainText("active Packageは変更していません");
   await failedAdditive.getByRole("button", { name: "locatorをコピー" }).click();
   await expect(failedAdditive.getByRole("button", { name: "コピー済み" })).toBeVisible();
+  const copiedLocator = await page.evaluate(() => navigator.clipboard.readText());
 
   const runId = new URL(page.url()).searchParams.get("model_run");
   expect(runId).toBeTruthy();
@@ -316,9 +317,12 @@ test("Model Playground builds, resumes, retries, compares and registers fixed ev
     `${apiBaseUrl}/api/model-playground/runs/${runId}`,
   );
   const savedRun = await runResponse.json();
-  const packageId = [...savedRun.attempts].reverse().find(
+  const registeredAttempt = [...savedRun.attempts].reverse().find(
     (attempt: { registration?: unknown }) => attempt.registration,
-  ).result.package_id;
+  );
+  expect(copiedLocator).toBe(registeredAttempt.registration.package_locator);
+  expect(copiedLocator).not.toBe(registeredAttempt.result.package_path);
+  const packageId = registeredAttempt.result.package_id;
   await page.getByRole("button", { name: "Model Libraryへ戻る" }).click();
   const registeredPackage = page.locator(".model-asset-card").filter({
     hasText: packageId,

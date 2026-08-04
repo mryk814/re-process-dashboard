@@ -195,7 +195,7 @@ function SetupSurface({
 function RunSurface({
   run,
   selectedTarget,
-  busyAttemptId,
+  busy = false,
   onTargetChange,
   onRetry,
   onCreateNewRun,
@@ -204,7 +204,7 @@ function RunSurface({
 }: {
   run: ModelPlaygroundRunView;
   selectedTarget?: string;
-  busyAttemptId?: string;
+  busy?: boolean;
   onTargetChange?: (target: string) => void;
   onRetry?: (attempt: PlaygroundAttemptView) => void;
   onCreateNewRun?: () => void;
@@ -219,10 +219,16 @@ function RunSurface({
   const [memoRecipe, setMemoRecipe] = useState(run.adoptionMemo?.recipeId ?? "");
   const [memoRationale, setMemoRationale] = useState(run.adoptionMemo?.rationale ?? "");
   const [copiedPath, setCopiedPath] = useState("");
+  const [copyError, setCopyError] = useState("");
 
   async function copyPath(path: string) {
-    await navigator.clipboard.writeText(path);
-    setCopiedPath(path);
+    setCopyError("");
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopiedPath(path);
+    } catch {
+      setCopyError("Package locatorをコピーできませんでした。locatorを選択してコピーしてください。");
+    }
   }
 
   return <>
@@ -260,17 +266,18 @@ function RunSurface({
             <div><dt>Prediction latency</dt><dd>{latencyLabel(attempt.predictionLatencyMs)}</dd></div>
           </dl>}
           <div className="model-asset-actions">
-            {(attempt.status === "failed" || attempt.status === "interrupted") && <button className="outline-button" type="button" disabled={busyAttemptId === attempt.attemptId || !onRetry} onClick={() => onRetry?.(attempt)}>同じidentityで再試行</button>}
+            {(attempt.status === "failed" || attempt.status === "interrupted") && <button className="outline-button" type="button" disabled={busy || !onRetry} onClick={() => onRetry?.(attempt)}>同じidentityで再試行</button>}
             {(attempt.status === "failed" || attempt.status === "interrupted") && <button className="text-button" type="button" disabled={!onCreateNewRun} onClick={onCreateNewRun}>条件を選び直して別Runを作成</button>}
-            {attempt.status === "completed" && !attempt.registration && <button className="outline-button" type="button" disabled={busyAttemptId === attempt.attemptId || !onRegister} onClick={() => onRegister?.(attempt)}>Model Libraryへ登録</button>}
+            {attempt.status === "completed" && !attempt.registration && <button className="outline-button" type="button" disabled={busy || !onRegister} onClick={() => onRegister?.(attempt)}>Model Libraryへ登録</button>}
           </div>
-          {attempt.registration && attempt.packagePath && <div className="playground-registration" role="status">
+          {attempt.registration && <div className="playground-registration" role="status">
             <strong>Model Libraryに登録済み</strong>
             <span>active Packageは変更していません。</span>
-            <label>Package locator<code>{attempt.packagePath}</code></label>
-            <button className="text-button" type="button" onClick={() => void copyPath(attempt.packagePath!)}>
-              {copiedPath === attempt.packagePath ? "コピー済み" : "locatorをコピー"}
+            <label>Package locator<code>{attempt.registration.packageLocator}</code></label>
+            <button className="text-button" type="button" onClick={() => void copyPath(attempt.registration!.packageLocator)}>
+              {copiedPath === attempt.registration.packageLocator ? "コピー済み" : "locatorをコピー"}
             </button>
+            {copyError && <span role="alert">{copyError}</span>}
           </div>}
         </article>)}
       </div>
@@ -308,7 +315,7 @@ function RunSurface({
         </select></label>}
         <label className="playground-rationale">根拠<textarea value={memoRationale} maxLength={4000} rows={3} onChange={(event) => setMemoRationale(event.target.value)} /></label>
       </div>
-      <button className="primary-button" type="button" disabled={!onSaveMemo || !memoRationale.trim() || (memoDecision === "adopt" && !memoRecipe)} onClick={() => onSaveMemo?.({ decision: memoDecision, recipeId: memoDecision === "adopt" ? memoRecipe : undefined, rationale: memoRationale.trim() })}>Memoを保存</button>
+      <button className="primary-button" type="button" disabled={busy || !onSaveMemo || !memoRationale.trim() || (memoDecision === "adopt" && !memoRecipe)} onClick={() => onSaveMemo?.({ decision: memoDecision, recipeId: memoDecision === "adopt" ? memoRecipe : undefined, rationale: memoRationale.trim() })}>Memoを保存</button>
     </section>
   </>;
 }
@@ -318,7 +325,6 @@ export function ModelPlaygroundPage({
   actionError,
   selectedTarget,
   busy = false,
-  busyAttemptId,
   onBack,
   onRetryLoad,
   onCreateRun,
@@ -332,7 +338,6 @@ export function ModelPlaygroundPage({
   actionError?: string;
   selectedTarget?: string;
   busy?: boolean;
-  busyAttemptId?: string;
   onBack: () => void;
   onRetryLoad?: () => void;
   onCreateRun?: (recipeIds: readonly string[], budget: "quick" | "standard" | "research") => void;
@@ -351,6 +356,6 @@ export function ModelPlaygroundPage({
     {state.kind === "loading" && <div className="model-playground-state" role="status"><strong>固定identityとRunを読み込んでいます</strong><span>完了済みrecipeの証拠は再計算しません。</span></div>}
     {state.kind === "error" && <div className="model-playground-state error" role="alert"><strong>Model Playgroundを読み込めません</strong><span>{state.message}</span><button className="primary-button" type="button" onClick={onRetryLoad}>再試行</button></div>}
     {state.kind === "preview" && <SetupSurface key={`${state.preview.taskId}:${state.preview.trainingSnapshotId}`} preview={state.preview} busy={busy} onCreateRun={onCreateRun} />}
-    {state.kind === "run" && <RunSurface key={state.run.runId} run={state.run} selectedTarget={selectedTarget} busyAttemptId={busyAttemptId} onTargetChange={onTargetChange} onRetry={onRetry} onCreateNewRun={onCreateNewRun} onRegister={onRegister} onSaveMemo={onSaveMemo} />}
+    {state.kind === "run" && <RunSurface key={state.run.runId} run={state.run} selectedTarget={selectedTarget} busy={busy} onTargetChange={onTargetChange} onRetry={onRetry} onCreateNewRun={onCreateNewRun} onRegister={onRegister} onSaveMemo={onSaveMemo} />}
   </section>;
 }

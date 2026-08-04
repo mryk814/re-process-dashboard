@@ -332,6 +332,7 @@ class ModelExplorationRegistrationReceipt(ModelPlaygroundContract):
     registered_at: datetime
     reference_id: Annotated[str, Field(min_length=1)]
     manifest_digest: Digest
+    package_locator: Annotated[str, Field(min_length=1)]
     storage_scope: Literal["personal"] = "personal"
     active_package_changed: Literal[False] = False
 

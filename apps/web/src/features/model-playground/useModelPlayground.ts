@@ -27,7 +27,6 @@ export function useModelPlayground(
   const [state, setState] = useState<ModelPlaygroundPageState>({ kind: "loading" });
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [busyAttemptId, setBusyAttemptId] = useState<string>();
   const [requestVersion, setRequestVersion] = useState(0);
 
   const acceptRun = useCallback((next: ApiModelExplorationRun) => {
@@ -115,7 +114,6 @@ export function useModelPlayground(
         current.definition.context.targets[0]?.target_key,
       );
       for (const recipeId of recipeIds) {
-        setBusyAttemptId(recipeId);
         current = await workbenchApi.executeModelExplorationRecipe(
           current.run_id,
           recipeId,
@@ -126,14 +124,13 @@ export function useModelPlayground(
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Model Playground Runを実行できませんでした。");
     } finally {
-      setBusyAttemptId(undefined);
       setBusy(false);
     }
   }, [acceptRun, onRunCreated, preview]);
 
   const retry = useCallback(async (attempt: PlaygroundAttemptView) => {
     if (!run) return;
-    setBusyAttemptId(attempt.attemptId);
+    setBusy(true);
     setActionError("");
     try {
       acceptRun(await workbenchApi.executeModelExplorationRecipe(
@@ -144,13 +141,13 @@ export function useModelPlayground(
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "recipeを再試行できませんでした。");
     } finally {
-      setBusyAttemptId(undefined);
+      setBusy(false);
     }
   }, [acceptRun, run]);
 
   const register = useCallback(async (attempt: PlaygroundAttemptView) => {
     if (!run) return;
-    setBusyAttemptId(attempt.attemptId);
+    setBusy(true);
     setActionError("");
     try {
       acceptRun(await workbenchApi.registerModelExplorationAttempt(
@@ -161,7 +158,7 @@ export function useModelPlayground(
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Model Libraryへ登録できませんでした。");
     } finally {
-      setBusyAttemptId(undefined);
+      setBusy(false);
     }
   }, [acceptRun, run]);
 
@@ -171,6 +168,7 @@ export function useModelPlayground(
     rationale: string;
   }) => {
     if (!run) return;
+    setBusy(true);
     setActionError("");
     try {
       acceptRun(await workbenchApi.saveModelExplorationAdoptionMemo(
@@ -184,14 +182,15 @@ export function useModelPlayground(
       ));
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Adoption memoを保存できませんでした。");
+    } finally {
+      setBusy(false);
     }
   }, [acceptRun, run]);
 
   return {
     state,
     actionError,
-    busy,
-    busyAttemptId,
+    busy: busy || Boolean(run?.attempts.some((attempt) => attempt.status === "running")),
     retryLoad: () => setRequestVersion((value) => value + 1),
     createRun,
     retry,

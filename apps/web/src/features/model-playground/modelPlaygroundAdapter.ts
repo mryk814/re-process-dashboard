@@ -170,6 +170,7 @@ export function presentModelExplorationRun(
       registration: attempt.registration
         ? {
           referenceId: attempt.registration.reference_id,
+          packageLocator: attempt.registration.package_locator,
           activePackageChanged: attempt.registration.active_package_changed,
         }
         : undefined,

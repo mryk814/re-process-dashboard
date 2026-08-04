@@ -15379,6 +15379,11 @@
             "title": "Manifest Digest",
             "type": "string"
           },
+          "package_locator": {
+            "minLength": 1,
+            "title": "Package Locator",
+            "type": "string"
+          },
           "reference_id": {
             "minLength": 1,
             "title": "Reference Id",
@@ -15399,7 +15404,8 @@
         "required": [
           "registered_at",
           "reference_id",
-          "manifest_digest"
+          "manifest_digest",
+          "package_locator"
         ],
         "title": "ModelExplorationRegistrationReceipt",
         "type": "object"

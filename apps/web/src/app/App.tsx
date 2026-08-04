@@ -176,7 +176,6 @@ function ModelPlaygroundRoute({
     actionError={playground.actionError}
     selectedTarget={navigation.modelPlaygroundTarget}
     busy={playground.busy}
-    busyAttemptId={playground.busyAttemptId}
     onBack={() => navigate({ view: "model-library", modelLibraryTab: "packages" })}
     onRetryLoad={playground.retryLoad}
     onCreateRun={playground.createRun}

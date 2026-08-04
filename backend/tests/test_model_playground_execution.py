@@ -294,3 +294,12 @@ def test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity(
     receipt = registered.attempts[1].registration
     assert receipt is not None
     assert receipt.active_package_changed is False
+    assert receipt.package_locator == str(
+        (
+            tmp_path
+            / "models"
+            / "packages"
+            / additive.result.package_id
+        ).resolve()
+    )
+    assert receipt.package_locator != additive.result.package_path

@@ -8,6 +8,7 @@ import {
 } from "../src/features/model-playground/modelPlaygroundPresentation.ts";
 import {
   intervalSemantics,
+  presentModelExplorationRun,
   presentModelPlaygroundPreview,
 } from "../src/features/model-playground/modelPlaygroundAdapter.ts";
 
@@ -40,6 +41,64 @@ test("unmeasured prediction latency is not presented as zero", () => {
   assert.equal(latencyLabel(undefined), "未計測");
   assert.equal(latencyLabel(0), "0 ms");
   assert.equal(latencyLabel(12.34), "12.3 ms");
+});
+
+test("registration presents the promoted Package locator, not the build path", () => {
+  const run = presentModelExplorationRun({
+    run_id: "run-1",
+    execution_revision: 3,
+    definition: {
+      context: {
+        task_id: "task",
+        training_snapshot_id: "snapshot",
+        targets: [{
+          target_key: "strength",
+          validation_plan: { strategy: "grouped_kfold", folds: 3 },
+        }],
+      },
+      context_digest: "sha256:context",
+      compute_budget: "quick",
+      warnings: [],
+      selected_recipes: [{
+        recipe_id: "ridge.v1",
+        label: "Ridge",
+        lifecycle: "production",
+        availability: "ready",
+        reasons: [],
+        comparison_role: "baseline",
+        required_dependency: null,
+        training_cost: "low",
+        predictive_capabilities: ["point"],
+        target_readiness: [],
+        task_structure: "standard_independent_targets",
+        effective_parameters: {},
+        inference_unavailable_reason: "posterior inferenceなし",
+      }],
+    },
+    attempts: [{
+      attempt_id: "attempt-1",
+      recipe_id: "ridge.v1",
+      sequence: 1,
+      status: "completed",
+      result: {
+        package_path: "C:/temp/run/package",
+        capabilities: ["point"],
+        targets: [],
+      },
+      registration: {
+        reference_id: "package-ref",
+        package_locator: "C:/personal/models/packages/ridge",
+        active_package_changed: false,
+      },
+    }],
+    adoption_memo: null,
+  });
+
+  assert.equal(
+    run.attempts[0].registration.packageLocator,
+    "C:/personal/models/packages/ridge",
+  );
+  assert.equal(run.attempts[0].packagePath, "C:/temp/run/package");
 });
 
 test("preview keeps exact capacity and dependency reasons for unavailable recipes", () => {

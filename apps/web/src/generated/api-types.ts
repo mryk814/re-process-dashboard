@@ -8736,6 +8736,8 @@ export interface components {
             active_package_changed: false;
             /** Manifest Digest */
             manifest_digest: string;
+            /** Package Locator */
+            package_locator: string;
             /** Reference Id */
             reference_id: string;
             /**

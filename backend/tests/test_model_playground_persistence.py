@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from decision_workbench.application.model_playground import (
+    ModelPlaygroundError,
     ModelPlaygroundUseCases,
     _replace_run,
     _with_execution_digest,
@@ -304,6 +305,42 @@ def test_live_get_keeps_running_attempt_owned_by_same_execution_instance(
     assert observed == running
     assert observed.attempts[0].status == "running"
     assert observed.execution_revision == 1
+
+
+def test_running_attempt_blocks_same_run_mutations(tmp_path) -> None:
+    store = Store(tmp_path / "workspace.db")
+    running = _run(
+        status="running",
+        execution_instance_id="live-process",
+    )
+    store.create_model_exploration_run(running)
+    service = object.__new__(ModelPlaygroundUseCases)
+    service.store = Store(store.path)
+    service.execution_instance_id = "live-process"
+    attempt = running.attempts[0]
+
+    with pytest.raises(ModelPlaygroundError, match="recipe実行中"):
+        service.execute_recipe(
+            running.run_id,
+            attempt.recipe_id,
+            expected_revision=running.execution_revision,
+        )
+    with pytest.raises(ModelPlaygroundError, match="recipe実行中"):
+        service.record_adoption_memo(
+            running.run_id,
+            expected_revision=running.execution_revision,
+            decision="continue_research",
+            rationale="build完了後に判断する",
+            adopted_recipe_id=None,
+        )
+    with pytest.raises(ModelPlaygroundError, match="recipe実行中"):
+        service.register_attempt(
+            running.run_id,
+            attempt.attempt_id,
+            expected_revision=running.execution_revision,
+        )
+
+    assert service.get_run(running.run_id) == running
 
 
 def test_completed_attempt_evidence_cannot_be_overwritten(tmp_path) -> None:
