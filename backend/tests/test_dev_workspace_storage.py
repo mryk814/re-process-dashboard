@@ -77,7 +77,11 @@ def test_launcher_marker_allows_only_declared_profile_task_and_model_stores(
         workspace.rmdir()
 
 
-def test_external_personal_store_remains_allowed(tmp_path: Path) -> None:
+def test_custom_workspace_external_personal_store_remains_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("WORKBENCH_WORKSPACE_KIND", "environment")
     store = tmp_path / "profiles"
     assert validate_personal_or_dev_store(
         store,

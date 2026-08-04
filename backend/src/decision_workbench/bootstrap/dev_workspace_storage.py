@@ -58,14 +58,18 @@ def validate_personal_or_dev_store(
     configured_manifest = os.getenv(DEV_WORKSPACE_MANIFEST_ENV, "").strip()
     configured_id = os.getenv(WORKSPACE_ID_ENV, "").strip()
     configured_kind = os.getenv(WORKSPACE_KIND_ENV, "").strip()
-    configured = (
+    marker_identity = (
         configured_root,
         configured_manifest,
         configured_id,
-        configured_kind,
     )
     raw = path.expanduser().absolute()
-    if not any(configured):
+    if configured_kind != "branch-default":
+        if any(marker_identity):
+            raise error_type(
+                "development workspace launcher marker cannot be used outside "
+                "a branch-default workspace"
+            )
         resolved = raw.resolve()
         if not _inside_repository(resolved):
             return resolved
@@ -73,7 +77,7 @@ def validate_personal_or_dev_store(
             "personal storage must be outside the repository unless it is an "
             "exact launcher-owned development workspace marker target"
         )
-    if not all(configured) or configured_kind != "branch-default":
+    if not all(marker_identity):
         raise error_type("development workspace launcher marker identity is incomplete")
 
     root_raw = Path(configured_root).expanduser().absolute()
