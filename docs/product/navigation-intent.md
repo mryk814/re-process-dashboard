@@ -1,12 +1,12 @@
 <!--
 document-status: current
-verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+verified-commit: e10596340f782b2e181d134bf8336477dfa7ab47
 owner: web navigation
 source-of-truth: URL, history, and NavigationIntent semantics
 -->
 
-<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,model-library,workspace,quality,lineage,explore,data-library,profile-workbench -->
-<!-- current-contract:navigation-query:activity,activity_run,admin,asset,base_dataset,candidate,candidate_section,chain_edge,chain_snapshot,chain_stage,connector,developer_guide,developer_tab,draft,entity,evidence_surface,focus_dataset_revision,focus_package,model_dataset_revision,model_dataset_view,model_definition,model_graph,model_package,model_package_digest,model_project_kind,model_revision,model_revision_digest,model_task,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,screening_surface,snapshot,stage,tab,view -->
+<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,model-library,model-playground,workspace,quality,lineage,explore,data-library,profile-workbench -->
+<!-- current-contract:navigation-query:activity,activity_run,admin,asset,base_dataset,candidate,candidate_section,chain_edge,chain_snapshot,chain_stage,connector,developer_guide,developer_tab,draft,entity,evidence_surface,focus_dataset_revision,focus_package,model_dataset_revision,model_dataset_view,model_definition,model_graph,model_package,model_package_digest,model_profile_revision,model_project_kind,model_revision,model_revision_digest,model_run,model_target,model_task,model_training_snapshot,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,screening_surface,snapshot,stage,tab,view -->
 <!-- current-contract:navigation-fallback:project -->
 
 # NavigationIntent と候補の作成元
@@ -18,7 +18,7 @@ source-of-truth: URL, history, and NavigationIntent semantics
 
 | query | 意味 |
 |---|---|
-| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`chain-graph`、`chain-studio`、`model-library`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
+| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`chain-graph`、`chain-studio`、`model-library`、`model-playground`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
 | `project` | 対象プロジェクトID |
 | `candidate` | 比較または履歴で選択する候補ID |
 | `entity` | 工程系譜で選択するentity key |
@@ -43,6 +43,8 @@ source-of-truth: URL, history, and NavigationIntent semantics
 | `onboarding` / `base_dataset` | Data LibraryまたはProfile Workbenchの追加導線（`revision`、`mapping`、`new-task`）と更新元Dataset revision |
 | `prepared_*` | onboarding直後に確認するDataset／Task／Package／source／Estimator／Workspaceの固定binding。`project`画面だけで復元する |
 | `model_project_kind` と `model_*` | Model LibraryからProject作成面へ渡す固定identity。single TaskではDataset View／Dataset／Task／Package／manifest、GraphではGraph／Definition／immutable Revision／digestを一組で復元する |
+| `model_run` / `model_target` | Model Playgroundで再開する不変Runと、比較表で選択中のtarget |
+| `model_task` / `model_profile_revision` / `model_training_snapshot` | Run作成前にModel Libraryから渡す固定Task／Profile Revision／Training Snapshot。Run作成後は`model_run`へ置き換える |
 | `focus_dataset_revision` / `focus_package` | Model LibraryからData Libraryへ渡す確認対象、またはData LibraryからModel Libraryへ渡すDataset文脈。未解決・利用停止・表示条件外なら別資産へfallbackしない |
 
 未知の`view`は`project`へ、未知のenum値・依存先のないresource指定は省略へ正規化します。
