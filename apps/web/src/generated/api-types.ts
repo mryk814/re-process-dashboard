@@ -13925,6 +13925,12 @@ export interface components {
         };
         /** StandardEstimatorEntry */
         StandardEstimatorEntry: {
+            /**
+             * Adoption Status
+             * @default production
+             * @enum {string}
+             */
+            adoption_status: "production" | "experimental" | "no_adopt";
             /** Artifact Format */
             artifact_format: string | null;
             /**

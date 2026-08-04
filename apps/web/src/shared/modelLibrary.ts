@@ -34,6 +34,12 @@ export function packagePredictiveMeaning(
   if (predictors.some((item) => item.runtime_type === "builtin.quantile_linear.v1")) {
     return "中央値とq05／q95を直接学習 · q05–q95は正規分布の90%区間ではありません · 分位点交差は補正せず利用不能";
   }
+  if (predictors.some((item) => (
+    item.runtime_type === "numpyro.dense_posterior.v1"
+    && item.predictive_family === "student_t"
+  ))) {
+    return "Student-t heavy-tail likelihood · 妥当な大残差の影響を抑えるmodelであり、入力ミスや単位不整合を許容しません · dfは2.1–30に制約したposterior · q05–q95は新観測の事後予測区間（潜在平均の信用区間ではありません）";
+  }
   return null;
 }
 
