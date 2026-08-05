@@ -28,8 +28,8 @@ Evidence Decision Workbench（判断根拠ワークベンチ）は、入力候�
 入口は[Developer Start Here](docs/developer-start-here.md)です。日常作業の短い進め方とGPT-5.6向けprofile例は[Agent throughput guide](docs/developer/agent-throughput.md)を参照します。
 
 - `answer`、`explain`、`review`、`diagnose`、`plan`では、関連箇所を確認して報告します。明示されない限り実装しません。
-- `change`、`build`、`fix`、`implement`では、scope内の変更と非破壊的な直接検証まで進めます。
-- 外部write、破壊的操作、費用発生、scopeの大幅拡張は確認を取ります。
+- `change`、`build`、`fix`、`implement`では、scope内の変更、依頼されたrepository内のbranch／commit／PR、非破壊的な直接検証まで進めます。
+- merge、deploy、release、resource削除、外部message、秘密情報の送信、費用発生、scopeの大幅拡張は確認を取ります。
 
 ## 読む範囲
 
