@@ -1,214 +1,117 @@
 # AGENTS.md
 
-入力条件の候補を比較し、予測特性・不確かさ・類似過去実績を確認するローカルアプリ（Evidence Decision Workbench／判断根拠ワークベンチ）。
+Evidence Decision Workbench（判断根拠ワークベンチ）は、入力候補、予測、実測、不確かさ、支持範囲、provenanceを分離して科学的な意思決定を支援するローカルアプリです。
 
-- `apps/web` — React + TypeScript + Vite（UI）
-- `apps/desktop` — Electron shell（Python APIを同時起動）
-- `backend` — FastAPI + Python（データ、特徴量、モデルruntime、SQLite）
-- `models/packages` — 学習済みモデルPackage（データ成果物、コードなし）
-- `data/source` — 元Excel。読取専用の正本
+- `backend/` — FastAPI、domain、persistence、model runtime
+- `apps/web/` — React + TypeScript + Vite UI
+- `apps/desktop/` — Electron shell
+- `models/packages/` — safeなdata-only Model Package
+- `data/source/` — 読取専用の元データ正本
+- `docs/` — product、contract、decision、operationの正本
 
-## 作業レーンを最初に決める
+## 最初に作業modeを決める
 
-作業者の肩書ではなく、変更する対象でレーンを決める。
+### Data use
 
-### データ利用レーン
+既存のTask、Profile family、Model Runtimeを使い、外部Excel／CSVを登録、学習、Project利用する作業です。
 
-既存のPrediction Task、Profile family、Model Runtimeを使い、自分のExcel／CSVを登録、探索、学習、Project利用する作業はデータ利用レーンとする。
-入口は [自分のデータで使い始める](docs/operations/data-contributor-start-here.md)。
-AIに新しいデータの仕分けと接続を任せる場合は
-[Data Contributor Skill](.claude/skills/data-contributor/SKILL.md)を使う。
-Data ContributorはData Library UIを既定入口とし、commandは画面で到達不能と記録した後の
-read-only診断または明示承認済みfallbackに限る。
-Project作成と代表予測まで完了した後の目標形成、候補確認、判断保存は
-[Scenario Journey Evaluator Skill](.claude/skills/scenario-journey-evaluator/SKILL.md)へhandoffする。
+入口は[自分のデータで使い始める](docs/operations/data-contributor-start-here.md)です。必要なら[`data-contributor`](.agents/skills/data-contributor/SKILL.md)を使います。
 
-このレーンでは、次を既定で要求しない。
+このmodeでは、既存のProfile検証、`model:diagnose`、Package build内の契約検証、実Projectでのsmokeを使います。アプリコード、追跡済みProfile、同梱Dataset／Package、TaskDefinition、API、UI、migrationを変え始めた時点でApp developmentへ移ります。
 
-- アプリコード向けの新規unit test／E2E
-- GitHub Issue、branch、PR、commit
-- `verify:edit`、`verify:pr`、`verify:checkpoint`
-- source dataや個人用artifactのリポジトリ同梱
-- アプリ全体の敵対的コードレビュー
+既定ではIssue、branch、PR、アプリ向けunit test／E2E、全体gateを要求しません。
 
-代わりに、既存のProfile検証、`model:diagnose`、Package build内の契約検証、実際のProjectでのsmokeを使う。
-既存の検証コマンドが失敗した場合は、テストを書いて回避しない。
-データ、Profile、Packageの不整合だけでなく、環境、tooling、アプリの不具合も切り分ける。
+### App development
 
-リポジトリ外の個人用Profileで、既存Profile schema内の列名やシート名をmappingする作業はこのレーンに含む。
-追跡済みProfileや同梱Dataset／Packageを変更する場合はアプリ開発レーンとする。
-TaskDefinitionの入力・出力、canonical quantity、学習単位、Profile parser／schema、Runtime adapter、API、UI、migrationを変える場合は、その時点からアプリ開発レーンへ移る。
+アプリ本体、contract、共通tooling、同梱contentを変更する作業です。
 
-### アプリ開発レーン
+入口は[Developer Start Here](docs/developer-start-here.md)です。日常作業の短い進め方とGPT-5.6向けprofile例は[Agent throughput guide](docs/developer/agent-throughput.md)を参照します。
 
-アプリ本体、契約、共通tooling、同梱コンテンツを変更する作業はアプリ開発レーンとする。
-入口は [Developer Start Here](docs/developer-start-here.md)。
-以下の検証規約、Issue／PR運用、実装者と異なる観点のレビューは、このレーンに適用する。
+- `answer`、`explain`、`review`、`diagnose`、`plan`では、関連箇所を確認して報告します。明示されない限り実装しません。
+- `change`、`build`、`fix`、`implement`では、scope内の変更と非破壊的な直接検証まで進めます。
+- 外部write、破壊的操作、費用発生、scopeの大幅拡張は確認を取ります。
 
-### Agent Skillsの入口
+## 読む範囲
 
-- architecture、責務境界、module分割、registry、adapter、Package authority、migrationを
-  監査または変更する前に
-  [`re-process-architecture-review`](.agents/skills/re-process-architecture-review/SKILL.md)を使う。
-- 画面構造、情報順序、navigation、onboarding、form、結果配置、画面間handoffを変更する前に
-  [`frontend-ux-architect`](.agents/skills/frontend-ux-architect/SKILL.md)を使う。
-- bug、test failure、unexpected behaviorの修正案を出す前に
-  [`systematic-debugging`](.agents/skills/systematic-debugging/SKILL.md)を使う。
+最初に読むのは次だけです。
 
-外部Skillの固定版、適用制限、更新手順は
-[`Agent Skills inventory`](docs/developer/agent-skills-inventory.md)を正本とする。
+1. 利用者の依頼と関連Issue
+2. 変更対象の正本またはowner
+3. 対象コード
+4. 最寄りのtest
+5. 対象directoryまでの最寄り`AGENTS.md`
 
-## アプリ開発のセットアップと検証
+全docs、全Issue、全Skill、repository全体を先に棚卸ししません。追加authorityへ実際に到達した時だけ読込範囲を広げます。
 
-```powershell
-uv sync --extra dev
-npm install
-npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
-```
+## Fast path
 
-`npm run dev` の既定DBは `.dev-workspaces/<branch名>-<短いhash>.db` であり、
-`data/workbench.db` は開かない。固定レビュー状態へ戻すときはserverを止めて
-`npm run workspace:seed` を使う。本物の判断台帳を開く場合だけ
-`npm run dev:main-workspace` または `WORKBENCH_DB_PATH=data/workbench.db` を
-明示する。`workspace:seed`は環境変数で指定したDBを拒否し、branch既定Workspace
-だけを初期化する。起動前のread-only整合検査は `npm run workspace:check` で
-単独実行できる。
+`micro`／`local`変更は、次を既定とします。
 
-実装中は、変更した契約や挙動に対応するLevel 0を使う。
+1. 一つの変更authorityを特定する
+2. 最小の完全な差分を実装する
+3. 最も近いtestまたはstatic checkを一度実行する
+4. diffを確認する
+5. 新しい原因仮説がなければ止める
 
-```powershell
-npm.cmd run verify:edit -- backend/tests/test_screening_score.py
-```
+`micro`／`local`では原則として次を行いません。
 
-Level 0は、小さな編集、commit、agent handoffのたびに反復する義務ではない。
-実装を意味のある一単位まで進めてから、その単位を反証できるfocused testを一度実行する。
-同じ失敗仮説を検証しないtest、変更と無関係なfull suite、直前と同じcommitへの同じgateは繰り返さない。
+- written verification budgetの作成
+- subagentへの委任
+- repository全体のarchitecture／UX監査
+- full pytest、default Playwright、checkpoint、release acceptance
+- independent-adversarial review
+- 同一commit・同一input・同一environmentの同じgateの再実行
 
-通常のPRはLevel 1を使い、対象pytestを`--`以降へ渡す。
+browser behaviorを変えた場合だけ、そのinteractionを反証する対象journeyをfresh環境で一度確認します。
 
-```powershell
-npm.cmd run verify:pr -- backend/tests/test_screening_score.py
-```
+詳細な検証規約は[検証予算と停止条件](docs/operations/verification-budget.md)と[検証gate運用](docs/operations/verification-policy.md)を正本とします。
 
-複数PRをまとめた節目は`npm run verify:checkpoint`、配布・migration・restore・Packageなど高リスクの受入は`npm run acceptance:release`を使う。通常PRごとにLevel 2／3を要求しない。
+## 昇格条件
 
-### 検証コストと作り込みを抑える
+次のいずれかを確認した場合だけ`structural`／`critical`へ昇格します。
 
-- 関連Issueは実装を先にまとめ、各Issueでは変更箇所のfocused testを使う。full suite、default Playwright、checkpointは複数PRを統合した節目で一度だけ実行する。
-- 画面変更のmerge前証拠は、変更した操作経路を反証するfresh Playwright specに絞る。無関係なE2E全体を毎PRで実行しない。
-- Package実体、runtime adapter、migration、restore、配布物、security boundaryを変更していないPRへ、path名だけを理由に`acceptance:release`を要求しない。risk classifierが過大判定した場合は実際の変更境界と省略理由をPRへ記録し、節目のまとめ検証へ送る。
-- CIが同一commitのfull suiteを完走している場合、その証拠を再利用する。rebase後も変更が証拠文書だけなら、app全体のtestを最初からやり直さない。
-- gateを省略した場合は未実行として正確に記録する。成功扱いはしないが、未実行だけを理由に実装とmergeを無期限に止めない。
-- 検証のためだけの新しいframework、runner、fixture abstraction、互換layerは作らない。既存のgateと最小のhelperで不足を示せない場合だけ、検証tooling自体を別Issueとして扱う。
-- test追加は、科学的誤判断、データ破損、再現性崩壊、accessibility阻害、過去に起きた回帰のいずれかを具体的に防ぐものへ絞る。実装詳細の追認や既存coverageの重複は追加しない。
+- 複数authorityを実際にまたいだ
+- public API、persistence、migration、restore、securityを変更する
+- Model Package artifact／runtime semanticsを変更する
+- Project、Run、Snapshot等のpersisted scientific identityを変更する
+- 最初の原因仮説が外れた、再現が不安定、または再発している
+- focused evidenceでは共有stateを観測できない
+- 利用者の科学判断を誤らせる新しいriskが見つかった
 
-4段階の選択、risk matrix、gateの唯一の正本は`docs/operations/verification-policy.md`と`scripts/verification-gates.json`に置く。未実行gateを成功扱いしない。
+`structural`／`critical`では、[`verification-budget-planner`](.agents/skills/verification-budget-planner/SKILL.md)と必要なrepo Skillを使います。
 
-画面または操作経路を変えた場合は、変更リスクに対応するPlaywright specもfresh serverで実行する。
+## Skillを使う条件
 
-反復中のserver再利用は高速化のためのfocused loopであり、merge前の証拠には使わない。
+- [`systematic-debugging`](.agents/skills/systematic-debugging/SKILL.md) — 原因layerが不明、候補が複数、再現不安定、再発、または最初の局所仮説が外れた時。明白な一authority修正ではfast pathを使う。
+- [`frontend-ux-architect`](.agents/skills/frontend-ux-architect/SKILL.md) — screen、navigation、form構造、情報順序、主要handoffを変える時。typo、token置換、既存構造内の局所表示修正では使わない。
+- [`re-process-architecture-review`](.agents/skills/re-process-architecture-review/SKILL.md) — package authority、registry、adapter、transaction、migration、dependency directionを変える時。通常のfeature追加や行数だけの分割では使わない。
+- [`scenario-journey-evaluator`](.agents/skills/scenario-journey-evaluator/SKILL.md) — 複数画面の判断journeyを実Actorとして評価する時。
 
-`pythonpath` と `testpaths` は `pyproject.toml` でリポジトリ直下基準に固定してある。
-`backend/` から `pytest` を実行すると `ModuleNotFoundError: No module named 'backend'`
-と複数の失敗が出るが、これは cwd 違いであって実際の失敗ではない。
+外部Skillの固定版と安全境界は[Agent Skills inventory](docs/developer/agent-skills-inventory.md)を正本とします。
 
-E2EはPlaywrightで実行する。Level 2にはAPI offlineとaccessibility smokeを扱うfailure-state laneが含まれる。
+## Non-negotiable invariants
 
-通常の画面経路と専用runtimeを必要とするspecは、変更内容に応じて別途実行する。
+- `data/source/`を変更しない。
+- Model Packageからarbitrary Python code、pickle、joblibを読み込まない。新runtimeはallow-list adapterとして追加する。
+- 保存済みProject、Package、Run、Snapshot、prediction identityを黙って変更・再計算しない。
+- prediction、actual、uncertainty、support、provenanceを同じ意味として扱わない。
+- Task ID、材料名、元データ列名、model class名による中央分岐を増やさない。
+- typed error、stale-response rejection、transaction owner、failure containmentをfallbackやretryで隠さない。
+- compatibility shim、旧経路、並行V2実装を理由なく長期並存させない。
+- testは科学的誤判断、データ破損、再現性崩壊、復旧不能、accessibility阻害、実際の回帰を防ぐものへ絞る。
 
-ポートは環境変数で移せる。
+## Scoped authorities
 
-既定の `npx playwright test` は `e2e/` 全体を対象にするが、専用configを持つ
-`chain-degraded.spec.ts` だけは除外している（`playwright.chain-degraded.config.ts`の
-fixtureとportが要る）。専用runnerは次の3つ。
+- [backend rules](backend/AGENTS.md)
+- [Web rules](apps/web/AGENTS.md)
+- [Web implementation rules](apps/web/src/AGENTS.md)
+- [Web test rules](apps/web/tests/AGENTS.md)
+- [E2E rules](e2e/AGENTS.md)
+- [docs rules](docs/AGENTS.md)
+- [tooling rules](scripts/AGENTS.md)
 
-```powershell
-npm run test:e2e:degraded-task     # degraded-task.spec.ts
-npm run test:e2e:failure-states    # api-offline / accessibility-smoke
-npx playwright test --config playwright.chain-degraded.config.ts
-```
+## Stop rule
 
-Projectのbindingはspecから固定Package IDで指すのではなく、`resolveProjectBinding`へ
-`{ datasetFilename }` を渡す。Packageは不変で契約や学習データが変わるたび新しいIDになるため、
-IDを直接書くとその改版で落ちる。
+変更したbehavior、contract、state transitionが現在commitで一度証明され、diffがscope内で、新しい未検証仮説が残っていなければ止めます。
 
-```powershell
-npx playwright test
-$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/navigation-intent.spec.ts
-```
-
-既定では毎回 API と Web を起動する。1回あたり25〜30秒かかり、specを1件ずつ
-直すループではこれが支配的になる（3件のspecで計46秒のうち約40秒が起動）。
-`PLAYWRIGHT_REUSE_SERVER=1` を付けると常駐サーバに接続する（同じspecが8秒）。
-
-```powershell
-npm run dev   # 別ターミナルで常駐させたまま
-$env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_WEB_PORT=5180; npx playwright test e2e/navigation-intent.spec.ts
-```
-
-**再利用は反復ループ専用。完了判定には使わない。** 理由は2つある。
-
-- specは `default` などの共有Projectを書き換えるため、同じDBに対する2回目の
-  実行では落ちる（実測：既定パス0件失敗 → 同一サーバへの2回目で8件失敗）。
-  既定パスは実行ごとに `decision-workbench-e2e-<pid>.db` を作るのでこれが起きない
-- 常駐サーバは起動時にbindしたDataset revisionを持ち続ける。データセットや
-  Packageを変更したときは、常駐サーバを再起動しないと古い版を見たままになる
-
-## アプリ開発の進め方
-
-- 独立して検証できる作業はサブエージェントへ委任し、共有worktreeの所有権を明示する
-- merge前に、実装者と異なる観点の敵対的レビューで穴をつぶす
-- UIの細かい部分はユーザーが実際にさわってFBします
-
-### 教材review
-
-`docs/learning/`の章を完成扱いにする前に、`docs/learning/reviews/`へ観点別の記録を残す。
-教材の章、演習、解答、図の説明、読書案内を新規執筆または改稿するときは、
-[Write Learning Chapter Skill](.claude/skills/write-learning-chapter/SKILL.md)を先に使う。
-完成後の英単語置換ではなく、具体物と判断場面から日本語で段落を組み立てる。
-
-- 全章でimplementation、pedagogy、accessibilityを確認する。
-- 数理章はstatistics、材料判断へ接続する章はdomain、trust boundaryを扱う章はsecurityを追加する。
-- Level A（Editorial）は誤字・link・組版、Level B（Technical）はcode path・挙動・test、Level C（Conceptual）はarchitecture・統計・domain・教育、Level D（Adversarial）は誤読・edge case・unsafe shortcut・隠れた仮定を扱う。数理と安全境界はLevel Dまで確認する。
-- AIは用語、定義、code reference、cross-reference、曖昧さ、演習整合、敵対的質問の候補を出せるが、実装意図、統計・domainの妥当性、severity、実読者の理解を単独で承認しない。
-- 代理reader taskは`proxy: true`と限界を記録し、実読者・支援技術・専門reviewの未実施を隠さない。
-
-## 原則
-
-1. データは二つの軸で判定する。provenance／license軸では実測か合成か、公開か非公開かを確認する。用途軸ではproduction、reference、教材データ、test用の合成fixtureを区別する。Task inventory、Profile metadata、license、provenanceを正本とし、明示のないデータを合成fixtureと決めつけない。
-2. `relation` の一行を学習行として直接使わない。工程条件と反復観測を分離する。
-3. プレビューと詳細予測を分け、入力変更時は変更候補だけを更新する。
-4. 過度な最適化をしない。実測して遅い箇所だけ改善する。
-5. productionはローカルファーストとし、明示的な探索Issueで隔離したspikeを除いてクラウド構成を追加しない。
-6. 過度な作り込みは避ける。ただし、科学的な誤判断、データ破損、復旧不能、accessibilityの阻害につながる品質は検証速度より優先する。
-7. 元Excel（`data/source/`）は読取専用の正本。アプリ・スクリプト・テストのどこからも変更しない。
-8. モデルPackageからPythonコード・pickle・joblibを読み込まない。新しいモデル種類はallow-listされたadapterをアプリ本体へ追加して対応する。
-9. 保存済み予測スナップショットは不変。予測結果にはモデル・特徴量パイプライン・学習データの版を必ず残し、最新モデルで自動再計算しない。
-10. テストは網羅カバレッジを狙わず、モデル契約テスト・特徴量ゴールデン・Package smoke・一本のE2Eなど、科学的な誤判断や再現性崩壊につながる箇所へ絞る。
-11. UIの基本言語は日本語。不確実性は専門用語のまま出さず、判断に使える表現へ翻訳する。UI上で予測値と実測値を混同させない。
-12. 元データにあるシート名や列名などに関する名称などをコード内にハードコーディングすることなどは極力避ける
-13. もし、実装の中で前提の変更や作業環境の改善が望ましい場面があればその旨を伝えること
-
-## AI self-check
-
-- 今回がデータ利用レーンかアプリ開発レーンかを先に判定したか。
-- データ利用レーンへアプリコード用のテスト、Issue、PR、全体gateを要求していないか。
-- 変更対象の正本、生成物、読取専用資源を区別したか。
-- 予測、実測、不確かさ、支持範囲を混同していないか。
-- 保存済みSnapshot、Run、Project identityを暗黙更新していないか。
-- アプリ開発レーンでは、edit loopだけで完了扱いせず、変更riskに対応するLevel 1以上と必要なbrowser証拠を残したか。
-- Actionsが利用可能かを実行時に確認し、利用できない場合は選択したローカルgateと不足する外部証拠をPRへ記録したか。
-
-## 詳細ドキュメント
-
-- [docs/product/app-charter.md](docs/product/app-charter.md) — 対象範囲、対象外、将来候補
-- [docs/contracts/model-package-contract.md](docs/contracts/model-package-contract.md) — モデルPackageの契約と読込手順
-- [docs/contracts/feature-engineering.md](docs/contracts/feature-engineering.md) — 特徴量パイプラインの定義
-- [docs/product/design-system.md](docs/product/design-system.md) — UIデザインシステム
-
-## CIの扱い
-
-GitHub Actionsの利用可否は一時的な運用状態であり、この文書の不変条件ではない。
-
-PRごとに現行checkを確認し、利用できない場合は`verify:pr`、必要なら`verify:checkpoint`または`acceptance:release`と、変更リスクに応じたbrowser／packaged smokeをPR本文へ記録する。
-structural PRは`direct verification`がpendingまたはfailedの間はmergeもadmin mergeもしない。`passed_with_follow_up`はdirect evidenceが揃った状態としてmerge可能だが、記録されたownerが節目のfollow-upを引き継ぐ。
+上位gateが下位testを包含して成功した後、その下位testを証拠目的に再実行しません。CIが同一commitのfull-suite ownerならlocal full suiteを重複実行しません。未実行gateは`not_run`として正確に記録します。
