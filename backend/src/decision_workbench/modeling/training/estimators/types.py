@@ -34,7 +34,11 @@ def standard_training_metadata(
     return {
         "schema_version": "standard-training-metadata/v1",
         "estimator_id": estimator_id,
-        "training_unit": "replicate_context_mean",
+        "training_unit": (
+            "replicate_context_category"
+            if data.target_kind == "ordinal"
+            else "replicate_context_mean"
+        ),
         "validation": {
             "method": data.validation_plan.strategy,
             "folds": data.folds,

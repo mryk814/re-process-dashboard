@@ -47,6 +47,8 @@ class TargetTrainingSet:
     validation_plan: ValidationPlan
     validation_plan_digest: str
     validation_diagnostics: dict[str, Any]
+    ordinal_categories: tuple[str, ...] = ()
+    ordinal_category_order_digest: str | None = None
     imputed_feature_indices: tuple[int, ...] = ()
     final_imputation_values: tuple[tuple[int, float], ...] = ()
     feature_recipe: FeatureRecipe | None = None
@@ -186,12 +188,24 @@ def compile_target_training_set(
     target: str,
     unit: str,
     target_kind: str = "continuous",
+    ordinal_categories: Sequence[str] | None = None,
     folds: int | None = None,
     seed: int = 20260730,
     validation_plan: ValidationPlan | None = None,
     feature_recipe: FeatureRecipe | None = None,
     feature_recipe_state: FeatureRecipeState | None = None,
 ) -> TargetTrainingSet:
+    ordered_categories = tuple(ordinal_categories or ())
+    if target_kind == "ordinal":
+        if len(ordered_categories) < 2 or len(set(ordered_categories)) != len(
+            ordered_categories
+        ):
+            raise ValueError(
+                f"{target}: ordinal training requires the Task-owned unique category order"
+            )
+    elif ordered_categories:
+        raise ValueError(f"{target}: ordinal categories require target_kind=ordinal")
+    category_index = {label: index for index, label in enumerate(ordered_categories)}
     if (feature_recipe is None) != (feature_recipe_state is None):
         raise ValueError("feature recipe and final state must be supplied together")
     feature_names = (
@@ -276,10 +290,30 @@ def compile_target_training_set(
                     "different feature rows"
                 )
             x_rows.append(feature_rows[0])
-        values = np.asarray(
-            [float(row["outputs"][target]) for row in rows],
-            dtype=float,
-        )
+        if target_kind == "ordinal":
+            labels = [row["outputs"][target] for row in rows]
+            if any(not isinstance(label, str) for label in labels):
+                raise ValueError(
+                    f"{target}/{replicate_context}: ordinal outputs must be Task category labels"
+                )
+            unknown = sorted({label for label in labels if label not in category_index})
+            if unknown:
+                raise ValueError(
+                    f"{target}/{replicate_context}: unknown ordinal categories: "
+                    + ", ".join(unknown)
+                )
+            if len(set(labels)) != 1:
+                raise ValueError(
+                    f"{target}/{replicate_context}: repeated ordinal observations disagree"
+                )
+            values = np.asarray(
+                [float(category_index[label]) for label in labels], dtype=float
+            )
+        else:
+            values = np.asarray(
+                [float(row["outputs"][target]) for row in rows],
+                dtype=float,
+            )
         if not np.isfinite(values).all():
             raise ValueError(
                 f"{target}/{replicate_context}: outputs must be finite"
@@ -428,6 +462,43 @@ def compile_target_training_set(
                         f"{target}: binary training fold {fold} "
                         "must contain both classes"
                     )
+    ordinal_diagnostics: dict[str, Any] | None = None
+    if target_kind == "ordinal":
+        expected = set(range(len(ordered_categories)))
+        cohorts = (
+            [
+                (
+                    "temporal training",
+                    temporal_role_rows(fold_ids, ValidationRowRole.MODEL_TRAIN),
+                )
+            ]
+            if plan.strategy in {"temporal_holdout", "grouped_temporal"}
+            else [
+                (f"training fold {fold}", fold_ids != fold)
+                for fold in range(resolved_folds)
+            ]
+        )
+        details: list[dict[str, Any]] = []
+        for name, rows in cohorts:
+            present = {int(value) for value in np.unique(y[rows])}
+            missing = sorted(expected - present)
+            details.append({
+                "cohort": name,
+                "present_categories": [
+                    ordered_categories[index] for index in sorted(present)
+                ],
+                "missing_categories": [ordered_categories[index] for index in missing],
+            })
+            if missing:
+                raise ValueError(
+                    f"{target}: {name} is missing Task categories: "
+                    + ", ".join(ordered_categories[index] for index in missing)
+                )
+        ordinal_diagnostics = {
+            "category_order": list(ordered_categories),
+            "category_order_digest": _semantic_digest(list(ordered_categories)),
+            "training_cohorts": details,
+        }
     if feature_recipe is not None:
         assert feature_recipe_state is not None
         x = transform_feature_recipe(
@@ -488,7 +559,20 @@ def compile_target_training_set(
         folds=resolved_folds,
         validation_plan=plan,
         validation_plan_digest=assignment.plan_digest,
-        validation_diagnostics=assignment.diagnostics,
+        validation_diagnostics={
+            **assignment.diagnostics,
+            **(
+                {"ordinal_category_diagnostics": ordinal_diagnostics}
+                if ordinal_diagnostics is not None
+                else {}
+            ),
+        },
+        ordinal_categories=ordered_categories,
+        ordinal_category_order_digest=(
+            _semantic_digest(list(ordered_categories))
+            if ordered_categories
+            else None
+        ),
         imputed_feature_indices=imputed_feature_indices,
         final_imputation_values=final_imputation_values,
         feature_recipe=feature_recipe,

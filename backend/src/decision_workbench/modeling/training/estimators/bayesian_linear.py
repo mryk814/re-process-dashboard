@@ -248,7 +248,9 @@ def _diagnostics_from_summary(
             divergence_count=divergence_count,
             findings=("NUTS R-hat or effective sample size is non-finite",),
         )
-    max_r_hat = float(np.max(flattened_r_hats))
+    # Finite-sample split-R-hat estimators can report a value fractionally
+    # below the theoretical lower bound. Persist the interpretable bound.
+    max_r_hat = max(1.0, float(np.max(flattened_r_hats)))
     min_ess = float(np.min(flattened_effective_sizes))
     findings: list[str] = []
     if max_r_hat > settings.max_r_hat:

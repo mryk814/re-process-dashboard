@@ -205,18 +205,21 @@ class _DensePosteriorPredictor:
             samples[rng.random(len(draw_indices)) < zero_probability] = 0
             point, distribution = float(np.mean((1 - zero_probability) * rate)), {"family": family, "support": "nonnegative_integers"}
         elif family == "ordinal_logit":
-            thresholds = self.spec.config.get("thresholds")
-            if not isinstance(thresholds, list) or len(thresholds) < 1 or not all(isinstance(item, (int, float)) for item in thresholds):
-                raise PackageContractError("ordinal_logit requires numeric ordered thresholds")
-            cuts = np.asarray(thresholds, dtype=float)
-            if not np.all(np.diff(cuts) > 0):
+            if "ordinal_thresholds" in self.extras:
+                cuts = self.extras["ordinal_thresholds"][draw_indices]
+            else:
+                thresholds = self.spec.config.get("thresholds")
+                if not isinstance(thresholds, list) or len(thresholds) < 1 or not all(isinstance(item, (int, float)) for item in thresholds):
+                    raise PackageContractError("ordinal_logit requires numeric ordered thresholds")
+                cuts = np.broadcast_to(np.asarray(thresholds, dtype=float), (len(draw_indices), len(thresholds)))
+            if not np.all(np.diff(cuts, axis=1) > 0):
                 raise PackageContractError("ordinal thresholds must be strictly increasing")
             categories = self.spec.config.get("categories")
-            if not isinstance(categories, list) or len(categories) != len(cuts) + 1 or not all(isinstance(item, str) and item for item in categories):
+            if not isinstance(categories, list) or len(categories) != cuts.shape[1] + 1 or not all(isinstance(item, str) and item for item in categories):
                 raise PackageContractError("ordinal_logit requires one ordered category label per outcome")
             if len(categories) != len(set(categories)):
                 raise PackageContractError("ordinal category labels must be unique")
-            cumulative = _sigmoid(cuts[None, :] - output[:, :1])
+            cumulative = _sigmoid(cuts - output[:, :1])
             probabilities = np.column_stack([cumulative[:, 0], np.diff(cumulative, axis=1), 1 - cumulative[:, -1]])
             probabilities = np.clip(probabilities, 0, 1)
             probabilities /= probabilities.sum(axis=1, keepdims=True)
@@ -249,10 +252,10 @@ class NumpyroDensePosteriorAdapter:
                 raise PackageContractError("posterior artifact must contain contiguous w0..wN tensors")
             weights = tuple(np.asarray(arrays[f"w{index}"], dtype=float) for index in layer_indexes)
             biases = tuple(np.asarray(arrays[f"b{index}"], dtype=float) for index in layer_indexes)
-            allowed = {*(f"w{index}" for index in layer_indexes), *(f"b{index}" for index in layer_indexes), "obs_scale", "df", "dispersion"}
+            allowed = {*(f"w{index}" for index in layer_indexes), *(f"b{index}" for index in layer_indexes), "obs_scale", "df", "dispersion", "ordinal_thresholds"}
             if not keys.issubset(allowed) or any(f"b{index}" not in keys for index in layer_indexes):
                 raise PackageContractError("posterior artifact has an unexpected tensor schema")
-            extras = {name: np.asarray(arrays[name], dtype=float) for name in ("obs_scale", "df", "dispersion") if name in keys}
+            extras = {name: np.asarray(arrays[name], dtype=float) for name in ("obs_scale", "df", "dispersion", "ordinal_thresholds") if name in keys}
         except KeyError as exc:
             raise PackageContractError("posterior artifact is missing a required layer bias") from exc
         draws = weights[0].shape[0] if weights[0].ndim == 3 else 0
@@ -282,8 +285,15 @@ class NumpyroDensePosteriorAdapter:
         if predictor.predictive_family == "ordinal_logit":
             thresholds = predictor.config.get("thresholds")
             categories = predictor.config.get("categories")
-            if not isinstance(thresholds, list) or not all(isinstance(item, (int, float)) and np.isfinite(item) for item in thresholds) or not np.all(np.diff(thresholds) > 0):
-                raise PackageContractError("ordinal thresholds must be finite and strictly increasing")
-            if not isinstance(categories, list) or len(categories) != len(thresholds) + 1 or len(categories) != len(set(categories)) or not all(isinstance(item, str) and item for item in categories):
+            posterior_thresholds = extras.get("ordinal_thresholds")
+            if posterior_thresholds is not None:
+                if posterior_thresholds.ndim != 2 or posterior_thresholds.shape[0] != draws or posterior_thresholds.shape[1] < 1 or not np.isfinite(posterior_thresholds).all() or not np.all(np.diff(posterior_thresholds, axis=1) > 0):
+                    raise PackageContractError("ordinal threshold draws must be finite, ordered, and aligned to posterior draws")
+                threshold_count = posterior_thresholds.shape[1]
+            else:
+                if not isinstance(thresholds, list) or len(thresholds) < 1 or not all(isinstance(item, (int, float)) and np.isfinite(item) for item in thresholds) or not np.all(np.diff(thresholds) > 0):
+                    raise PackageContractError("ordinal thresholds must be finite and strictly increasing")
+                threshold_count = len(thresholds)
+            if not isinstance(categories, list) or len(categories) != threshold_count + 1 or len(categories) != len(set(categories)) or not all(isinstance(item, str) and item for item in categories):
                 raise PackageContractError("ordinal category metadata is invalid")
         return _DensePosteriorPredictor(predictor, weights, biases, extras)

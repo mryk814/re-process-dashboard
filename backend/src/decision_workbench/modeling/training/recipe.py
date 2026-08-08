@@ -152,6 +152,18 @@ class HorseshoeLinearEstimatorRecipe(BayesianLinearInferenceRecipe):
     )
 
 
+class OrderedLogitEstimatorRecipe(BayesianLinearInferenceRecipe):
+    estimator_id: Literal["ordered-logit.v1"] = "ordered-logit.v1"
+    coefficient_prior_scale: Literal[1.0] = 1.0
+    first_threshold_prior_scale: Literal[2.0] = 2.0
+    threshold_increment_prior: Literal[
+        "log-normal-0-0.5"
+    ] = "log-normal-0-0.5"
+    parameterization: Literal[
+        "standardized-linear-monotone-thresholds/v1"
+    ] = "standardized-linear-monotone-thresholds/v1"
+
+
 BAYESIAN_MAX_ROWS = 5_000
 BAYESIAN_MAX_FEATURES = 64
 
@@ -229,6 +241,7 @@ ConcreteEstimatorRecipe = (
     | StudentTLinearRegressionEstimatorRecipe
     | BayesianRidgeEstimatorRecipe
     | HorseshoeLinearEstimatorRecipe
+    | OrderedLogitEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -265,6 +278,7 @@ ESTIMATOR_IDS = (
     "student-t-linear-regression.v1",
     "bayesian-ridge.v1",
     "horseshoe-linear.v1",
+    "ordered-logit.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -421,6 +435,28 @@ def validate_recipe_capability(
     if capability.joint_samples:
         errors.append("standard estimators do not expose joint samples")
     for target in capability.targets:
+        if recipe.estimator_id == "ordered-logit.v1":
+            if tuple(target.point_statistics) != ("expected_category",):
+                errors.append(
+                    f"{target.target}: ordered logit point statistic must be expected_category"
+                )
+            if target.standard_deviation or target.samples:
+                errors.append(
+                    f"{target.target}: ordered logit exposes category probabilities and quantiles"
+                )
+            if not target.quantiles or not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: ordered logit requires quantiles and an ordinal distribution"
+                )
+            if target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: ordered logit has no decomposed uncertainty components"
+                )
+            if target.goal_probability != "unavailable":
+                errors.append(
+                    f"{target.target}: ordered logit goal probability is unavailable"
+                )
+            continue
         if recipe.estimator_id in {"lightgbm-binary.v1", "logistic.v1"}:
             if tuple(target.point_statistics) != ("probability",):
                 errors.append(

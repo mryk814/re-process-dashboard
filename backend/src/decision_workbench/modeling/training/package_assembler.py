@@ -509,6 +509,9 @@ def _build(
             target=target,
             unit=output.unit,
             target_kind=target_kind,
+            ordinal_categories=(
+                output.ordinal.categories if output.ordinal is not None else None
+            ),
             folds=recipe.folds,
             seed=recipe.seed,
             validation_plan=selected_validation_plan,

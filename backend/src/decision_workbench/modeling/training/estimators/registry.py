@@ -79,6 +79,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=bayesian_linear.ARTIFACT_SUFFIX,
             artifact_format=bayesian_linear.ARTIFACT_FORMAT,
         )
+    if estimator_id == "ordered-logit.v1":
+        from . import ordered_logit
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, ordered_logit.train),
+            runtime_type=ordered_logit.RUNTIME_TYPE,
+            artifact_suffix=ordered_logit.ARTIFACT_SUFFIX,
+            artifact_format=ordered_logit.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 
