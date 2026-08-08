@@ -9114,8 +9114,18 @@ export interface components {
         ModelExplorationTargetContext: {
             /** Cohort Digest */
             cohort_digest: string;
+            /**
+             * Effective Replicate Context Count
+             * @default 0
+             */
+            effective_replicate_context_count: number;
             /** Fold Digest */
             fold_digest: string;
+            /**
+             * Raw Observation Count
+             * @default 0
+             */
+            raw_observation_count: number;
             /** Row Count */
             row_count: number;
             /** Split Digest */
@@ -9130,10 +9140,35 @@ export interface components {
         };
         /** ModelExplorationTargetReadiness */
         ModelExplorationTargetReadiness: {
+            /** Capacity Decision */
+            capacity_decision?: ("exact" | "exact_expensive" | "approximate_required") | null;
+            /** Capacity Recommendation */
+            capacity_recommendation?: ("exact_gp" | "approximate_gp" | "alternative_estimator" | "manual_review") | null;
+            capacity_resolution?: components["schemas"]["ExactGpCapacityResolution"] | null;
+            /**
+             * Effective Replicate Context Count
+             * @default 0
+             */
+            effective_replicate_context_count: number;
             /** Feature Count */
             feature_count: number;
+            /**
+             * Final Fit Count
+             * @default 0
+             */
+            final_fit_count: number;
             /** Independent Group Count */
             independent_group_count: number;
+            /**
+             * Planned Quality Fit Count
+             * @default 0
+             */
+            planned_quality_fit_count: number;
+            /**
+             * Raw Observation Count
+             * @default 0
+             */
+            raw_observation_count: number;
             /** Reasons */
             reasons: string[];
             /** Row Count */
@@ -9147,6 +9182,11 @@ export interface components {
             target_key: string;
             /** Target Kind */
             target_kind: string;
+            /**
+             * Total Fit Count
+             * @default 0
+             */
+            total_fit_count: number;
         };
         /** ModelExplorationTargetResult */
         ModelExplorationTargetResult: {

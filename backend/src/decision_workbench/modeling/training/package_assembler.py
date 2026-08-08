@@ -28,6 +28,12 @@ from decision_workbench.modeling.packages.contracts import (
     SourceLifecycleProvenance,
 )
 from decision_workbench.modeling.training.estimators import estimator_implementation
+from decision_workbench.modeling.training.capacity import (
+    CAPACITY_EVIDENCE_SCHEMA_VERSION,
+    CAPACITY_POLICY_ID,
+    CAPACITY_POLICY_VERSION,
+    capacity_context_from_training_set,
+)
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
     feature_vector,
@@ -435,7 +441,9 @@ def _build(
         "task_id": task_id,
         "estimator": recipe.model_dump(mode="json", exclude_none=True),
         "rows": {
+            "raw_observation": "source observations before replicate aggregation",
             "unit": "replicate_context_mean",
+            "effective_training_row": "one row per replicate context presented to the estimator",
             "replicate_context": (
                 "condition_context_id_else_observation_id"
             ),
@@ -464,6 +472,7 @@ def _build(
     ]
     trained_by_target = {}
     training_sets = {}
+    capacity_resolutions: dict[str, dict[str, Any]] = {}
     output_by_key = {
         output.key: output
         for output in contract.task_definition.outputs
@@ -507,6 +516,11 @@ def _build(
             feature_recipe_state=feature_state,
         )
         training_sets[target] = training_set
+        capacity_context = (
+            capacity_context_from_training_set(training_set, recipe)
+            if recipe.estimator_id == "exact-gp-rbf.v1"
+            else None
+        )
         readiness = resolve_estimator_contract_readiness(
             estimator_id=recipe.estimator_id,
             output=output,
@@ -549,8 +563,11 @@ def _build(
             observed_targets_are_integers=bool(
                 np.all(training_set.y == np.floor(training_set.y))
             ),
+            capacity=capacity_context,
         )
-        if readiness.status != "ready":
+        if readiness.capacity is not None:
+            capacity_resolutions[target] = readiness.capacity.model_dump(mode="json")
+        if readiness.status not in {"ready", "ready_expensive"}:
             raise ValueError(
                 f"{recipe.estimator_id} is not ready for {target}: "
                 + "; ".join(readiness.reasons)
@@ -570,6 +587,13 @@ def _build(
     recipe_document["evaluation"] = {
         target: {
             "cohort_digest": training_sets[target].cohort_digest,
+            "raw_observation_count": training_sets[target].raw_observation_count,
+            "effective_replicate_context_count": training_sets[
+                target
+            ].effective_replicate_context_count,
+            "independent_validation_group_count": len(
+                set(training_sets[target].validation_groups)
+            ),
             "fold_digest": training_sets[target].fold_digest,
             "folds": training_sets[target].folds,
             "validation_plan": training_sets[target].validation_plan.model_dump(
@@ -578,6 +602,11 @@ def _build(
             "validation_plan_digest": training_sets[
                 target
             ].validation_plan_digest,
+            **(
+                {"capacity_resolution": capacity_resolutions[target]}
+                if target in capacity_resolutions
+                else {}
+            ),
         }
         for target in trained_by_target
     }
@@ -678,6 +707,14 @@ def _build(
                 target: len(training_sets[target].y)
                 for target in trained_by_target
             },
+            "raw_observations": {
+                target: training_sets[target].raw_observation_count
+                for target in trained_by_target
+            },
+            "effective_replicate_contexts": {
+                target: training_sets[target].effective_replicate_context_count
+                for target in trained_by_target
+            },
             "validation_groups": {
                 target: len(set(training_sets[target].validation_groups))
                 for target in trained_by_target
@@ -708,6 +745,17 @@ def _build(
             "source_sha256": data.source_sha256,
             "composition_defaults": data.medians,
             "feature_dataset_id": feature_dataset_id,
+            **(
+                {
+                    "capacity_policy": {
+                        "policy_id": CAPACITY_POLICY_ID,
+                        "policy_version": CAPACITY_POLICY_VERSION,
+                        "resolutions": capacity_resolutions,
+                    }
+                }
+                if capacity_resolutions
+                else {}
+            ),
             **({"missing_policy": missing_policy} if missing_policy else {}),
         },
     )
@@ -790,6 +838,19 @@ def _build(
                 f"standard-model-training/v1:{recipe.estimator_id}"
             ),
             "dataset_profile_id": canonical["dataset_profile_digest"],
+            **(
+                {
+                    "capacity": {
+                        "schema_version": CAPACITY_EVIDENCE_SCHEMA_VERSION,
+                        "policy_id": CAPACITY_POLICY_ID,
+                        "policy_version": CAPACITY_POLICY_VERSION,
+                        "estimator_id": recipe.estimator_id,
+                        "resolutions": capacity_resolutions,
+                    }
+                }
+                if capacity_resolutions
+                else {}
+            ),
             **(
                 {
                     "source_lifecycle": source_lifecycle.model_dump(

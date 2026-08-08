@@ -398,6 +398,7 @@ TABULAR_TASK_MODULES = (
             ),
             recipe_policy="specialized_constraints",
             required_estimator_options=(
+                ("folds", 4),
                 (
                     "monotone_decreasing_features",
                     ("process.cycle_index",),
@@ -406,6 +407,7 @@ TABULAR_TASK_MODULES = (
             specialization_reason=(
                 "容量維持率はcycle_indexに対して単調非増加である科学制約を保つ"
             ),
+            default_validation_folds=4,
         ),
         application=_application_capability(
             actual_measurement=True,

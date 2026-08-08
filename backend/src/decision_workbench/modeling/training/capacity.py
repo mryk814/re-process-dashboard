@@ -234,13 +234,15 @@ def resolve_exact_gp_capacity(
     ]
     hard_reasons: list[str] = []
     expensive_reasons: list[str] = []
-    if context.effective_training_rows > min(
-        policy.default_effective_row_limit,
-        context.recipe_max_rows,
-    ):
+    if context.effective_training_rows > context.recipe_max_rows:
+        hard_reasons.append(
+            f"effective training rows {context.effective_training_rows} exceed recipe max_rows is "
+            f"{context.recipe_max_rows}; rows are never truncated or subsampled"
+        )
+    elif context.effective_training_rows > policy.default_effective_row_limit:
         hard_reasons.append(
             f"effective training rows {context.effective_training_rows} exceed the exact GP boundary "
-            f"{min(policy.default_effective_row_limit, context.recipe_max_rows)}; rows are never truncated or subsampled"
+            f"{policy.default_effective_row_limit}; rows are never truncated or subsampled"
         )
     if context.feature_count > policy.default_feature_limit:
         hard_reasons.append(
@@ -336,4 +338,3 @@ def resolve_exact_gp_capacity(
         estimate=estimate,
         paths=paths,
     )
-

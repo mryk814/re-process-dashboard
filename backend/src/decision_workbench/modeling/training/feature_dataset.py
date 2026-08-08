@@ -186,7 +186,7 @@ def compile_target_training_set(
     target: str,
     unit: str,
     target_kind: str = "continuous",
-    folds: int = 5,
+    folds: int | None = None,
     seed: int = 20260730,
     validation_plan: ValidationPlan | None = None,
     feature_recipe: FeatureRecipe | None = None,
@@ -319,7 +319,25 @@ def compile_target_training_set(
         if within_df
         else fallback
     )
-    plan = validation_plan or grouped_kfold_plan(folds=folds, seed=seed)
+    declared_folds = 5
+    task_id = canonical_dataset.get("task_id")
+    if isinstance(task_id, str):
+        try:
+            from decision_workbench.task_composition.catalog import task_module
+
+            authoring = task_module(task_id).standard_model_authoring
+        except ValueError:
+            authoring = None
+        if authoring is not None:
+            declared_folds = int(getattr(authoring, "default_validation_folds", 5))
+    effective_folds = (
+        folds
+        if folds is not None else declared_folds
+    )
+    plan = validation_plan or grouped_kfold_plan(
+        folds=effective_folds,
+        seed=seed,
+    )
     cohort_digest = _semantic_digest({
         "target": target,
         "rows": [
@@ -348,7 +366,7 @@ def compile_target_training_set(
             replicate_contexts=replicate_contexts,
             validation_groups=validation_groups,
             observation_ids=observation_ids,
-            requested_folds=folds,
+            requested_folds=effective_folds,
             seed=seed,
         )
         plan = grouped_kfold_plan(folds=resolved_folds, seed=seed)
