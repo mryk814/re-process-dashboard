@@ -612,8 +612,8 @@ function verifiedFixtureWorkspace(workspace, catalog, controllerRoot) {
   const workspaceRoot = realpathSync(resolve(workspace));
   const controller = realpathSync(controllerRoot);
   assert(workspaceRoot !== controller, "fixture setup/reset requires a separate fresh worktree");
-  const topLevel = gitBytes(workspaceRoot, ["rev-parse", "--show-toplevel"]).toString("utf8").trim();
-  assert(realpathSync(topLevel) === workspaceRoot, "--workspace must be a git worktree root");
+  const prefix = gitBytes(workspaceRoot, ["rev-parse", "--show-prefix"]).toString("utf8").trim();
+  assert(prefix === "", "--workspace must be a git worktree root");
   const head = gitBytes(workspaceRoot, ["rev-parse", "HEAD"]).toString("utf8").trim();
   assert(head === catalog.repository_commit, `fixture workspace HEAD must equal ${catalog.repository_commit}`);
   return workspaceRoot;

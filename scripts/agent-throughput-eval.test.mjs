@@ -496,11 +496,21 @@ test("all six versioned fixtures setup and reset in a fresh pinned worktree", ()
   try {
     const command = spawnSync("git", ["worktree", "add", "--detach", workspace, catalog.repository_commit], { cwd: repoRoot, encoding: "utf8" });
     assert.equal(command.status, 0, command.stderr);
+    const workspaceLocator = process.platform === "win32"
+      ? workspace.replaceAll("\\", "/").toUpperCase()
+      : workspace;
+    const nested = join(workspace, "nested");
+    mkdirSync(nested);
+    assert.throws(
+      () => materializeFixture({ repoRoot, workspace: nested, caseId: catalog.cases[0].id }),
+      /git worktree root/,
+    );
+    rmSync(nested, { recursive: true, force: true });
     for (const item of catalog.cases) {
-      const setup = materializeFixture({ repoRoot, workspace, caseId: item.id });
+      const setup = materializeFixture({ repoRoot, workspace: workspaceLocator, caseId: item.id });
       assert.deepEqual(setup.changed_paths, item.fixture.changed_paths);
       assert.equal(setup.materialized_diff_digest, item.fixture.materialized_diff_digest);
-      const reset = materializeFixture({ repoRoot, workspace, caseId: item.id, reset: true });
+      const reset = materializeFixture({ repoRoot, workspace: workspaceLocator, caseId: item.id, reset: true });
       assert.equal(reset.clean, true);
     }
   } finally {
