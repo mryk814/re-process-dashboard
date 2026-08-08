@@ -28,7 +28,7 @@ const baseIdentity = () => createVerificationReceiptIdentity({
   repoRoot,
   commitSha: "a".repeat(40),
   gateId: "focused-pytest",
-  commandArgv: ["C:\\Program Files\\nodejs\\node.exe", "scripts/verify.mjs", "edit", "--", "backend/tests/test_api.py"],
+  commandArgv: [process.execPath, "scripts/verify.mjs", "edit", "--", "backend/tests/test_api.py"],
   inputPaths: ["scripts/verification-receipts.mjs"],
   catalogDigest: "b".repeat(64),
   environment: createEnvironmentIdentity({
@@ -60,7 +60,8 @@ test("verification-receipt/v1 stores a safe exact identity and reuses only passe
     assert.equal(stored.schema_version, "verification-receipt/v1");
     assert.equal(stored.receipt_id, identity.receipt_identity_digest);
     assert.deepEqual(stored.input_paths, identity.input_paths);
-    assert.equal(stored.command_argv[0], "<runtime>/node.exe");
+    const runtimeName = process.execPath.replaceAll("\\", "/").split("/").at(-1);
+    assert.equal(stored.command_argv[0], `<runtime>/${runtimeName}`);
     assert.doesNotMatch(JSON.stringify(stored), /gho_should-not-be-stored/);
     assert.doesNotMatch(JSON.stringify(stored), /[A-Za-z]:\\\\/);
 
