@@ -176,8 +176,13 @@ class EstimatorReadinessContext(ContractModel):
     has_categorical_features: bool = False
     has_missing_features: bool = False
     has_count_exposure: bool = False
+    count_exposure_is_explicit: bool = False
     observed_target_min: float | None = None
     observed_targets_are_integers: bool | None = None
+    observed_zero_rate: float | None = None
+    observed_target_mean: float | None = None
+    observed_target_variance: float | None = None
+    has_structural_zero_evidence: bool = False
     target_contract: ContractStatus
     validation_plan: ContractStatus
     validation_strategy: ValidationStrategy | None = None
@@ -828,6 +833,50 @@ _CATALOG = StandardEstimatorCatalog(
             fixed_parameters=_fixed_parameters("poisson.v1"),
         ),
         StandardEstimatorEntry(
+            estimator_id="negative-binomial-regression.v1",
+            label="Negative-binomial regression",
+            target_kinds=("count",),
+            role="distribution_candidate",
+            adoption_status="experimental",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("negative-binomial-regression.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("negative-binomial-regression.v1")["artifact_format"],
+            required_dependency="numpyro",
+            limits=EstimatorLimits(min_rows=12, max_rows=5_000, min_independent_groups=4, max_features=64),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=("kfold", "grouped_kfold", "temporal_holdout", "grouped_temporal"),
+            predictive_capabilities=("point", "quantiles", "parametric_distribution"),
+            quality_metrics=("count_mae", "count_rmse", "poisson_deviance", "negative_binomial_deviance", "log_score", "predictive_interval_coverage", "zero_calibration", "tail_count_calibration", "exposure_stratified_diagnostics", "posterior_convergence"),
+            fixed_parameters=_fixed_parameters("negative-binomial-regression.v1"),
+            training_cost="high",
+            known_limitations=("Experimental candidate: no automatic selection or promotion.", "Counts must be nonnegative integers; exposure is absent or a complete explicit offset contract.", "Missing NumPyro/JAX, sampling failure, or failed diagnostics stops the build without Poisson fallback."),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="zero-inflated-poisson-regression.v1",
+            label="Zero-inflated Poisson regression",
+            target_kinds=("count",),
+            role="distribution_candidate",
+            adoption_status="experimental",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("zero-inflated-poisson-regression.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("zero-inflated-poisson-regression.v1")["artifact_format"],
+            required_dependency="numpyro",
+            limits=EstimatorLimits(min_rows=12, max_rows=5_000, min_independent_groups=4, max_features=64),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=("kfold", "grouped_kfold", "temporal_holdout", "grouped_temporal"),
+            predictive_capabilities=("point", "quantiles", "parametric_distribution"),
+            quality_metrics=("count_mae", "count_rmse", "poisson_deviance", "negative_binomial_deviance", "log_score", "predictive_interval_coverage", "zero_calibration", "tail_count_calibration", "exposure_stratified_diagnostics", "posterior_convergence"),
+            fixed_parameters=_fixed_parameters("zero-inflated-poisson-regression.v1"),
+            training_cost="high",
+            known_limitations=("Experimental candidate: zero rate alone is not an adoption rule.", "Counts must be nonnegative integers; exposure is absent or a complete explicit offset contract.", "Missing NumPyro/JAX, sampling failure, or failed diagnostics stops the build without Poisson fallback."),
+        ),
+        StandardEstimatorEntry(
             estimator_id="ordered-logit.v1",
             label="Standard ordered-logit regression",
             target_kinds=("ordinal",),
@@ -1018,7 +1067,11 @@ def resolve_estimator_readiness(
             ["a valid feature-recipe/v1 is required before standard authoring"],
         )
     if context.target_kind == "count":
-        if context.has_count_exposure:
+        advanced_count = context.estimator_id in {
+            "negative-binomial-regression.v1",
+            "zero-inflated-poisson-regression.v1",
+        }
+        if context.has_count_exposure and not advanced_count:
             return _resolution(
                 context,
                 entry,
@@ -1046,7 +1099,29 @@ def resolve_estimator_readiness(
                 context,
                 entry,
                 "out_of_scope",
-                ["poisson.v1 requires nonnegative integer observations"],
+                [f"{entry.estimator_id} requires nonnegative integer observations"],
+            )
+        if advanced_count and (
+            context.observed_zero_rate is None
+            or context.observed_target_mean is None
+            or context.observed_target_variance is None
+        ):
+            return _resolution(
+                context, entry, "out_of_scope",
+                ["advanced count candidates require observed zero, mean, and variance diagnostics"],
+            )
+        if advanced_count and context.has_count_exposure and not context.count_exposure_is_explicit:
+            return _resolution(
+                context, entry, "out_of_scope",
+                ["advanced count exposure requires an explicit canonical offset path and unit"],
+            )
+        if (
+            context.estimator_id == "zero-inflated-poisson-regression.v1"
+            and not context.has_structural_zero_evidence
+        ):
+            return _resolution(
+                context, entry, "out_of_scope",
+                ["ZIP requires recorded structural-zero evidence; a high zero rate alone is insufficient"],
             )
     if context.has_missing_features and context.missing_policy != "ready":
         return _resolution(
@@ -1202,6 +1277,10 @@ def resolve_estimator_contract_readiness(
     missing_policy: ContractStatus = "ready",
     observed_target_min: float | None = None,
     observed_targets_are_integers: bool | None = None,
+    observed_zero_rate: float | None = None,
+    observed_target_mean: float | None = None,
+    observed_target_variance: float | None = None,
+    has_structural_zero_evidence: bool = False,
     capacity: ExactGpCapacityContext | None = None,
     available_dependencies: frozenset[str] | None = None,
 ) -> EstimatorReadinessResolution:
@@ -1231,8 +1310,17 @@ def resolve_estimator_contract_readiness(
                 output.count is not None
                 and output.count.exposure_label is not None
             ),
+            count_exposure_is_explicit=(
+                output.count is not None
+                and output.count.exposure_input_path is not None
+                and output.count.exposure_unit is not None
+            ),
             observed_target_min=observed_target_min,
             observed_targets_are_integers=observed_targets_are_integers,
+            observed_zero_rate=observed_zero_rate,
+            observed_target_mean=observed_target_mean,
+            observed_target_variance=observed_target_variance,
+            has_structural_zero_evidence=has_structural_zero_evidence,
             target_contract="ready",
             validation_plan=(
                 "ready"

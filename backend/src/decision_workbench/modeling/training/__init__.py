@@ -6,8 +6,10 @@ from .recipe import (
     LightGBMBinaryEstimatorRecipe,
     LightGBMRegressionEstimatorRecipe,
     LogisticEstimatorRecipe,
+    NegativeBinomialRegressionEstimatorRecipe,
     PoissonEstimatorRecipe,
     RidgeEstimatorRecipe,
+    ZeroInflatedPoissonRegressionEstimatorRecipe,
     estimator_recipe,
 )
 
@@ -17,7 +19,9 @@ __all__ = [
     "LightGBMBinaryEstimatorRecipe",
     "LightGBMRegressionEstimatorRecipe",
     "LogisticEstimatorRecipe",
+    "NegativeBinomialRegressionEstimatorRecipe",
     "PoissonEstimatorRecipe",
     "RidgeEstimatorRecipe",
+    "ZeroInflatedPoissonRegressionEstimatorRecipe",
     "estimator_recipe",
 ]

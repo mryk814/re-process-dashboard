@@ -1158,6 +1158,162 @@
         "capacity_policy": null
       },
       {
+        "estimator_id": "negative-binomial-regression.v1",
+        "label": "Negative-binomial regression",
+        "target_kinds": [
+          "count"
+        ],
+        "role": "distribution_candidate",
+        "adoption_status": "experimental",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "numpyro.dense_posterior.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": "numpyro",
+        "limits": {
+          "min_rows": 12,
+          "max_rows": 5000,
+          "min_independent_groups": 4,
+          "max_features": 64,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "count_mae",
+          "count_rmse",
+          "poisson_deviance",
+          "negative_binomial_deviance",
+          "log_score",
+          "predictive_interval_coverage",
+          "zero_calibration",
+          "tail_count_calibration",
+          "exposure_stratified_diagnostics",
+          "posterior_convergence"
+        ],
+        "fixed_parameters": {
+          "inference_preset": "standard-evidence",
+          "sampler": "nuts",
+          "chain_method": "sequential",
+          "chains": 2,
+          "warmup": 256,
+          "draws": 256,
+          "target_accept_probability": 0.9,
+          "max_tree_depth": 13,
+          "dense_mass": "enabled",
+          "init_strategy": "prior-median-10/v1",
+          "max_r_hat": 1.05,
+          "min_effective_sample_size": 50.0,
+          "max_divergences": 0,
+          "rope_half_width": 0.1,
+          "folds": 5,
+          "seed": 20260730,
+          "coefficient_prior_scale": 1.0,
+          "intercept_prior_scale": 2.0,
+          "dispersion_prior": "log-normal-0-1",
+          "parameterization": "standardized-linear-negative-binomial-log/v1"
+        },
+        "training_cost": "high",
+        "known_limitations": [
+          "Experimental candidate: no automatic selection or promotion.",
+          "Counts must be nonnegative integers; exposure is absent or a complete explicit offset contract.",
+          "Missing NumPyro/JAX, sampling failure, or failed diagnostics stops the build without Poisson fallback."
+        ],
+        "capacity_policy": null
+      },
+      {
+        "estimator_id": "zero-inflated-poisson-regression.v1",
+        "label": "Zero-inflated Poisson regression",
+        "target_kinds": [
+          "count"
+        ],
+        "role": "distribution_candidate",
+        "adoption_status": "experimental",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "numpyro.dense_posterior.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": "numpyro",
+        "limits": {
+          "min_rows": 12,
+          "max_rows": 5000,
+          "min_independent_groups": 4,
+          "max_features": 64,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles",
+          "parametric_distribution"
+        ],
+        "quality_metrics": [
+          "count_mae",
+          "count_rmse",
+          "poisson_deviance",
+          "negative_binomial_deviance",
+          "log_score",
+          "predictive_interval_coverage",
+          "zero_calibration",
+          "tail_count_calibration",
+          "exposure_stratified_diagnostics",
+          "posterior_convergence"
+        ],
+        "fixed_parameters": {
+          "inference_preset": "standard-evidence",
+          "sampler": "nuts",
+          "chain_method": "sequential",
+          "chains": 2,
+          "warmup": 256,
+          "draws": 256,
+          "target_accept_probability": 0.9,
+          "max_tree_depth": 13,
+          "dense_mass": "enabled",
+          "init_strategy": "prior-median-10/v1",
+          "max_r_hat": 1.05,
+          "min_effective_sample_size": 50.0,
+          "max_divergences": 0,
+          "rope_half_width": 0.1,
+          "folds": 5,
+          "seed": 20260730,
+          "coefficient_prior_scale": 1.0,
+          "intercept_prior_scale": 2.0,
+          "zero_gate_prior_scale": 2.0,
+          "parameterization": "standardized-linear-zero-inflated-poisson-logit-gate/v1"
+        },
+        "training_cost": "high",
+        "known_limitations": [
+          "Experimental candidate: zero rate alone is not an adoption rule.",
+          "Counts must be nonnegative integers; exposure is absent or a complete explicit offset contract.",
+          "Missing NumPyro/JAX, sampling failure, or failed diagnostics stops the build without Poisson fallback."
+        ],
+        "capacity_policy": null
+      },
+      {
         "estimator_id": "ordered-logit.v1",
         "label": "Standard ordered-logit regression",
         "target_kinds": [

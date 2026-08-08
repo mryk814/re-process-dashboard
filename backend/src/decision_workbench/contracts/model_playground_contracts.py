@@ -70,6 +70,7 @@ class ModelExplorationTargetContext(ModelPlaygroundContract):
     fold_digest: Digest
     validation_plan: ValidationPlan
     validation_plan_digest: Digest
+    exposure_contract_digest: Digest | None = None
     raw_observation_count: Annotated[int, Field(ge=0)] = 0
     effective_replicate_context_count: Annotated[int, Field(ge=0)] = 0
 
@@ -298,6 +299,7 @@ class ModelExplorationTargetResult(ModelPlaygroundContract):
     cohort_digest: Digest
     fold_digest: Digest
     validation_plan_digest: Digest
+    exposure_contract_digest: Digest | None = None
     metrics: dict[str, float | int | str | None]
     inference_identity: InferenceIdentity | None = None
     inference_unavailable_reason: str | None = None
@@ -318,6 +320,59 @@ class ModelExplorationTargetResult(ModelPlaygroundContract):
             raise ValueError(
                 "target result cannot claim both inference identity and absence"
             )
+        return self
+
+
+CountEstimatorId = Literal[
+    "poisson.v1",
+    "negative-binomial-regression.v1",
+    "zero-inflated-poisson-regression.v1",
+]
+
+
+class ModelExplorationCountCandidateEvidence(ModelPlaygroundContract):
+    estimator_id: CountEstimatorId
+    cohort_digest: Digest
+    fold_digest: Digest
+    exposure_contract_digest: Digest
+    metrics: dict[str, float]
+    structural_zero_evidence: str | None = None
+
+
+class ModelExplorationCountComparisonEvidence(ModelPlaygroundContract):
+    target_key: Annotated[str, Field(min_length=1)]
+    cohort_digest: Digest
+    fold_digest: Digest
+    exposure_contract_digest: Digest
+    candidates: Annotated[
+        tuple[ModelExplorationCountCandidateEvidence, ...],
+        Field(min_length=2),
+    ]
+    adoption_decision: Literal["experimental", "production", "no_adopt"]
+    automatic_selection: Literal[False] = False
+
+    @model_validator(mode="after")
+    def candidate_identities_match(self) -> "ModelExplorationCountComparisonEvidence":
+        expected = (
+            self.cohort_digest,
+            self.fold_digest,
+            self.exposure_contract_digest,
+        )
+        if any(
+            (
+                candidate.cohort_digest,
+                candidate.fold_digest,
+                candidate.exposure_contract_digest,
+            )
+            != expected
+            for candidate in self.candidates
+        ):
+            raise ValueError(
+                "count comparison candidates must share cohort, fold, and exposure identities"
+            )
+        estimator_ids = [candidate.estimator_id for candidate in self.candidates]
+        if len(estimator_ids) != len(set(estimator_ids)):
+            raise ValueError("count comparison estimator identities must be unique")
         return self
 
 
@@ -408,6 +463,7 @@ class ModelExplorationRun(ModelPlaygroundContract):
     run_id: Annotated[str, Field(min_length=1)]
     definition: ModelExplorationRunDefinition
     attempts: tuple[ModelExplorationRecipeAttempt, ...] = ()
+    count_comparisons: tuple[ModelExplorationCountComparisonEvidence, ...] = ()
     adoption_memo: ModelExplorationAdoptionMemo | None = None
     execution_revision: Annotated[int, Field(ge=1)] = 1
     execution_payload_digest: Digest
@@ -416,13 +472,24 @@ class ModelExplorationRun(ModelPlaygroundContract):
 
     @model_validator(mode="after")
     def execution_payload_digest_matches(self) -> "ModelExplorationRun":
-        expected = semantic_digest(
-            self.model_dump(
-                mode="json",
-                exclude={"execution_payload_digest"},
-            )
+        payload = self.model_dump(
+            mode="json",
+            exclude={"execution_payload_digest"},
         )
-        if self.execution_payload_digest != expected:
+        expected = semantic_digest(payload)
+        legacy_expected: str | None = None
+        if "count_comparisons" not in self.model_fields_set:
+            payload.pop("count_comparisons", None)
+            for target in payload["definition"]["context"]["targets"]:
+                target.pop("exposure_contract_digest", None)
+            for attempt in payload["attempts"]:
+                result = attempt.get("result")
+                if result is None:
+                    continue
+                for target in result["targets"]:
+                    target.pop("exposure_contract_digest", None)
+            legacy_expected = semantic_digest(payload)
+        if self.execution_payload_digest not in {expected, legacy_expected}:
             raise ValueError("model exploration execution payload digest does not match")
         attempt_ids = [item.attempt_id for item in self.attempts]
         if len(attempt_ids) != len(set(attempt_ids)):

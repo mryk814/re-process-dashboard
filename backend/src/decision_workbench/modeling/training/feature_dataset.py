@@ -54,6 +54,8 @@ class TargetTrainingSet:
     feature_recipe: FeatureRecipe | None = None
     feature_recipe_state: FeatureRecipeState | None = None
     recipe_rows: tuple[Mapping[str, Any], ...] = ()
+    exposure: np.ndarray | None = None
+    exposure_input_path: str | None = None
 
     @property
     def raw_observation_count(self) -> int:
@@ -194,6 +196,7 @@ def compile_target_training_set(
     validation_plan: ValidationPlan | None = None,
     feature_recipe: FeatureRecipe | None = None,
     feature_recipe_state: FeatureRecipeState | None = None,
+    exposure_input_path: str | None = None,
 ) -> TargetTrainingSet:
     ordered_categories = tuple(ordinal_categories or ())
     if target_kind == "ordinal":
@@ -225,6 +228,7 @@ def compile_target_training_set(
 
     x_rows: list[np.ndarray] = []
     y_rows: list[float] = []
+    exposure_rows: list[float] = []
     replicate_contexts: list[str] = []
     validation_groups: list[str] = []
     observation_ids: list[tuple[str, ...]] = []
@@ -314,11 +318,44 @@ def compile_target_training_set(
                 [float(row["outputs"][target]) for row in rows],
                 dtype=float,
             )
+        exposures: np.ndarray | None = None
+        if exposure_input_path is not None:
+            def value_at_path(row: Mapping[str, Any]) -> Any:
+                inputs = row.get("canonical_inputs")
+                if not isinstance(inputs, Mapping):
+                    raise ValueError(
+                        f"{target}/{replicate_context}: count exposure requires canonical_inputs"
+                    )
+                if exposure_input_path in inputs:
+                    return inputs[exposure_input_path]
+                value: Any = inputs
+                for part in exposure_input_path.split("."):
+                    if not isinstance(value, Mapping) or part not in value:
+                        raise ValueError(
+                            f"{target}/{replicate_context}: exposure path {exposure_input_path} is absent"
+                        )
+                    value = value[part]
+                return value
+
+            exposures = np.asarray([float(value_at_path(row)) for row in rows], dtype=float)
+            if not np.isfinite(exposures).all() or np.any(exposures <= 0):
+                raise ValueError(
+                    f"{target}/{replicate_context}: exposure must be finite and positive"
+                )
         if not np.isfinite(values).all():
             raise ValueError(
                 f"{target}/{replicate_context}: outputs must be finite"
             )
-        y_rows.append(float(values.mean()))
+        if target_kind == "count":
+            if not np.array_equal(values, values.astype(int)) or np.any(values < 0):
+                raise ValueError(
+                    f"{target}/{replicate_context}: count outputs must be nonnegative integers"
+                )
+            y_rows.append(float(values.sum()))
+            if exposures is not None:
+                exposure_rows.append(float(exposures.sum()))
+        else:
+            y_rows.append(float(values.mean()))
         replicate_contexts.append(replicate_context)
         validation_groups.append(next(iter(parent_keys)))
         observation_ids.append(tuple(str(row["observation_id"]) for row in rows))
@@ -610,6 +647,12 @@ def compile_target_training_set(
         feature_recipe=feature_recipe,
         feature_recipe_state=feature_recipe_state,
         recipe_rows=tuple(recipe_rows),
+        exposure=(
+            np.asarray(exposure_rows, dtype=float)
+            if exposure_input_path is not None
+            else None
+        ),
+        exposure_input_path=exposure_input_path,
     )
 
 

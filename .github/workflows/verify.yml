@@ -176,9 +176,14 @@ jobs:
         run: npm install --global npm@11.4.2
 
       - name: Install locked dependencies
+        shell: pwsh
         run: |
           npm ci
-          uv sync --frozen --extra dev
+          if ("${{ matrix.shard.id }}" -eq "backend-science") {
+            uv sync --frozen --extra dev --extra runtime-numpyro
+          } else {
+            uv sync --frozen --extra dev
+          }
 
       - name: Download immutable verification plan
         uses: actions/download-artifact@v7

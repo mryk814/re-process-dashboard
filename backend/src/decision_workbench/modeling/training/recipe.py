@@ -164,6 +164,26 @@ class OrderedLogitEstimatorRecipe(BayesianLinearInferenceRecipe):
     ] = "standardized-linear-monotone-thresholds/v1"
 
 
+class NegativeBinomialRegressionEstimatorRecipe(BayesianLinearInferenceRecipe):
+    estimator_id: Literal["negative-binomial-regression.v1"] = "negative-binomial-regression.v1"
+    coefficient_prior_scale: Literal[1.0] = 1.0
+    intercept_prior_scale: Literal[2.0] = 2.0
+    dispersion_prior: Literal["log-normal-0-1"] = "log-normal-0-1"
+    parameterization: Literal["standardized-linear-negative-binomial-log/v1"] = (
+        "standardized-linear-negative-binomial-log/v1"
+    )
+
+
+class ZeroInflatedPoissonRegressionEstimatorRecipe(BayesianLinearInferenceRecipe):
+    estimator_id: Literal["zero-inflated-poisson-regression.v1"] = "zero-inflated-poisson-regression.v1"
+    coefficient_prior_scale: Literal[1.0] = 1.0
+    intercept_prior_scale: Literal[2.0] = 2.0
+    zero_gate_prior_scale: Literal[2.0] = 2.0
+    parameterization: Literal[
+        "standardized-linear-zero-inflated-poisson-logit-gate/v1"
+    ] = "standardized-linear-zero-inflated-poisson-logit-gate/v1"
+
+
 BAYESIAN_MAX_ROWS = 5_000
 BAYESIAN_MAX_FEATURES = 64
 
@@ -242,6 +262,8 @@ ConcreteEstimatorRecipe = (
     | BayesianRidgeEstimatorRecipe
     | HorseshoeLinearEstimatorRecipe
     | OrderedLogitEstimatorRecipe
+    | NegativeBinomialRegressionEstimatorRecipe
+    | ZeroInflatedPoissonRegressionEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -279,6 +301,8 @@ ESTIMATOR_IDS = (
     "bayesian-ridge.v1",
     "horseshoe-linear.v1",
     "ordered-logit.v1",
+    "negative-binomial-regression.v1",
+    "zero-inflated-poisson-regression.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -499,6 +523,31 @@ def validate_recipe_capability(
             if target.goal_probability != "unavailable":
                 errors.append(
                     f"{target.target}: Poisson standard path cannot provide goal probability"
+                )
+            continue
+        if recipe.estimator_id in {
+            "negative-binomial-regression.v1",
+            "zero-inflated-poisson-regression.v1",
+        }:
+            if tuple(target.point_statistics) != ("rate",):
+                errors.append(
+                    f"{target.target}: advanced count point statistic must be expected count"
+                )
+            if target.standard_deviation or target.samples:
+                errors.append(
+                    f"{target.target}: advanced count exposes discrete quantiles, not raw samples or a standard deviation"
+                )
+            if not target.quantiles or not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: advanced count requires predictive quantiles and a count distribution"
+                )
+            if target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: advanced count does not expose decomposed uncertainty components"
+                )
+            if target.goal_probability != "unavailable":
+                errors.append(
+                    f"{target.target}: advanced count goal probability is unavailable"
                 )
             continue
         if recipe.estimator_id == "quantile-linear-regression.v1":

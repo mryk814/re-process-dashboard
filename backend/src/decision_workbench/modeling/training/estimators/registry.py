@@ -88,6 +88,18 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=ordered_logit.ARTIFACT_SUFFIX,
             artifact_format=ordered_logit.ARTIFACT_FORMAT,
         )
+    if estimator_id in {
+        "negative-binomial-regression.v1",
+        "zero-inflated-poisson-regression.v1",
+    }:
+        from . import advanced_count
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, advanced_count.train),
+            runtime_type=advanced_count.RUNTIME_TYPE,
+            artifact_suffix=advanced_count.ARTIFACT_SUFFIX,
+            artifact_format=advanced_count.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 

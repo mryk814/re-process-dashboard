@@ -137,6 +137,26 @@ class _DensePosteriorPredictor:
         expected_kind = _KINDS.get(family)
         if expected_kind != self.spec.target_kind:
             raise PackageContractError(f"{family} requires target_kind={expected_kind}")
+        exposure = self.spec.config.get("exposure")
+        advanced_contract = self.spec.config.get("advanced_count_contract")
+        if advanced_contract is not None and advanced_contract != "advanced-count-contract/v1":
+            raise PackageContractError("advanced count contract marker is unsupported")
+        if advanced_contract == "advanced-count-contract/v1" and exposure is None:
+            raise PackageContractError("advanced count posterior requires explicit exposure semantics")
+        if family in {"negative_binomial_log", "zero_inflated_poisson_log"} and exposure is not None:
+            if not isinstance(exposure, dict):
+                raise PackageContractError("advanced count exposure semantics must be an object")
+            mode = exposure.get("mode")
+            if mode == "explicit_offset/v1":
+                path = exposure.get("input_path")
+                if not isinstance(path, str) or path not in values:
+                    raise PackageContractError("advanced count exposure input is required")
+                value = float(values[path])
+                if not np.isfinite(value) or value <= 0:
+                    raise PackageContractError("advanced count exposure must be finite and positive")
+                output[:, 0] += np.log(value)
+            elif mode != "not_applicable_unexposed_count/v1":
+                raise PackageContractError("advanced count exposure semantics are unsupported")
         sampling_identity = SamplingIdentity.create(
             request=sampling_request,
             requested_sample_count=requested_sample_count,
@@ -209,14 +229,29 @@ class _DensePosteriorPredictor:
             if (dispersion <= 0).any():
                 raise PackageContractError("negative binomial dispersion must be positive")
             samples = rng.poisson(rng.gamma(shape=dispersion, scale=mean / dispersion))
-            point, distribution = float(np.mean(mean)), {"family": family, "support": "nonnegative_integers"}
+            point, distribution = float(np.mean(mean)), {
+                "family": family, "support": "nonnegative_integers"
+            }
+            if exposure is not None:
+                distribution.update(
+                    mean_semantics="expected_count",
+                    overdispersion=float(np.mean(dispersion)),
+                )
         elif family == "zero_inflated_poisson_log":
             if output.shape[1] != 2:
                 raise PackageContractError("zero_inflated_poisson_log requires a two-output dense network")
             rate, zero_probability = np.exp(np.clip(output[:, 0], -30, 30)), _sigmoid(output[:, 1])
             samples = rng.poisson(rate)
             samples[rng.random(len(draw_indices)) < zero_probability] = 0
-            point, distribution = float(np.mean((1 - zero_probability) * rate)), {"family": family, "support": "nonnegative_integers"}
+            point, distribution = float(np.mean((1 - zero_probability) * rate)), {
+                "family": family, "support": "nonnegative_integers"
+            }
+            if exposure is not None:
+                distribution.update(
+                    mean_semantics="expected_count",
+                    zero_probability=float(np.mean(zero_probability)),
+                    count_process_mean=float(np.mean(rate)),
+                )
         elif family == "ordinal_logit":
             if "ordinal_thresholds" in self.extras:
                 cuts = self.extras["ordinal_thresholds"][draw_indices]

@@ -65,8 +65,10 @@ test("workflow supervises shard execution and full pytest exposes test identity"
     readFile(new URL("./observe-process-tree.ps1", import.meta.url), "utf8"),
   ]);
   assert.match(workflow, /node scripts\/run-observed-ci-shard\.mjs --plan/);
+  assert.match(workflow, /backend-science[\s\S]+uv sync --frozen --extra dev --extra runtime-numpyro/);
   const fullPytest = JSON.parse(catalog).gates["full-pytest"];
   assert.ok(fullPytest.runner.args.includes("-vv"));
+  assert.ok(fullPytest.runner.args.includes("runtime-numpyro"));
   assert.match(observer, /peakTreeWorkingSetBytes/);
   assert.match(observer, /lastCompletedTest/);
   assert.match(observer, /\[int\]\$PollMilliseconds = 10000/);

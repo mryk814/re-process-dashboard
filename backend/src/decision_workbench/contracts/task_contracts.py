@@ -217,8 +217,32 @@ class BinaryOutputSemantics(ContractModel):
 
 
 class CountOutputSemantics(ContractModel):
-    count_unit: Annotated[str, Field(min_length=1)]
+    count_unit: Annotated[str, Field(min_length=1, pattern=r".*\S.*")]
     exposure_label: Annotated[str, Field(min_length=1)] | None = None
+    exposure_input_path: Annotated[str, Field(min_length=1)] | None = None
+    exposure_unit: Annotated[str, Field(min_length=1)] | None = None
+    structural_zero_rationale: Annotated[str, Field(min_length=1, pattern=r".*\S.*")] | None = None
+
+    @field_validator("count_unit", "exposure_label", "exposure_input_path", "exposure_unit", "structural_zero_rationale")
+    @classmethod
+    def count_text_is_trimmed(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("count semantics text must not be blank")
+        return stripped
+
+    @model_validator(mode="after")
+    def exposure_contract_is_complete(self) -> "CountOutputSemantics":
+        fields = (self.exposure_label, self.exposure_input_path, self.exposure_unit)
+        if (
+            self.exposure_input_path is not None or self.exposure_unit is not None
+        ) and not all(value is not None for value in fields):
+            raise ValueError(
+                "count exposure requires label, canonical input path, and unit"
+            )
+        return self
 
 
 class OrdinalOutputSemantics(ContractModel):
