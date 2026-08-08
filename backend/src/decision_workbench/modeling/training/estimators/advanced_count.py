@@ -50,7 +50,8 @@ class _Fit:
     coefficients: np.ndarray
     intercepts: np.ndarray
     dispersion: np.ndarray | None
-    zero_gate_logits: np.ndarray | None
+    zero_gate_coefficients: np.ndarray | None
+    zero_gate_intercepts: np.ndarray | None
     inference_identity: InferenceIdentity
 
     def parameters(self, values: np.ndarray, exposure: np.ndarray | None) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
@@ -58,7 +59,9 @@ class _Fit:
         if exposure is not None:
             eta = eta + np.log(exposure)[:, None]
         mean = np.exp(np.clip(eta, -30, 30))
-        gates = None if self.zero_gate_logits is None else 1.0 / (1.0 + np.exp(-self.zero_gate_logits))[None, :]
+        gates = None
+        if self.zero_gate_coefficients is not None and self.zero_gate_intercepts is not None:
+            gates = 1.0 / (1.0 + np.exp(-(values @ self.zero_gate_coefficients.T + self.zero_gate_intercepts)))
         return mean, None if self.dispersion is None else self.dispersion[None, :], gates
 
 
@@ -108,8 +111,10 @@ def _sampler_model(recipe: CountRecipe, *, feature_count: int, jnp: Any, numpyro
             dispersion = numpyro.sample("dispersion", dist.LogNormal(0.0, 1.0))
             numpyro.sample("observed", dist.NegativeBinomial2(mean=mean, concentration=dispersion), obs=observed)
         else:
-            gate_logit = numpyro.sample("gate_logit", dist.Normal(0.0, recipe.zero_gate_prior_scale))
-            numpyro.sample("observed", dist.ZeroInflatedPoisson(gate=1.0 / (1.0 + jnp.exp(-gate_logit)), rate=mean), obs=observed)
+            gate_coefficients = numpyro.sample("gate_coefficients", dist.Normal(0.0, recipe.zero_gate_prior_scale).expand((feature_count,)).to_event(1))
+            gate_intercept = numpyro.sample("gate_intercept", dist.Normal(0.0, recipe.zero_gate_prior_scale))
+            gate = 1.0 / (1.0 + jnp.exp(-(jnp.asarray(features) @ gate_coefficients + gate_intercept)))
+            numpyro.sample("observed", dist.ZeroInflatedPoisson(gate=gate, rate=mean), obs=observed)
     return model
 
 
@@ -135,7 +140,7 @@ def _fit(values: np.ndarray, target: np.ndarray, exposure: np.ndarray | None, re
     try:
         sampler.run(random.PRNGKey(_fit_seed(seed)), jnp.asarray(normalized), jnp.asarray(target.astype(int)), None if exposure is None else jnp.asarray(np.log(exposure)))
         grouped = sampler.get_samples(group_by_chain=True)
-        names = ["coefficients", "intercept", "dispersion" if recipe.estimator_id == "negative-binomial-regression.v1" else "gate_logit"]
+        names = ["coefficients", "intercept", "dispersion"] if recipe.estimator_id == "negative-binomial-regression.v1" else ["coefficients", "intercept", "gate_coefficients", "gate_intercept"]
         diagnostics = _diagnostics_from_summary(summarize({name: grouped[name] for name in names}, group_by_chain=True), int(np.asarray(sampler.get_extra_fields(group_by_chain=True).get("diverging", 0)).sum()), settings)
     except AdvancedCountTrainingError:
         raise
@@ -150,10 +155,11 @@ def _fit(values: np.ndarray, target: np.ndarray, exposure: np.ndarray | None, re
     dispersion = np.asarray(samples["dispersion"], dtype=float) if recipe.estimator_id == "negative-binomial-regression.v1" else None
     if not np.isfinite(coefficients).all() or not np.isfinite(intercepts).all() or (dispersion is not None and (not np.isfinite(dispersion).all() or np.any(dispersion <= 0))):
         raise AdvancedCountSamplingError("sampling_failed", f"{recipe.estimator_id} produced invalid posterior draws")
-    gates = np.asarray(samples["gate_logit"], dtype=float) if recipe.estimator_id == "zero-inflated-poisson-regression.v1" else None
-    if gates is not None and (not np.isfinite(gates).all() or gates.shape != intercepts.shape):
+    gate_coefficients = np.asarray(samples["gate_coefficients"], dtype=float) / x_scale if recipe.estimator_id == "zero-inflated-poisson-regression.v1" else None
+    gate_intercepts = np.asarray(samples["gate_intercept"], dtype=float) - gate_coefficients @ x_mean if gate_coefficients is not None else None
+    if gate_coefficients is not None and (not np.isfinite(gate_coefficients).all() or not np.isfinite(gate_intercepts).all()):
         raise AdvancedCountSamplingError("sampling_failed", f"{recipe.estimator_id} produced invalid zero-gate draws")
-    return _Fit(coefficients, intercepts, dispersion, gates, InferenceIdentity.create(policy=inference_policy("nuts"), parameterization=recipe.parameterization, diagnostics=diagnostics, seed=_fit_seed(seed), chains=settings.chains, warmup=settings.warmup, draws=settings.draws, resource_limits=bayesian_inference_resource_limits(recipe), convergence_criteria={"max_r_hat": settings.max_r_hat, "min_ess": settings.min_effective_sample_size, "max_divergences": settings.max_divergences}))
+    return _Fit(coefficients, intercepts, dispersion, gate_coefficients, gate_intercepts, InferenceIdentity.create(policy=inference_policy("nuts"), parameterization=recipe.parameterization, diagnostics=diagnostics, seed=_fit_seed(seed), chains=settings.chains, warmup=settings.warmup, draws=settings.draws, resource_limits=bayesian_inference_resource_limits(recipe), convergence_criteria={"max_r_hat": settings.max_r_hat, "min_ess": settings.min_effective_sample_size, "max_divergences": settings.max_divergences}))
 
 
 def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe: CountRecipe, *, seed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
@@ -224,8 +230,9 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
     elif recipe.estimator_id == "zero-inflated-poisson-regression.v1":
         # Exported zero gate is a posterior dense output as required by the runtime.
         arrays["w0"] = np.concatenate((arrays["w0"], np.zeros_like(arrays["w0"])), axis=2)
-        assert final.zero_gate_logits is not None
-        arrays["b0"] = np.column_stack((arrays["b0"][:, 0], final.zero_gate_logits))
+        assert final.zero_gate_coefficients is not None and final.zero_gate_intercepts is not None
+        arrays["w0"][:, :, 1] = final.zero_gate_coefficients
+        arrays["b0"] = np.column_stack((arrays["b0"][:, 0], final.zero_gate_intercepts))
     np.savez(artifact_path, **arrays)
     observed = data.y[quality_rows]
     evaluated = expected[quality_rows]
