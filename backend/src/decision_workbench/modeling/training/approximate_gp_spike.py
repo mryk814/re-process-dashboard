@@ -107,7 +107,6 @@ def _fit(
         predictive_std=predictive_std,
     )
 
-
 def _predict(fitted: _RffFit, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     standardized, _, _ = _standardize(
         x,
@@ -246,4 +245,3 @@ def evaluate_same_cohort(
             np.mean(np.abs(residuals) <= z90 * np.sqrt(predictive_variance[quality_rows]))
         ),
     )
-
