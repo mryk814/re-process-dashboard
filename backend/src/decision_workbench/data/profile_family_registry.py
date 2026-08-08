@@ -11,6 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+    build_count_disposition,
+)
 from decision_workbench.contracts.task_contracts import TaskDefinition
 
 
@@ -167,11 +171,21 @@ def _generic_validation(source: Path, profile_path: Path, profile: Any) -> dict[
         for row in all_observations
         for reason in row.get("exclusion_reasons", ())
     )
+    source_sha256 = file_sha256(source)
+    disposition = build_count_disposition(
+        source_sha256=source_sha256,
+        profile_digest=_profile_digest(profile),
+        canonicalization_contract_digest=DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+        task_ids=metadata.task_ids,
+        entities=len(all_observations),
+        observations_by_task=observations_by_task,
+        rejected_by_policy=rejection_counts,
+    )
     return {
         "ok": True,
         "registration_ready": any(observations_by_task.values()),
         "source": str(source),
-        "source_sha256": file_sha256(source),
+        "source_sha256": source_sha256,
         "profile": str(profile_path),
         "profile_id": metadata.profile_id,
         "profile_digest": _profile_digest(profile),
@@ -186,11 +200,12 @@ def _generic_validation(source: Path, profile_path: Path, profile: Any) -> dict[
         "entity_preview": [
             {
                 "entity_type": "observation",
-                "entity_key": str(row.get("id", row.get("observation_id", index))),
-                "values": {"eligible": bool(row.get("eligible"))},
+                "field_count": len(row),
+                "eligible": bool(row.get("eligible")),
             }
             for index, row in enumerate(all_observations[:5])
         ],
+        "disposition": disposition.model_dump(mode="json"),
     }
 
 

@@ -13,7 +13,7 @@ PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 
 def build(output: Path, fixture: str) -> None:
     workbook = load_workbook(
-        PROCESS_SOURCE if fixture == "partial-evidence" else SOURCE
+        PROCESS_SOURCE if fixture in {"partial-evidence", "unresolved-heat-series"} else SOURCE
     )
     try:
         if fixture == "partial-evidence":
@@ -27,6 +27,26 @@ def build(output: Path, fixture: str) -> None:
                 column=anneal_headers.index("画像リンク名") + 1,
                 value="焼鈍顕微鏡ファイル",
             )
+        elif fixture == "unresolved-heat-series":
+            history = workbook["焼鈍履歴"]
+            headers = [cell.value for cell in history[1]]
+            parent_index = headers.index("焼鈍履歴_key**")
+            temperature_index = headers.index("温度[℃]")
+            first_parent = next(
+                row[parent_index].value
+                for row in history.iter_rows(min_row=2)
+                if row[parent_index].value
+            )
+            for row in history.iter_rows(min_row=2):
+                if row[parent_index].value == first_parent:
+                    row[temperature_index].value = None
+            annealing = workbook["焼鈍条件-3CGL"]
+            annealing_headers = [cell.value for cell in annealing[1]]
+            annealing_parent_index = annealing_headers.index("焼鈍条件-3CGL_key**")
+            line_speed_index = annealing_headers.index("LS[mpm]")
+            for row in annealing.iter_rows(min_row=2):
+                if row[annealing_parent_index].value == first_parent:
+                    row[line_speed_index].value = None
         else:
             sheet = workbook["熱延"]
             sheet.title = "熱延条件（設備B）"
@@ -47,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument("output", type=Path)
     parser.add_argument(
         "--fixture",
-        choices=("renamed-source", "partial-evidence"),
+        choices=("renamed-source", "partial-evidence", "unresolved-heat-series"),
         default="renamed-source",
     )
     arguments = parser.parse_args()

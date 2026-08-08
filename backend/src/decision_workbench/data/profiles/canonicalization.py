@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import median
 from typing import Any, Mapping
 
@@ -53,6 +53,7 @@ class CanonicalDataset:
     relations: tuple[Mapping[str, tuple[str, str]], ...]
     observations: tuple[CanonicalObservation, ...]
     heat_series: Mapping[tuple[str, str], list[dict[str, Any]]]
+    heat_series_reasons: Mapping[tuple[str, str], tuple[str, ...]] = field(default_factory=dict)
 
     def rows(self, role: str) -> list[dict[str, Any]]:
         return self.source_rows[self.profile.sheet_for_role(role)]
@@ -274,6 +275,7 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                     task_values = entity.values.setdefault(task_id, {})
                     task_values[field_mapping.path] = float(median(values))
     heat_series: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    heat_series_reasons: dict[tuple[str, str], set[str]] = {}
     for task in profile.tasks.values():
         for mapping in task.mappings:
             if mapping.kind != "ordered_heat_series" or mapping.series_columns is None:
@@ -293,6 +295,7 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
             }
             grouped: dict[str, list[tuple[Any, dict[str, Any]]]] = {}
             invalid_parents: set[str] = set()
+            invalid_reasons: dict[str, set[str]] = {}
             for row in rows.get(profile.sheet_for_role(mapping.role), []):
                 parent_value = row.get(columns.parent)
                 if parent_value is None or not str(parent_value).strip():
@@ -301,18 +304,22 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 order = row.get(columns.order)
                 time = row.get(columns.time)
                 value = row.get(columns.value)
-                if (
-                    not isinstance(order, (int, float))
-                    or not math.isfinite(float(order))
-                    or not isinstance(time, (int, float))
-                    or not math.isfinite(float(time))
-                    or not isinstance(value, (int, float))
-                    or not math.isfinite(float(value))
-                ):
+                row_reasons: set[str] = set()
+                if not isinstance(order, (int, float)) or not math.isfinite(float(order)):
+                    row_reasons.add("non_finite_or_missing_order")
+                if not isinstance(time, (int, float)) or not math.isfinite(float(time)):
+                    row_reasons.add("non_finite_or_missing_time")
+                if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                    row_reasons.add("non_finite_or_missing_value")
+                if row_reasons:
                     invalid_parents.add(parent)
+                    invalid_reasons.setdefault(parent, set()).update(row_reasons)
                     continue
                 if time_conversion is None or value_conversion is None:
                     invalid_parents.add(parent)
+                    invalid_reasons.setdefault(parent, set()).add(
+                        "unit_conversion_unavailable"
+                    )
                     continue
                 point = {
                     "time_s": float(row[columns.time]) * time_conversion.scale + time_conversion.offset,
@@ -326,18 +333,30 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                     point["mapping_status"] = "工程辞書一致"
                 grouped.setdefault(parent, []).append((float(order), point))
             for parent, ordered in grouped.items():
+                parent_entity_type = mapping.parent_entity_type or "annealing"
+                parent_identity = (parent_entity_type, parent)
                 if parent in invalid_parents:
+                    heat_series_reasons.setdefault(parent_identity, set()).update(
+                        invalid_reasons.get(parent, ())
+                    )
                     continue
                 points = [point for _, point in sorted(ordered, key=lambda item: item[0])]
                 if len(points) < 2:
+                    heat_series_reasons.setdefault(parent_identity, set()).add(
+                        "insufficient_points"
+                    )
                     continue
                 _normalize_heat_series(points)
-                parent_entity_type = mapping.parent_entity_type or "annealing"
-                parent_identity = (parent_entity_type, parent)
                 heat_series[parent_identity] = points
+                heat_series_reasons.pop(parent_identity, None)
                 entity = entities.get((parent_entity_type, parent))
                 if entity is not None:
                     entity.values.setdefault(task.task_id, {})[mapping.path] = points
+            parent_entity_type = mapping.parent_entity_type or "annealing"
+            for parent in invalid_parents - grouped.keys():
+                heat_series_reasons.setdefault(
+                    (parent_entity_type, parent), set()
+                ).update(invalid_reasons.get(parent, ()))
             fallback = mapping.measurement_point_fallback
             if fallback is None:
                 continue
@@ -361,7 +380,29 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 if parent_identity in heat_series:
                     continue
                 heat_series[parent_identity] = points
+                heat_series_reasons.pop(parent_identity, None)
                 entity = entities.get(parent_identity)
                 if entity is not None:
                     entity.values.setdefault(task.task_id, {})[mapping.path] = points
-    return CanonicalDataset(profile, rows, entities, relations, tuple(observations), heat_series)
+    for identity, entity in entities.items():
+        if any(
+            mapping.kind == "ordered_heat_series"
+            and (mapping.parent_entity_type or "annealing") == identity[0]
+            for task in profile.tasks.values()
+            for mapping in task.mappings
+        ) and identity not in heat_series:
+            heat_series_reasons.setdefault(identity, set()).add(
+                "missing_series_points"
+            )
+    return CanonicalDataset(
+        profile,
+        rows,
+        entities,
+        relations,
+        tuple(observations),
+        heat_series,
+        {
+            identity: tuple(sorted(reasons))
+            for identity, reasons in heat_series_reasons.items()
+        },
+    )

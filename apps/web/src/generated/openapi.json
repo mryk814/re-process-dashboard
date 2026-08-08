@@ -8635,6 +8635,9 @@
             "title": "Dataset Views",
             "type": "array"
           },
+          "disposition": {
+            "$ref": "#/components/schemas/DatasetDispositionProjection"
+          },
           "profile_available": {
             "default": false,
             "title": "Profile Available",
@@ -8655,7 +8658,8 @@
           "dataset_revision",
           "data_asset",
           "profile_revision",
-          "supported_task_ids"
+          "supported_task_ids",
+          "disposition"
         ],
         "title": "DataLibraryDataset",
         "type": "object"
@@ -8915,6 +8919,301 @@
         "title": "DatasetApprovalRequest",
         "type": "object"
       },
+      "DatasetDisposition": {
+        "additionalProperties": false,
+        "description": "The immutable ``dataset-disposition/v1`` artifact.",
+        "properties": {
+          "canonical_dataset_digest": {
+            "minLength": 1,
+            "title": "Canonical Dataset Digest",
+            "type": "string"
+          },
+          "canonicalization_contract_digest": {
+            "minLength": 1,
+            "title": "Canonicalization Contract Digest",
+            "type": "string"
+          },
+          "profile_digest": {
+            "minLength": 1,
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "dataset-disposition/v1",
+            "default": "dataset-disposition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_dispositions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DatasetTaskDisposition"
+            },
+            "title": "Task Dispositions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "source_sha256",
+          "profile_digest",
+          "canonicalization_contract_digest",
+          "canonical_dataset_digest"
+        ],
+        "title": "DatasetDisposition",
+        "type": "object"
+      },
+      "DatasetDispositionDiff": {
+        "additionalProperties": false,
+        "description": "Bounded comparison between adjacent Dataset Revisions.",
+        "properties": {
+          "added_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added Task Ids",
+            "type": "array"
+          },
+          "canonicalization_contract_changed": {
+            "default": false,
+            "title": "Canonicalization Contract Changed",
+            "type": "boolean"
+          },
+          "changed": {
+            "default": false,
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "changed_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Task Ids",
+            "type": "array"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "current_profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Profile Digest"
+          },
+          "current_source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Source Sha256"
+          },
+          "previous_profile_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Profile Digest"
+          },
+          "previous_source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Source Sha256"
+          },
+          "profile_changed": {
+            "default": false,
+            "title": "Profile Changed",
+            "type": "boolean"
+          },
+          "reason": {
+            "enum": [
+              "compared",
+              "previous_disposition_unavailable",
+              "previous_legacy_unknown",
+              "profile_changed",
+              "canonicalization_contract_changed"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "removed_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed Task Ids",
+            "type": "array"
+          },
+          "source_changed": {
+            "default": false,
+            "title": "Source Changed",
+            "type": "boolean"
+          },
+          "task_diffs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DatasetDispositionTaskDiff"
+            },
+            "title": "Task Diffs",
+            "type": "object"
+          }
+        },
+        "required": [
+          "comparable",
+          "reason"
+        ],
+        "title": "DatasetDispositionDiff",
+        "type": "object"
+      },
+      "DatasetDispositionProjection": {
+        "additionalProperties": false,
+        "description": "Browser-safe projection used by preview, receipt, and Data Library.",
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "improvement_hints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Improvement Hints",
+            "type": "array"
+          },
+          "previous_diff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetDispositionDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version"
+          },
+          "status": {
+            "enum": [
+              "recorded",
+              "unknown_legacy"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_dispositions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DatasetTaskDisposition"
+            },
+            "title": "Task Dispositions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DatasetDispositionProjection",
+        "type": "object"
+      },
+      "DatasetDispositionTaskDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "count_deltas": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Count Deltas",
+            "type": "object"
+          },
+          "current_entity_count": {
+            "minimum": 0.0,
+            "title": "Current Entity Count",
+            "type": "integer"
+          },
+          "current_observation_count": {
+            "minimum": 0.0,
+            "title": "Current Observation Count",
+            "type": "integer"
+          },
+          "current_unresolved_heat_series_parent_count": {
+            "minimum": 0.0,
+            "title": "Current Unresolved Heat Series Parent Count",
+            "type": "integer"
+          },
+          "current_usable_observation_count": {
+            "minimum": 0.0,
+            "title": "Current Usable Observation Count",
+            "type": "integer"
+          },
+          "previous_entity_count": {
+            "minimum": 0.0,
+            "title": "Previous Entity Count",
+            "type": "integer"
+          },
+          "previous_observation_count": {
+            "minimum": 0.0,
+            "title": "Previous Observation Count",
+            "type": "integer"
+          },
+          "previous_unresolved_heat_series_parent_count": {
+            "minimum": 0.0,
+            "title": "Previous Unresolved Heat Series Parent Count",
+            "type": "integer"
+          },
+          "previous_usable_observation_count": {
+            "minimum": 0.0,
+            "title": "Previous Usable Observation Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "previous_entity_count",
+          "current_entity_count",
+          "previous_observation_count",
+          "current_observation_count",
+          "previous_unresolved_heat_series_parent_count",
+          "current_unresolved_heat_series_parent_count",
+          "previous_usable_observation_count",
+          "current_usable_observation_count"
+        ],
+        "title": "DatasetDispositionTaskDiff",
+        "type": "object"
+      },
       "DatasetIdentity": {
         "properties": {
           "profile_id": {
@@ -8948,7 +9247,96 @@
         "title": "DatasetIdentity",
         "type": "object"
       },
+      "DatasetOperationEligibility": {
+        "additionalProperties": false,
+        "description": "Allow-listed operation semantics for one Prediction Task.",
+        "properties": {
+          "candidate_reference": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Candidate Reference",
+            "type": "string"
+          },
+          "lineage": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Lineage",
+            "type": "string"
+          },
+          "observation_browse": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Observation Browse",
+            "type": "string"
+          },
+          "prediction_input": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Prediction Input",
+            "type": "string"
+          },
+          "similarity": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Similarity",
+            "type": "string"
+          },
+          "training": {
+            "enum": [
+              "retained",
+              "eligible",
+              "excluded_without_required_series",
+              "requires_user_supplied_series",
+              "not_applicable",
+              "unknown_legacy"
+            ],
+            "title": "Training",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lineage",
+          "observation_browse",
+          "training",
+          "candidate_reference",
+          "similarity",
+          "prediction_input"
+        ],
+        "title": "DatasetOperationEligibility",
+        "type": "object"
+      },
       "DatasetRevision": {
+        "additionalProperties": false,
         "properties": {
           "archived_at": {
             "anyOf": [
@@ -8980,6 +9368,36 @@
           "dataset_digest": {
             "minLength": 1,
             "title": "Dataset Digest",
+            "type": "string"
+          },
+          "disposition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition Digest"
+          },
+          "disposition_json": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition_status": {
+            "default": "unknown_legacy",
+            "enum": [
+              "recorded",
+              "unknown_legacy"
+            ],
+            "title": "Disposition Status",
             "type": "string"
           },
           "id": {
@@ -9014,6 +9432,57 @@
           "archived"
         ],
         "title": "DatasetRevisionUpdateInput",
+        "type": "object"
+      },
+      "DatasetTaskDisposition": {
+        "additionalProperties": false,
+        "description": "Counts and operation handling for one Task, without row identity.",
+        "properties": {
+          "entity_count": {
+            "minimum": 0.0,
+            "title": "Entity Count",
+            "type": "integer"
+          },
+          "heat_series_parent_count": {
+            "minimum": 0.0,
+            "title": "Heat Series Parent Count",
+            "type": "integer"
+          },
+          "observation_count": {
+            "minimum": 0.0,
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "operation_eligibility": {
+            "$ref": "#/components/schemas/DatasetOperationEligibility"
+          },
+          "reason_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reason Counts",
+            "type": "object"
+          },
+          "unresolved_heat_series_parent_count": {
+            "minimum": 0.0,
+            "title": "Unresolved Heat Series Parent Count",
+            "type": "integer"
+          },
+          "usable_observation_count": {
+            "minimum": 0.0,
+            "title": "Usable Observation Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity_count",
+          "observation_count",
+          "usable_observation_count",
+          "heat_series_parent_count",
+          "unresolved_heat_series_parent_count",
+          "operation_eligibility"
+        ],
+        "title": "DatasetTaskDisposition",
         "type": "object"
       },
       "DatasetViewMember": {
@@ -23158,6 +23627,9 @@
             "title": "Dataset View Revision Id",
             "type": "string"
           },
+          "disposition": {
+            "$ref": "#/components/schemas/DatasetDispositionProjection"
+          },
           "previous_dataset_revision_id": {
             "anyOf": [
               {
@@ -23168,6 +23640,16 @@
               }
             ],
             "title": "Previous Dataset Revision Id"
+          },
+          "previous_disposition_diff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetDispositionDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "previous_source_sha256": {
             "anyOf": [
@@ -23213,7 +23695,8 @@
           "dataset_view_revision_id",
           "source_sha256",
           "profile_id",
-          "task_ids"
+          "task_ids",
+          "disposition"
         ],
         "title": "ProfileWorkbenchRegistration",
         "type": "object"
@@ -23247,6 +23730,16 @@
       },
       "ProfileWorkbenchValidation": {
         "properties": {
+          "disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetDispositionProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "entities": {
             "minimum": 0.0,
             "title": "Entities",

@@ -37,6 +37,9 @@ from decision_workbench.persistence.data_lifecycle_training_audit_migration impo
 from decision_workbench.persistence.decision_activity_migration import (
     migrate_decision_activity_runs,
 )
+from decision_workbench.persistence.dataset_disposition_migration import (
+    migrate_dataset_disposition_storage,
+)
 from decision_workbench.persistence.evidence_repository import EvidenceRepository
 from decision_workbench.persistence.lineage_review_migration import (
     migrate_lineage_reviews,
@@ -139,6 +142,7 @@ class Store(
         # Migrations remain additive and ordered. Splitting repositories must not
         # change the support floor for existing Workspaces.
         migrate_workspace_catalog(self.path)
+        migrate_dataset_disposition_storage(self.path)
         migrate_workspace_maintenance_events(self.path)
         migrate_project_lifecycle(self.path)
         migrate_chain_catalog(self.path)

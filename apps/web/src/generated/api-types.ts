@@ -6229,6 +6229,7 @@ export interface components {
             dataset_revision: components["schemas"]["DatasetRevision"];
             /** Dataset Views */
             dataset_views?: components["schemas"]["DatasetViewRevision"][];
+            disposition: components["schemas"]["DatasetDispositionProjection"];
             /**
              * Profile Available
              * @default false
@@ -6344,6 +6345,126 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * DatasetDisposition
+         * @description The immutable ``dataset-disposition/v1`` artifact.
+         */
+        DatasetDisposition: {
+            /** Canonical Dataset Digest */
+            canonical_dataset_digest: string;
+            /** Canonicalization Contract Digest */
+            canonicalization_contract_digest: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /**
+             * Schema Version
+             * @default dataset-disposition/v1
+             * @constant
+             */
+            schema_version: "dataset-disposition/v1";
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Task Dispositions */
+            task_dispositions?: {
+                [key: string]: components["schemas"]["DatasetTaskDisposition"];
+            };
+        };
+        /**
+         * DatasetDispositionDiff
+         * @description Bounded comparison between adjacent Dataset Revisions.
+         */
+        DatasetDispositionDiff: {
+            /** Added Task Ids */
+            added_task_ids?: string[];
+            /**
+             * Canonicalization Contract Changed
+             * @default false
+             */
+            canonicalization_contract_changed: boolean;
+            /**
+             * Changed
+             * @default false
+             */
+            changed: boolean;
+            /** Changed Task Ids */
+            changed_task_ids?: string[];
+            /** Comparable */
+            comparable: boolean;
+            /** Current Profile Digest */
+            current_profile_digest?: string | null;
+            /** Current Source Sha256 */
+            current_source_sha256?: string | null;
+            /** Previous Profile Digest */
+            previous_profile_digest?: string | null;
+            /** Previous Source Sha256 */
+            previous_source_sha256?: string | null;
+            /**
+             * Profile Changed
+             * @default false
+             */
+            profile_changed: boolean;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "compared" | "previous_disposition_unavailable" | "previous_legacy_unknown" | "profile_changed" | "canonicalization_contract_changed";
+            /** Removed Task Ids */
+            removed_task_ids?: string[];
+            /**
+             * Source Changed
+             * @default false
+             */
+            source_changed: boolean;
+            /** Task Diffs */
+            task_diffs?: {
+                [key: string]: components["schemas"]["DatasetDispositionTaskDiff"];
+            };
+        };
+        /**
+         * DatasetDispositionProjection
+         * @description Browser-safe projection used by preview, receipt, and Data Library.
+         */
+        DatasetDispositionProjection: {
+            /** Digest */
+            digest?: string | null;
+            /** Improvement Hints */
+            improvement_hints?: string[];
+            previous_diff?: components["schemas"]["DatasetDispositionDiff"] | null;
+            /** Schema Version */
+            schema_version?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "recorded" | "unknown_legacy";
+            /** Task Dispositions */
+            task_dispositions?: {
+                [key: string]: components["schemas"]["DatasetTaskDisposition"];
+            };
+        };
+        /** DatasetDispositionTaskDiff */
+        DatasetDispositionTaskDiff: {
+            /** Count Deltas */
+            count_deltas?: {
+                [key: string]: number;
+            };
+            /** Current Entity Count */
+            current_entity_count: number;
+            /** Current Observation Count */
+            current_observation_count: number;
+            /** Current Unresolved Heat Series Parent Count */
+            current_unresolved_heat_series_parent_count: number;
+            /** Current Usable Observation Count */
+            current_usable_observation_count: number;
+            /** Previous Entity Count */
+            previous_entity_count: number;
+            /** Previous Observation Count */
+            previous_observation_count: number;
+            /** Previous Unresolved Heat Series Parent Count */
+            previous_unresolved_heat_series_parent_count: number;
+            /** Previous Usable Observation Count */
+            previous_usable_observation_count: number;
+        };
         /** DatasetIdentity */
         DatasetIdentity: {
             /** Profile Id */
@@ -6356,6 +6477,42 @@ export interface components {
             source_sha256: string;
             /** Task Id */
             task_id: string;
+        };
+        /**
+         * DatasetOperationEligibility
+         * @description Allow-listed operation semantics for one Prediction Task.
+         */
+        DatasetOperationEligibility: {
+            /**
+             * Candidate Reference
+             * @enum {string}
+             */
+            candidate_reference: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
+            /**
+             * Lineage
+             * @enum {string}
+             */
+            lineage: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
+            /**
+             * Observation Browse
+             * @enum {string}
+             */
+            observation_browse: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
+            /**
+             * Prediction Input
+             * @enum {string}
+             */
+            prediction_input: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
+            /**
+             * Similarity
+             * @enum {string}
+             */
+            similarity: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
+            /**
+             * Training
+             * @enum {string}
+             */
+            training: "retained" | "eligible" | "excluded_without_required_series" | "requires_user_supplied_series" | "not_applicable" | "unknown_legacy";
         };
         /** DatasetRevision */
         DatasetRevision: {
@@ -6372,6 +6529,15 @@ export interface components {
             data_asset_id: string;
             /** Dataset Digest */
             dataset_digest: string;
+            /** Disposition Digest */
+            disposition_digest?: string | null;
+            disposition_json?: components["schemas"]["DatasetDisposition"] | null;
+            /**
+             * Disposition Status
+             * @default unknown_legacy
+             * @enum {string}
+             */
+            disposition_status: "recorded" | "unknown_legacy";
             /** Id */
             id: string;
             /** Profile Revision Id */
@@ -6381,6 +6547,27 @@ export interface components {
         DatasetRevisionUpdateInput: {
             /** Archived */
             archived: boolean;
+        };
+        /**
+         * DatasetTaskDisposition
+         * @description Counts and operation handling for one Task, without row identity.
+         */
+        DatasetTaskDisposition: {
+            /** Entity Count */
+            entity_count: number;
+            /** Heat Series Parent Count */
+            heat_series_parent_count: number;
+            /** Observation Count */
+            observation_count: number;
+            operation_eligibility: components["schemas"]["DatasetOperationEligibility"];
+            /** Reason Counts */
+            reason_counts?: {
+                [key: string]: number;
+            };
+            /** Unresolved Heat Series Parent Count */
+            unresolved_heat_series_parent_count: number;
+            /** Usable Observation Count */
+            usable_observation_count: number;
         };
         /** DatasetViewMember */
         DatasetViewMember: {
@@ -11734,8 +11921,10 @@ export interface components {
             dataset_revision_id: string;
             /** Dataset View Revision Id */
             dataset_view_revision_id: string;
+            disposition: components["schemas"]["DatasetDispositionProjection"];
             /** Previous Dataset Revision Id */
             previous_dataset_revision_id?: string | null;
+            previous_disposition_diff?: components["schemas"]["DatasetDispositionDiff"] | null;
             /** Previous Source Sha256 */
             previous_source_sha256?: string | null;
             /** Profile Id */
@@ -11760,6 +11949,7 @@ export interface components {
         };
         /** ProfileWorkbenchValidation */
         ProfileWorkbenchValidation: {
+            disposition?: components["schemas"]["DatasetDispositionProjection"] | null;
             /** Entities */
             entities: number;
             /** Entity Preview */

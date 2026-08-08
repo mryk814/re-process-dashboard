@@ -45,6 +45,7 @@ export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
 export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInput"];
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
+export type ApiDatasetDispositionDiff = components["schemas"]["DatasetDispositionDiff"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiChainStudioCatalog = components["schemas"]["ChainStudioCatalogResponse"];
 export type ApiChainStudioDraft = components["schemas"]["ChainStudioDraftRequest"];

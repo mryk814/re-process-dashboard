@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTaskLabels } from "../../shared/useTaskLabels";
 import {
   workbenchApi,
+  type ApiDatasetDispositionDiff,
   type ApiProfileWorkbenchInspection,
   type ApiProfileWorkbenchProfile,
   type ApiProfileWorkbenchRegistration,
@@ -11,7 +12,6 @@ import {
 import { ObservationAuthoringPanel } from "./ObservationAuthoringPanel";
 
 type ProfileBindingSlot = NonNullable<ApiProfileWorkbenchInspection["binding_draft"]>["slots"][number];
-
 const shortDigest = (value: string) => value.slice(0, 12);
 
 function headerUnit(column: string): string {
@@ -37,15 +37,49 @@ function formatFileSize(bytes: number): string {
 function previewValue(value: unknown, key: string): string {
   if (typeof value !== "object" || value === null) return "—";
   const selected = Reflect.get(value, key);
-  return typeof selected === "string" ? selected : "—";
+  return typeof selected === "string" || typeof selected === "number" || typeof selected === "boolean"
+    ? String(selected)
+    : "—";
 }
 
-function previewFields(value: unknown): string {
-  if (typeof value !== "object" || value === null) return "—";
-  const fields = Reflect.get(value, "values");
-  if (typeof fields !== "object" || fields === null) return "—";
-  const keys = Object.keys(fields);
-  return keys.length ? `${keys.slice(0, 4).join(" / ")}${keys.length > 4 ? ` ほか${keys.length - 4}項目` : ""}` : "値なし";
+const dispositionOperationLabels = [
+  ["lineage", "Lineage"],
+  ["observation_browse", "Observation browse"],
+  ["training", "Training"],
+  ["candidate_reference", "Candidate reference"],
+  ["similarity", "Similarity"],
+  ["prediction_input", "Prediction input"],
+] as const;
+
+function dispositionEligibilityLabel(value: string): string {
+  return {
+    retained: "保持",
+    eligible: "利用可能",
+    excluded_without_required_series: "必要系列なしで対象外",
+    requires_user_supplied_series: "入力系列が必要",
+    not_applicable: "対象外",
+    unknown_legacy: "legacy unknown",
+  }[value] ?? value;
+}
+
+function dispositionDiffText(diff: ApiDatasetDispositionDiff): string {
+  const identity = [
+    diff.source_changed ? "Source" : "",
+    diff.profile_changed ? "Profile" : "",
+    diff.canonicalization_contract_changed ? "canonicalization contract" : "",
+  ].filter(Boolean);
+  const tasks = [
+    ...(diff.added_task_ids ?? []).map((task) => `追加 ${task}`),
+    ...(diff.removed_task_ids ?? []).map((task) => `削除 ${task}`),
+    ...(diff.changed_task_ids ?? [])
+      .filter((task) => !(diff.added_task_ids ?? []).includes(task) && !(diff.removed_task_ids ?? []).includes(task))
+      .map((task) => `件数 ${task}`),
+  ];
+  const summary = [
+    identity.length ? `${identity.join(" / ")} identityが変化` : "",
+    tasks.length ? tasks.join(" · ") : "",
+  ].filter(Boolean).join("。 ");
+  return `${summary || "前Revisionから扱いに変化なし"}${diff.comparable ? "" : "（Profile/契約が異なるため件数比較は参考）"}`;
 }
 
 const bindingKindLabels = {
@@ -537,12 +571,22 @@ export function ProfileWorkbenchPage({
       </section>}
 
       {inspection.validation && <section className="profile-validation-result">
-        <div className="panel-title"><h3>Canonical preview</h3><span className="profile-ready-badge">登録可能</span></div>
+        <div className="panel-title"><h3>Canonical preview</h3><span className={`profile-ready-badge ${inspection.validation.registration_ready ? "" : "unavailable"}`}>{inspection.validation.registration_ready ? "登録可能" : "登録不可"}</span></div>
         <div className="profile-validation-metrics"><div><span>Entities</span><strong>{inspection.validation.entities.toLocaleString("ja-JP")}</strong></div><div><span>Relations</span><strong>{inspection.validation.relations.toLocaleString("ja-JP")}</strong></div><div><span>Observations</span><strong>{inspection.validation.observations.toLocaleString("ja-JP")}</strong></div><div><span>Heat series</span><strong>{inspection.validation.heat_series_parents.toLocaleString("ja-JP")}</strong></div></div>
         <div className="profile-task-row"><span>対応する予測タスク</span>{inspection.validation.task_ids.map((task) => <b key={task} title={task}>{taskLabel(task)}</b>)}</div>
         {unresolvedHeatSeriesTotal > 0 && <details className="profile-rejection-details"><summary>ヒートパターンを作れない工程条件: {unresolvedHeatSeriesTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(unresolvedHeatSeries).map(([task, count]) => <span key={task}><code>{task}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}<p>Datasetには登録できますが、この工程条件はヒートパターンを必要とする学習・候補参照には使われません。</p></details>}
         {rejectedTotal > 0 && <details className="profile-rejection-details"><summary>Eligibilityで除外される観測: {rejectedTotal.toLocaleString("ja-JP")}件</summary>{Object.entries(inspection.validation.rejected_by_policy).map(([policy, count]) => <span key={policy}><code>{policy}</code><b>{count.toLocaleString("ja-JP")}件</b></span>)}</details>}
-        {inspection.validation.entity_preview.length > 0 && <details className="profile-preview-details"><summary>正規化後の先頭{inspection.validation.entity_preview.length}件</summary><table><thead><tr><th>Entity</th><th>Key</th><th>Canonical fields</th></tr></thead><tbody>{inspection.validation.entity_preview.map((item, index) => <tr key={`${previewValue(item, "entity_type")}-${previewValue(item, "entity_key")}-${index}`}><td>{previewValue(item, "entity_type")}</td><td>{previewValue(item, "entity_key")}</td><td>{previewFields(item)}</td></tr>)}</tbody></table></details>}
+        {inspection.validation.disposition && <details className="profile-disposition-details" open={unresolvedHeatSeriesTotal > 0}>
+          <summary>登録後のDataset扱い: {inspection.validation.disposition.status === "recorded" ? unresolvedHeatSeriesTotal > 0 ? "一部操作対象外" : "利用可能" : "legacy unknown"}</summary>
+          {Object.entries(inspection.validation.disposition.task_dispositions ?? {}).map(([task, disposition]) => <div className="profile-disposition-task" key={task}>
+            <div><code>{task}</code><span>{disposition.usable_observation_count.toLocaleString("ja-JP")} / {disposition.observation_count.toLocaleString("ja-JP")} observations usable</span></div>
+            <div className="profile-disposition-operations">{dispositionOperationLabels.map(([key, label]) => <span key={key}><b>{label}</b>{dispositionEligibilityLabel(disposition.operation_eligibility[key])}</span>)}</div>
+            {Object.keys(disposition.reason_counts ?? {}).length > 0 && <small>理由: {Object.entries(disposition.reason_counts ?? {}).map(([reason, count]) => `${reason} ${count}`).join(" / ")}</small>}
+          </div>)}
+          {inspection.validation.disposition.improvement_hints?.length ? <p>改善候補: {inspection.validation.disposition.improvement_hints.join(" · ")}</p> : null}
+          {inspection.validation.disposition.digest && <code>disposition: {shortDigest(inspection.validation.disposition.digest)}</code>}
+        </details>}
+        {inspection.validation.entity_preview.length > 0 && <details className="profile-preview-details"><summary>正規化後の集計プレビュー（先頭{inspection.validation.entity_preview.length}件）</summary><table><thead><tr><th>Entity type</th><th>Fields</th><th>Eligible</th></tr></thead><tbody>{inspection.validation.entity_preview.map((item, index) => <tr key={`${previewValue(item, "entity_type")}-${index}`}><td>{previewValue(item, "entity_type")}</td><td>{previewValue(item, "field_count")}</td><td>{previewValue(item, "eligible")}</td></tr>)}</tbody></table></details>}
       </section>}
 
       {savedDraft && <aside className="profile-draft-saved" role="status">
@@ -557,6 +601,6 @@ export function ProfileWorkbenchPage({
       </section>}
     </>}
 
-    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : registration.previous_dataset_revision_id ? "更新版を新しいRevisionとして登録しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.map(taskLabel).join(" / ")}</span>{registration.previous_source_sha256 && <small className="profile-source-diff"><code>{shortDigest(registration.previous_source_sha256)}</code><b>→</b><code>{shortDigest(registration.source_sha256)}</code></small>}<code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
+    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : registration.previous_dataset_revision_id ? "更新版を新しいRevisionとして登録しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.map(taskLabel).join(" / ")}</span>{registration.previous_source_sha256 && <small className="profile-source-diff"><code>{shortDigest(registration.previous_source_sha256)}</code><b>→</b><code>{shortDigest(registration.source_sha256)}</code></small>}<code>{shortDigest(registration.dataset_revision_id)}</code><small>{registration.disposition.status === "recorded" && Object.values(registration.disposition.task_dispositions ?? {}).some((item) => item.unresolved_heat_series_parent_count > 0) ? "登録済み・一部操作対象外" : registration.disposition.status === "unknown_legacy" ? "legacy unknown" : "登録済み・利用可能"}</small>{registration.previous_disposition_diff && <small className="profile-disposition-diff">{dispositionDiffText(registration.previous_disposition_diff)}</small>}</div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
   </div>;
 }

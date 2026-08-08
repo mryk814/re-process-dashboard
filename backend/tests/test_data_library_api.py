@@ -91,6 +91,11 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     assert all("profile_locator" not in item for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
+    assert all(item["disposition"]["status"] == "recorded" for item in items)
+    assert all(
+        "locator" not in json.dumps(item["disposition"], ensure_ascii=False)
+        for item in items
+    )
     tutorial = next(
         item for item in items
         if item["data_asset"]["original_filename"] == "material_workbench_tutorial_v2.xlsx"

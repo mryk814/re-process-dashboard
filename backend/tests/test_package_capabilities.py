@@ -126,6 +126,27 @@ def test_standard_predictor_projects_actual_capability_instead_of_active_package
     assert projected_student_t.goal_probability == "unavailable"
 
 
+def test_lightgbm_empirical_quantile_projection_does_not_claim_normal_uncertainty() -> None:
+    predictor = _manifest().predictors[1].model_copy(
+        update={
+            "predictive_family": "empirical_quantiles",
+            "config": {"training": {"estimator_id": "lightgbm-regression.v1"}},
+        }
+    )
+
+    projected = standard_predictor_capability(
+        predictor,
+        _capability().targets[1],
+    )
+
+    assert projected.point_statistics == ("mean",)
+    assert projected.quantiles is True
+    assert projected.standard_deviation is False
+    assert projected.parametric_distribution is False
+    assert projected.uncertainty_components is False
+    assert projected.goal_probability == "unavailable"
+
+
 def test_standard_predictor_rejects_unknown_recipe_metadata() -> None:
     predictor = _manifest().predictors[0].model_copy(
         update={"config": {"training": {"estimator_id": "arbitrary.v1"}}}
