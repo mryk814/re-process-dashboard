@@ -90,6 +90,11 @@ export const suiteInventory = {
     cleanupOwner: "seeded DB and personal store disposal",
     reason: "同一file内で個人TaskとModel Packageを準備するため、default suiteで直列実行する。",
   },
+  "dataset-disposition.spec.ts": {
+    kind: "isolated",
+    cleanupOwner: "fresh spec process",
+    reason: "個人WorkbookからDatasetを登録し、Profile WorkbenchからData Libraryまで状態を更新する。",
+  },
   "decision-activity.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",
