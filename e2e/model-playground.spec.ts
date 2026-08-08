@@ -257,7 +257,9 @@ test("Model Playground builds, resumes, retries, compares and registers fixed ev
   );
   await expect(page.getByRole("heading", { name: "比較する仮説を選ぶ" })).toBeVisible();
 
-  const ridge = page.locator(".playground-recipe-card").filter({ hasText: "ridge.v1" });
+  const ridge = page.locator(".playground-recipe-card").filter({
+    has: page.locator("code").filter({ hasText: /^ridge\.v1$/ }),
+  });
   const additive = page.locator(".playground-recipe-card").filter({
     hasText: "bayesian-additive-spline.v1",
   });

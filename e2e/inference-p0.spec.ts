@@ -250,14 +250,14 @@ test("inference runs only for changed candidates and visible selected curves", a
   await page.locator(".table-heading h2").click();
   await expect.poll(() => conflictHeld).toBe(true);
   expect(conflictStatus).toBe(409);
-  await conflictName.fill(`${await conflictName.inputValue()} 競合2`);
-  await page.locator(".table-heading h2").click();
-  await page.waitForTimeout(350);
   const recoveredSave = page.waitForResponse((response) => (
     response.request().method() === "PUT"
     && response.url().endsWith(`/candidates/${createdCandidateId}`)
     && response.status() === 200
   ));
+  await conflictName.fill(`${await conflictName.inputValue()} 競合2`);
+  await page.locator(".table-heading h2").click();
+  await page.waitForTimeout(350);
   releaseConflict();
   await recoveredSave;
   await expect.poll(() => previewRequests).toBe(previewsBeforeConflictRecovery + 1);
