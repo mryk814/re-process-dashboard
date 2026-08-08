@@ -25,7 +25,11 @@ def configure_local_access(app: FastAPI) -> None:
         allow_origins=allowed_origins,
         allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):\d+$",
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Workbench-Launch-Token"],
+        allow_headers=[
+            "Content-Type",
+            "X-Workbench-Human-Actor",
+            "X-Workbench-Launch-Token",
+        ],
         allow_credentials=False,
     )
     loopback_origin = re.compile(r"^http://(127\.0\.0\.1|localhost):\d+$")

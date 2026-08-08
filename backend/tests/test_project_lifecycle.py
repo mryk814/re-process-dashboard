@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime
 
 import pytest
 
@@ -12,7 +13,119 @@ from decision_workbench.persistence.project_persistence_inventory import (
 )
 from decision_workbench.persistence.sqlite_connection import sqlite_connection
 
-from backend.tests.test_projects import _candidate, _project
+ELEMENTS = (
+    "C",
+    "Si",
+    "Mn",
+    "P",
+    "S",
+    "Al",
+    "Cu",
+    "Ni",
+    "Cr",
+    "Mo",
+    "Ti",
+    "B",
+    "O",
+    "N",
+)
+
+
+def _candidate(name: str) -> dict:
+    return {
+        "name": name,
+        "inputs": {
+            "composition": {
+                **{key: 0.0 for key in ELEMENTS},
+                "C": 0.08,
+                "Si": 0.3,
+                "Mn": 1.5,
+            },
+            "process": {"ls_mpm": 103.0},
+            "categorical": {},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 25},
+                {"time_s": 300, "temperature_c": 810},
+                {"time_s": 650, "temperature_c": 120},
+            ],
+        },
+    }
+
+
+def _project(client, name: str) -> dict:
+    reference = client.get("/api/projects/default").json()
+    return {
+        "name": name,
+        "description": "独立した検討",
+        "purpose": "プロジェクト分離の確認",
+        "task_id": reference["task_id"],
+        "target_values": {"TS": 500},
+        "notes": "",
+        "dataset_view_revision_id": reference["dataset_view_revision_id"],
+        "model_package_ref_id": reference["model_package_ref_id"],
+    }
+
+
+def _project_with_objective(client, name: str) -> str:
+    response = client.post("/api/projects", json=_project(client, name))
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def _prepare_historical_candidates(client, project_id: str):
+    source = client.get("/api/projects/default/candidates").json()[0]
+    candidates = []
+    snapshots = []
+    for name in ("判断候補A", "判断候補B"):
+        candidate_response = client.post(
+            f"/api/projects/{project_id}/candidates",
+            json={
+                "name": name,
+                "inputs": source["inputs"],
+                "provenance": {"source_kind": "direct", "source_ref": None},
+            },
+        )
+        assert candidate_response.status_code == 201, candidate_response.text
+        candidate = candidate_response.json()
+        snapshot_response = client.post(
+            f"/api/projects/{project_id}/candidates/{candidate['id']}/predict",
+            params={"expected_revision": candidate["revision"]},
+        )
+        assert snapshot_response.status_code == 200, snapshot_response.text
+        candidates.append(candidate)
+        snapshots.append(snapshot_response.json()["snapshot"])
+    return candidates, snapshots
+
+
+def _case_payload(candidates, snapshots, cutoff: str) -> dict:
+    return {
+        "schema_version": "decision-case-create/v1",
+        "decision_timestamp": cutoff,
+        "candidates": [
+            {
+                "candidate_id": candidate["id"],
+                "candidate_revision": candidate["revision"],
+            }
+            for candidate in candidates
+        ],
+        "snapshot_ids": [snapshot["id"] for snapshot in snapshots],
+        "selection": {
+            "status": "selected",
+            "candidate": {
+                "candidate_id": candidates[0]["id"],
+                "candidate_revision": candidates[0]["revision"],
+            },
+        },
+        "rationale": {
+            "disposition": "selected",
+            "rationale": "当時の支持範囲と目的値を確認した記録",
+        },
+        "outcome_policy": {
+            "schema_version": "decision-outcome-policy/v1",
+            "target_keys": ["TS", "EL"],
+            "missing_actual_policy": "retain_partial",
+        },
+    }
 
 
 def test_project_persistence_inventory_covers_schema_and_archive_guards(
@@ -38,6 +151,9 @@ def test_project_persistence_inventory_covers_schema_and_archive_guards(
             continue
         for operation in ("insert", "update", "delete"):
             assert f"guard_archived_{table}_{operation}" in triggers
+    for table in PROJECT_PERSISTENCE.case_tables:
+        for operation in ("insert", "update", "delete"):
+            assert f"guard_archived_{table}_{operation}" in triggers
     for table in PROJECT_PERSISTENCE.candidate_tables:
         for operation in ("insert", "update", "delete"):
             assert f"guard_archived_{table}_{operation}" in triggers
@@ -58,6 +174,97 @@ def test_unregistered_project_scoped_table_fails_inventory_contract(client) -> N
         )
         with pytest.raises(AssertionError, match="project_scope_fixture"):
             assert_project_persistence_inventory_complete(connection)
+
+
+def test_decision_case_attachment_follows_project_archive_and_purge(client) -> None:
+    project_id = _project_with_objective(client, "Decision Case lifecycle")
+    candidates, snapshots = _prepare_historical_candidates(client, project_id)
+    case_response = client.post(
+        f"/api/projects/{project_id}/decision-cases",
+        json=_case_payload(candidates, snapshots, datetime.now(UTC).isoformat()),
+        headers={"X-Workbench-Human-Actor": "local-researcher"},
+    )
+    assert case_response.status_code == 201, case_response.text
+    case_id = case_response.json()["id"]
+    actuals = []
+    for target, value, unit in (("TS", 510.0, "MPa"), ("EL", 21.0, "%")):
+        response = client.post(
+            f"/api/projects/{project_id}/candidates/{candidates[0]['id']}/actuals",
+            params={"expected_revision": candidates[0]["revision"]},
+            json={"property": target, "mean": value, "unit": unit},
+        )
+        assert response.status_code == 201, response.text
+        actuals.append(response.json())
+    attachment_response = client.post(
+        f"/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments",
+        json={
+            "schema_version": "decision-case-actual-attachment-create/v1",
+            "actual_measurement_id": actuals[0]["id"],
+        },
+    )
+    assert attachment_response.status_code == 201, attachment_response.text
+    attachment_id = attachment_response.json()["id"]
+    hindsight_project_id = _project_with_objective(
+        client, "Decision Case lifecycle hindsight"
+    )
+    run_response = client.post(
+        f"/api/projects/{project_id}/decision-cases/{case_id}/replay-runs",
+        json={
+            "schema_version": "decision-replay-request/v1",
+            "alternative_policy": "primary-objective-point-estimate/v1",
+            "hindsight_project_id": hindsight_project_id,
+        },
+    )
+    assert run_response.status_code == 201, run_response.text
+    run_id = run_response.json()["id"]
+
+    assert client.delete(f"/api/projects/{project_id}").status_code == 204
+    store = client.app.state.store
+    with sqlite_connection(store.path) as connection:
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "INSERT INTO decision_case_actual_attachments("
+                "id,semantic_identity,case_id,actual_id,candidate_id,candidate_revision,"
+                "prediction_snapshot_id,payload,attached_at) "
+                "SELECT ?,?,case_id,?,candidate_id,candidate_revision,"
+                "prediction_snapshot_id,payload,? "
+                "FROM decision_case_actual_attachments WHERE id=?",
+                (
+                    "late-attachment",
+                    "sha256:late-attachment",
+                    actuals[1]["id"],
+                    datetime.now(UTC).isoformat(),
+                    attachment_id,
+                ),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "UPDATE decision_case_actual_attachments SET payload=? WHERE id=?",
+                ("{}", attachment_id),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "DELETE FROM decision_case_actual_attachments WHERE id=?",
+                (attachment_id,),
+            )
+
+    purge = client.delete(
+        f"/api/projects/{project_id}/purge",
+        params={"confirm_project_id": project_id},
+    )
+    assert purge.status_code == 204, purge.text
+    with sqlite_connection(store.path) as connection:
+        assert connection.execute(
+            "SELECT 1 FROM decision_case_actual_attachments WHERE id=?",
+            (attachment_id,),
+        ).fetchone() is None
+        assert connection.execute(
+            "SELECT 1 FROM decision_replay_runs WHERE id=?", (run_id,)
+        ).fetchone() is None
+        assert connection.execute(
+            "SELECT 1 FROM decision_cases WHERE id=?", (case_id,)
+        ).fetchone() is None
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:

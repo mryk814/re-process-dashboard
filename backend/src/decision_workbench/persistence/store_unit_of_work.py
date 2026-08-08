@@ -666,6 +666,13 @@ class WorkbenchUnitOfWork:
                         f"DELETE FROM {table} WHERE candidate_id IN ({placeholders})",
                         candidate_ids,
                     )
+            for table in PROJECT_PERSISTENCE.case_tables:
+                conn.execute(
+                    f"DELETE FROM {table} WHERE case_id IN ("
+                    "SELECT id FROM decision_cases WHERE project_id=?"
+                    ")",
+                    (project_id,),
+                )
             for table in PROJECT_PERSISTENCE.scope_tables:
                 conn.execute(
                     f"DELETE FROM {table} WHERE scope_id LIKE ?",
@@ -721,6 +728,15 @@ class WorkbenchUnitOfWork:
                     continue
                 row = conn.execute(
                     f"SELECT 1 FROM {table} WHERE project_id=? LIMIT 1",
+                    (project_id,),
+                ).fetchone()
+                if row is not None:
+                    return True
+            for table in PROJECT_PERSISTENCE.case_tables:
+                row = conn.execute(
+                    f"SELECT 1 FROM {table} WHERE case_id IN ("
+                    "SELECT id FROM decision_cases WHERE project_id=?"
+                    ") LIMIT 1",
                     (project_id,),
                 ).fetchone()
                 if row is not None:

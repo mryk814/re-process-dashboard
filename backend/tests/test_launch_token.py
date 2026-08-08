@@ -30,11 +30,16 @@ def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, a
             headers={
                 "Origin": "null",
                 "Access-Control-Request-Method": "GET",
-                "Access-Control-Request-Headers": "X-Workbench-Launch-Token",
+                "Access-Control-Request-Headers": (
+                    "X-Workbench-Launch-Token, X-Workbench-Human-Actor"
+                ),
             },
         )
         assert preflight.status_code == 200
         assert preflight.headers["access-control-allow-origin"] == "null"
+        assert "X-Workbench-Human-Actor" in preflight.headers[
+            "access-control-allow-headers"
+        ]
         health = client.get("/health", headers=headers)
         assert health.status_code == 200
         assert health.json()["workspace"] == {

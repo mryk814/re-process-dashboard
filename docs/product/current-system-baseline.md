@@ -103,6 +103,7 @@ ExcelまたはCSVのsource assetは読取専用の不変入力として扱う。
 - Prediction Snapshot
 - Screening Run
 - Decision Activity Run
+- Decision Case / Decision Replay Run
 - Actual Measurement
 - Chain Definition / Chain Revision
 - Chain Execution / Chain Snapshot
@@ -172,6 +173,10 @@ Dataset登録、runtime再読込を行う。任意の学習コード・任意est
 
 Activityは画面名ではなく、問い、必要能力、入力parameter、結果契約を表す。現在のproduction registryには
 ロバストネス／公差解析、候補差分の要因分解、目標へ届く最小変更が登録されている。
+
+### Decision Replay
+
+Decision Caseは判断時点までのCandidate RevisionとPrediction Snapshotを固定する。後着ActualはCase本体を変更せず追加専用attachmentとして別レイヤーへ結ぶ。Replayは当時のCandidate集合だけへ固定policyを再適用し、同じTask contract、Objective、target集合を持つ後発Project/Packageを明示選択してhindsight再評価する。Case、attachment、Runはいずれも追加専用であり、既存のCandidate、Snapshot、Actual、Decision Activity identityを変更しない。詳細は[Decision Replay](../contracts/decision-replay.md)を参照する。
 
 ### Chain Definition
 
@@ -268,6 +273,7 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 | Source lifecycle revisionの永続化 | `backend/src/decision_workbench/persistence/data_lifecycle_repository.py` |
 | Workbookのrelation解釈とcanonical／lineage生成 | `backend/src/decision_workbench/data/importer.py` |
 | Decision Activity | `backend/src/decision_workbench/contracts/decision_activity_contracts.py` |
+| Decision Case／Replay Run | `backend/src/decision_workbench/contracts/decision_replay_contracts.py` と `docs/contracts/decision-replay.md` |
 | Project Design Space | `backend/src/decision_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
 | Objective Definition | `backend/src/decision_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |
 | Proposal Strategy／Acquisition | `backend/src/decision_workbench/contracts/proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |

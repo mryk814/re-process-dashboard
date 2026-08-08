@@ -10052,6 +10052,370 @@
         "title": "DecisionActivitySourceRef",
         "type": "object"
       },
+      "DecisionCandidateReference": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "candidate_revision"
+        ],
+        "title": "DecisionCandidateReference",
+        "type": "object"
+      },
+      "DecisionCase": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionCandidateReference"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision_timestamp": {
+            "format": "date-time",
+            "title": "Decision Timestamp",
+            "type": "string"
+          },
+          "historical_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/HistoricalCandidateEvidence"
+            },
+            "title": "Historical Evidence",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "objective_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectiveDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
+          "outcome_policy": {
+            "$ref": "#/components/schemas/DecisionOutcomePolicy"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionRationale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "decision-case/v1",
+            "default": "decision-case/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/DecisionSelection"
+          },
+          "semantic_identity": {
+            "title": "Semantic Identity",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "semantic_identity",
+          "project_id",
+          "task_id",
+          "task_contract_digest",
+          "decision_timestamp",
+          "candidates",
+          "historical_evidence",
+          "selection",
+          "outcome_policy",
+          "created_at"
+        ],
+        "title": "DecisionCase",
+        "type": "object"
+      },
+      "DecisionCaseActualAttachment": {
+        "additionalProperties": false,
+        "description": "An append-only link from a fixed Case to a later Actual Measurement.",
+        "properties": {
+          "actual": {
+            "$ref": "#/components/schemas/ActualMeasurement"
+          },
+          "attached_at": {
+            "format": "date-time",
+            "title": "Attached At",
+            "type": "string"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prediction_snapshot_created_at": {
+            "format": "date-time",
+            "title": "Prediction Snapshot Created At",
+            "type": "string"
+          },
+          "prediction_snapshot_id": {
+            "title": "Prediction Snapshot Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-case-actual-attachment/v1",
+            "default": "decision-case-actual-attachment/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "semantic_identity": {
+            "title": "Semantic Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "semantic_identity",
+          "case_id",
+          "actual",
+          "candidate",
+          "prediction_snapshot_id",
+          "prediction_snapshot_created_at",
+          "attached_at"
+        ],
+        "title": "DecisionCaseActualAttachment",
+        "type": "object"
+      },
+      "DecisionCaseActualAttachmentCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_measurement_id": {
+            "minLength": 1,
+            "title": "Actual Measurement Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-case-actual-attachment-create/v1",
+            "default": "decision-case-actual-attachment-create/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual_measurement_id"
+        ],
+        "title": "DecisionCaseActualAttachmentCreateRequest",
+        "type": "object"
+      },
+      "DecisionCaseCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionCandidateReference"
+            },
+            "minItems": 1,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "decision_timestamp": {
+            "format": "date-time",
+            "title": "Decision Timestamp",
+            "type": "string"
+          },
+          "outcome_policy": {
+            "$ref": "#/components/schemas/DecisionOutcomePolicy"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionRationaleInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "decision-case-create/v1",
+            "default": "decision-case-create/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/DecisionSelection"
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Snapshot Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision_timestamp",
+          "candidates",
+          "snapshot_ids",
+          "selection",
+          "outcome_policy"
+        ],
+        "title": "DecisionCaseCreateRequest",
+        "type": "object"
+      },
+      "DecisionCaseDraftContext": {
+        "additionalProperties": false,
+        "properties": {
+          "actuals": {
+            "items": {
+              "$ref": "#/components/schemas/ActualMeasurement"
+            },
+            "title": "Actuals",
+            "type": "array"
+          },
+          "current_selection": {
+            "$ref": "#/components/schemas/DecisionSelection"
+          },
+          "schema_version": {
+            "const": "decision-case-draft-context/v1",
+            "default": "decision-case-draft-context/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionCaseDraftSnapshot"
+            },
+            "title": "Snapshots",
+            "type": "array"
+          },
+          "target_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshots",
+          "actuals",
+          "target_keys",
+          "current_selection"
+        ],
+        "title": "DecisionCaseDraftContext",
+        "type": "object"
+      },
+      "DecisionCaseDraftSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
+          },
+          "candidate_name": {
+            "title": "Candidate Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "candidate",
+          "candidate_name",
+          "created_at"
+        ],
+        "title": "DecisionCaseDraftSnapshot",
+        "type": "object"
+      },
+      "DecisionOutcomePolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "missing_actual_policy": {
+            "const": "retain_partial",
+            "default": "retain_partial",
+            "title": "Missing Actual Policy",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-outcome-policy/v1",
+            "default": "decision-outcome-policy/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target_keys": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Target Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "target_keys"
+        ],
+        "title": "DecisionOutcomePolicy",
+        "type": "object"
+      },
       "DecisionOutput": {
         "additionalProperties": false,
         "properties": {
@@ -10179,6 +10543,267 @@
           "limitation"
         ],
         "title": "DecisionOutputEvidence",
+        "type": "object"
+      },
+      "DecisionRationale": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "selected",
+              "deferred",
+              "rejected_all",
+              "no_decision"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "rationale",
+          "actor_id"
+        ],
+        "title": "DecisionRationale",
+        "type": "object"
+      },
+      "DecisionRationaleInput": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "enum": [
+              "selected",
+              "deferred",
+              "rejected_all",
+              "no_decision"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "rationale"
+        ],
+        "title": "DecisionRationaleInput",
+        "type": "object"
+      },
+      "DecisionReplayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "alternative_policy": {
+            "const": "primary-objective-point-estimate/v1",
+            "default": "primary-objective-point-estimate/v1",
+            "title": "Alternative Policy",
+            "type": "string"
+          },
+          "hindsight_project_id": {
+            "minLength": 1,
+            "title": "Hindsight Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "decision-replay-request/v1",
+            "default": "decision-replay-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hindsight_project_id"
+        ],
+        "title": "DecisionReplayRequest",
+        "type": "object"
+      },
+      "DecisionReplayResult": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_attachments": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionCaseActualAttachment"
+            },
+            "title": "Actual Attachments",
+            "type": "array"
+          },
+          "alternative_policy": {
+            "const": "primary-objective-point-estimate/v1",
+            "title": "Alternative Policy",
+            "type": "string"
+          },
+          "alternative_selection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionCandidateReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alternative_selection_reason": {
+            "title": "Alternative Selection Reason",
+            "type": "string"
+          },
+          "hindsight_project": {
+            "$ref": "#/components/schemas/HindsightProjectProvenance"
+          },
+          "hindsight_reevaluation": {
+            "items": {
+              "$ref": "#/components/schemas/HindsightProjectReevaluation"
+            },
+            "title": "Hindsight Reevaluation",
+            "type": "array"
+          },
+          "historical": {
+            "items": {
+              "$ref": "#/components/schemas/HistoricalCandidateEvaluation"
+            },
+            "title": "Historical",
+            "type": "array"
+          },
+          "realized_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/RealizedOutcome"
+            },
+            "title": "Realized Outcomes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "decision-replay-result/v1",
+            "default": "decision-replay-result/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "similar_cases": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarDecisionCase"
+            },
+            "title": "Similar Cases",
+            "type": "array"
+          },
+          "unobserved_targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unobserved Targets",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "historical",
+          "realized_outcomes",
+          "unobserved_targets",
+          "alternative_policy",
+          "alternative_selection_reason",
+          "actual_attachments",
+          "hindsight_project",
+          "hindsight_reevaluation",
+          "similar_cases"
+        ],
+        "title": "DecisionReplayResult",
+        "type": "object"
+      },
+      "DecisionReplayRun": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/DecisionReplayRequest"
+          },
+          "result": {
+            "$ref": "#/components/schemas/DecisionReplayResult"
+          },
+          "schema_version": {
+            "const": "decision-replay-run/v1",
+            "default": "decision-replay-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "semantic_identity": {
+            "title": "Semantic Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "semantic_identity",
+          "project_id",
+          "case_id",
+          "created_at",
+          "request",
+          "result"
+        ],
+        "title": "DecisionReplayRun",
+        "type": "object"
+      },
+      "DecisionSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionCandidateReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "selected",
+              "no_decision"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DecisionSelection",
         "type": "object"
       },
       "DesignPriorPackageReference": {
@@ -13234,6 +13859,244 @@
           "temperature_c"
         ],
         "title": "HeatPoint",
+        "type": "object"
+      },
+      "HindsightProjectOption": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_source_sha256": {
+            "title": "Dataset Source Sha256",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "model_package_manifest_digest": {
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "model_package_ref_id": {
+            "title": "Model Package Ref Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "created_at",
+          "model_package_ref_id",
+          "model_package_manifest_digest",
+          "dataset_view_revision_id",
+          "dataset_source_sha256"
+        ],
+        "title": "HindsightProjectOption",
+        "type": "object"
+      },
+      "HindsightProjectProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_source_sha256": {
+            "title": "Dataset Source Sha256",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "model_package_manifest_digest": {
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "model_package_ref_id": {
+            "title": "Model Package Ref Id",
+            "type": "string"
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "target_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Keys",
+            "type": "array"
+          },
+          "task_contract_digest": {
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "created_at",
+          "model_package_ref_id",
+          "model_package_manifest_digest",
+          "dataset_view_revision_id",
+          "dataset_source_sha256",
+          "task_id",
+          "task_contract_digest",
+          "target_keys"
+        ],
+        "title": "HindsightProjectProvenance",
+        "type": "object"
+      },
+      "HindsightProjectReevaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
+          },
+          "evidence_layer": {
+            "const": "hindsight",
+            "default": "hindsight",
+            "title": "Evidence Layer",
+            "type": "string"
+          },
+          "model_package_manifest_digest": {
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "predictions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Predictions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "candidate",
+          "model_package_manifest_digest",
+          "predictions"
+        ],
+        "title": "HindsightProjectReevaluation",
+        "type": "object"
+      },
+      "HistoricalCandidateEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
+          },
+          "candidate_name": {
+            "title": "Candidate Name",
+            "type": "string"
+          },
+          "originally_selected": {
+            "title": "Originally Selected",
+            "type": "boolean"
+          },
+          "predictions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Predictions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "candidate",
+          "candidate_name",
+          "predictions",
+          "originally_selected"
+        ],
+        "title": "HistoricalCandidateEvaluation",
+        "type": "object"
+      },
+      "HistoricalCandidateEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
+          },
+          "candidate_name": {
+            "title": "Candidate Name",
+            "type": "string"
+          },
+          "candidate_updated_at": {
+            "format": "date-time",
+            "title": "Candidate Updated At",
+            "type": "string"
+          },
+          "model_package_manifest_digest": {
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "predictions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Prediction"
+            },
+            "title": "Predictions",
+            "type": "object"
+          },
+          "snapshot_created_at": {
+            "format": "date-time",
+            "title": "Snapshot Created At",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidate",
+          "candidate_name",
+          "candidate_updated_at",
+          "snapshot_id",
+          "snapshot_created_at",
+          "predictions",
+          "model_package_manifest_digest"
+        ],
+        "title": "HistoricalCandidateEvidence",
         "type": "object"
       },
       "HistoricalObservationCandidateResponse": {
@@ -27408,6 +28271,74 @@
         "title": "ReadinessPreflight",
         "type": "object"
       },
+      "RealizedOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute_error": {
+            "minimum": 0.0,
+            "title": "Absolute Error",
+            "type": "number"
+          },
+          "actual_id": {
+            "title": "Actual Id",
+            "type": "string"
+          },
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "observed_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Label"
+          },
+          "observed_value": {
+            "title": "Observed Value",
+            "type": "number"
+          },
+          "predicted_value": {
+            "title": "Predicted Value",
+            "type": "number"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "candidate_id",
+          "target",
+          "actual_id",
+          "observed_value",
+          "predicted_value",
+          "absolute_error"
+        ],
+        "title": "RealizedOutcome",
+        "type": "object"
+      },
       "RecipeFeature": {
         "additionalProperties": false,
         "properties": {
@@ -30534,6 +31465,62 @@
           "message"
         ],
         "title": "SeriesQualityFinding",
+        "type": "object"
+      },
+      "SimilarDecisionCase": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_attachments": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionCaseActualAttachment"
+            },
+            "title": "Actual Attachments",
+            "type": "array"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "compatibility": {
+            "const": "same_task_objective_targets",
+            "default": "same_task_objective_targets",
+            "title": "Compatibility",
+            "type": "string"
+          },
+          "decision_timestamp": {
+            "format": "date-time",
+            "title": "Decision Timestamp",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "selection_status": {
+            "enum": [
+              "selected",
+              "no_decision"
+            ],
+            "title": "Selection Status",
+            "type": "string"
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "project_id",
+          "decision_timestamp",
+          "selection_status",
+          "snapshot_ids",
+          "actual_attachments"
+        ],
+        "title": "SimilarDecisionCase",
         "type": "object"
       },
       "SimilarObservation": {
@@ -42043,6 +43030,480 @@
           }
         },
         "summary": "Promote Decision Activity Proposal"
+      }
+    },
+    "/api/projects/{project_id}/decision-case-draft-context": {
+      "get": {
+        "operationId": "getDecisionCaseDraftContext",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionCaseDraftContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision Case Draft Context"
+      }
+    },
+    "/api/projects/{project_id}/decision-cases": {
+      "get": {
+        "operationId": "listDecisionCases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionCase"
+                  },
+                  "title": "Response Listdecisioncases",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Cases"
+      },
+      "post": {
+        "operationId": "createDecisionCase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Trusted local attribution identifier. This header is not authentication.",
+            "in": "header",
+            "name": "X-Workbench-Human-Actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Trusted local attribution identifier. This header is not authentication.",
+              "title": "X-Workbench-Human-Actor"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCaseCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionCase"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision Case"
+      }
+    },
+    "/api/projects/{project_id}/decision-cases/{case_id}": {
+      "get": {
+        "operationId": "getDecisionCase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionCase"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision Case"
+      }
+    },
+    "/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments": {
+      "get": {
+        "operationId": "listDecisionCaseActualAttachments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionCaseActualAttachment"
+                  },
+                  "title": "Response Listdecisioncaseactualattachments",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Case Actual Attachments"
+      },
+      "post": {
+        "operationId": "attachDecisionCaseActual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCaseActualAttachmentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionCaseActualAttachment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Decision Case Actual"
+      }
+    },
+    "/api/projects/{project_id}/decision-cases/{case_id}/hindsight-project-options": {
+      "get": {
+        "operationId": "listDecisionReplayHindsightProjectOptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HindsightProjectOption"
+                  },
+                  "title": "Response Listdecisionreplayhindsightprojectoptions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Hindsight Project Options"
+      }
+    },
+    "/api/projects/{project_id}/decision-cases/{case_id}/replay-runs": {
+      "post": {
+        "operationId": "runDecisionReplay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionReplayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionReplayRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Decision Replay"
+      }
+    },
+    "/api/projects/{project_id}/decision-replay-runs": {
+      "get": {
+        "operationId": "listDecisionReplayRuns",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DecisionReplayRun"
+                  },
+                  "title": "Response Listdecisionreplayruns",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Replay Runs"
       }
     },
     "/api/projects/{project_id}/group": {

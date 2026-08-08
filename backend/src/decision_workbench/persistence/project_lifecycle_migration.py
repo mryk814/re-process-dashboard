@@ -133,6 +133,42 @@ def install_project_archive_write_guards(database: str | Path) -> None:
                 "WHERE project_id=OLD.project_id"
                 ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
             )
+        for table in PROJECT_PERSISTENCE.case_tables:
+            for operation in ("INSERT", "UPDATE"):
+                trigger = f"guard_archived_{table}_{operation.lower()}"
+                case_route = (
+                    "decision_cases.id=NEW.case_id"
+                    if operation == "INSERT"
+                    else (
+                        "(decision_cases.id=OLD.case_id "
+                        "OR decision_cases.id=NEW.case_id)"
+                    )
+                )
+                connection.execute(
+                    f"CREATE TRIGGER IF NOT EXISTS {trigger} "
+                    f"BEFORE {operation} ON {table} "
+                    "WHEN EXISTS ("
+                    "SELECT 1 FROM decision_cases "
+                    "JOIN projects ON projects.id=decision_cases.project_id "
+                    f"WHERE {case_route} "
+                    "AND projects.archived_at IS NOT NULL"
+                    ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
+                )
+            connection.execute(
+                f"CREATE TRIGGER IF NOT EXISTS guard_archived_{table}_delete "
+                f"BEFORE DELETE ON {table} "
+                "WHEN EXISTS ("
+                "SELECT 1 FROM decision_cases "
+                "JOIN projects ON projects.id=decision_cases.project_id "
+                "WHERE decision_cases.id=OLD.case_id "
+                "AND projects.archived_at IS NOT NULL"
+                ") AND NOT EXISTS ("
+                "SELECT 1 FROM project_purge_authorizations "
+                "WHERE project_id=("
+                "SELECT project_id FROM decision_cases WHERE id=OLD.case_id"
+                ")"
+                ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
+            )
         for table in PROJECT_PERSISTENCE.candidate_tables:
             for operation in ("INSERT", "UPDATE"):
                 trigger = f"guard_archived_{table}_{operation.lower()}"
