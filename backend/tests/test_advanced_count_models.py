@@ -19,6 +19,7 @@ from decision_workbench.modeling.training.readiness import (
     standard_estimator_catalog,
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.estimators.advanced_count import negative_binomial_deviance
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 
@@ -118,3 +119,8 @@ def test_new_advanced_artifact_rejects_missing_exposure_metadata(tmp_path: Path)
     predictor = NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), spec)
     with pytest.raises(ValueError, match="explicit exposure semantics"):
         predictor.predict({"x": 0.0}, sampling_request=SamplingRequest.create(operation="package_verification", policy_id="advanced-count-contract/v1", seed=792, requested_sample_count=2))
+
+
+def test_negative_binomial_deviance_is_zero_at_saturated_mean() -> None:
+    observed = np.asarray([0.0, 1.0, 5.0, 12.0])
+    assert negative_binomial_deviance(observed, observed, np.full(4, 3.0)) == pytest.approx(0.0)

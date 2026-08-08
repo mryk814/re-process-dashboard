@@ -845,6 +845,13 @@ class ModelPlaygroundUseCases:
                         observed_targets_are_integers=bool(
                             (compiled.y == compiled.y.astype(int)).all()
                         ),
+                        observed_zero_rate=float((compiled.y == 0).mean()),
+                        observed_target_mean=float(compiled.y.mean()),
+                        observed_target_variance=float(compiled.y.var()),
+                        has_structural_zero_evidence=(
+                            outputs[target_key].count is not None
+                            and outputs[target_key].count.structural_zero_rationale is not None
+                        ),
                         capacity=capacity_context,
                     )
                     reasons.extend(resolution.reasons)

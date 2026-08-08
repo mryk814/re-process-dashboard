@@ -193,6 +193,14 @@ def _log_score(observed: np.ndarray, expected: np.ndarray, recipe: CountRecipe, 
     return float(np.mean(result))
 
 
+def negative_binomial_deviance(observed: np.ndarray, mean: np.ndarray, dispersion: np.ndarray) -> float:
+    terms = []
+    for y, mu, r in zip(observed, mean, dispersion, strict=True):
+        first = 0.0 if y == 0 else y * math.log(y / mu)
+        terms.append(2.0 * (first - (y + r) * math.log((y + r) / (mu + r))))
+    return float(np.mean(terms))
+
+
 def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> TrainedPredictor:
     if data.target_kind != "count":
         raise ValueError(f"{recipe.estimator_id} requires a count target")
@@ -203,6 +211,8 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
     upper = np.full(len(data.y), np.nan)
     zero_probability = np.full(len(data.y), np.nan)
     dispersions = np.full(len(data.y), np.nan)
+    predictive_tail = np.full(len(data.y), np.nan)
+    tail_threshold = float(np.quantile(data.y[data.quality_rows], 0.9))
     fold_diagnostics: list[dict[str, Any]] = []
     folds = (0,) if data.is_temporal_validation else range(data.folds)
     for fold in folds:
@@ -217,6 +227,7 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
         expected[evaluate] = mean
         lower[evaluate], upper[evaluate] = np.quantile(samples, (0.05, 0.95), axis=1).astype(int)
         zero_probability[evaluate] = fold_zero
+        predictive_tail[evaluate] = np.mean(samples >= tail_threshold, axis=1)
         if fold_dispersion is not None:
             dispersions[evaluate] = fold_dispersion
         fold_diagnostics.append({"fold": int(fold), "training_rows": int(train_rows.sum()), "evaluation_rows": int(evaluate.sum()), "inference_identity": fitted.inference_identity.model_dump(mode="json")})
@@ -250,5 +261,6 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
             "high": {"observed_mean": float(observed[exposed > median].mean()), "expected_mean": float(evaluated[exposed > median].mean())},
         }
     poisson_deviance = float(2 * np.mean(evaluated - observed + np.where(observed > 0, observed * np.log(observed / np.maximum(evaluated, 1e-15)), 0)))
-    tail = float(np.quantile(observed, 0.9))
-    return TrainedPredictor(predictor=predictor, artifact=artifact_path, quality=quality, diagnostics={"estimator_id": recipe.estimator_id, "folds": fold_diagnostics, "count_contract": {"target_eligibility": "nonnegative_integer", "observed_zero_rate": float(np.mean(data.y == 0)), "observed_mean": float(np.mean(data.y)), "observed_variance": float(np.var(data.y)), "exposure": predictor["config"]["exposure"]}, "count_quality": {"poisson_deviance": poisson_deviance, "negative_binomial_deviance": float(-2 * _log_score(observed, evaluated, recipe, dispersions[quality_rows] if np.isfinite(dispersions[quality_rows]).all() else None, zero_probability[quality_rows])), "zero_observed_rate": float(np.mean(observed == 0)), "zero_predicted_rate": float(np.mean(zero_probability[quality_rows] + (1 - zero_probability[quality_rows]) * np.exp(-evaluated / np.maximum(1 - zero_probability[quality_rows], 1e-15)))), "tail_observed_rate": float(np.mean(observed >= tail)), "tail_predictive_rate": float(np.mean(samples >= tail)), "exposure_stratified": exposure_diagnostics}}, predict=lambda values: float(np.mean(_predict(final, values, None, recipe, seed=recipe.seed)[0])), evaluation_predictions=expected)
+    nb_dispersion = dispersions[quality_rows] if np.isfinite(dispersions[quality_rows]).all() else np.full(len(observed), 1.0)
+    nb_deviance = negative_binomial_deviance(observed, evaluated, nb_dispersion)
+    return TrainedPredictor(predictor=predictor, artifact=artifact_path, quality=quality, diagnostics={"estimator_id": recipe.estimator_id, "folds": fold_diagnostics, "count_contract": {"target_eligibility": "nonnegative_integer", "observed_zero_rate": float(np.mean(data.y == 0)), "observed_mean": float(np.mean(data.y)), "observed_variance": float(np.var(data.y)), "exposure": predictor["config"]["exposure"]}, "count_quality": {"poisson_deviance": poisson_deviance, "negative_binomial_deviance": nb_deviance, "zero_observed_rate": float(np.mean(observed == 0)), "zero_predicted_rate": float(np.mean(zero_probability[quality_rows] + (1 - zero_probability[quality_rows]) * np.exp(-evaluated / np.maximum(1 - zero_probability[quality_rows], 1e-15)))), "tail_observed_rate": float(np.mean(observed >= tail_threshold)), "tail_predictive_rate": float(np.mean(predictive_tail[quality_rows])), "exposure_stratified": exposure_diagnostics}}, predict=lambda values: float(np.mean(_predict(final, values, None, recipe, seed=recipe.seed)[0])), evaluation_predictions=expected)
