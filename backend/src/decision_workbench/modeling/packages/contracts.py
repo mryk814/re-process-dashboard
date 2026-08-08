@@ -359,6 +359,8 @@ class ProvenanceSpec(PackageModel):
     dataset_profile_id: str | None = None
     capacity: dict[str, Any] | None = None
     source_lifecycle: SourceLifecycleProvenance | None = None
+    inference_identities: dict[str, InferenceIdentity] = Field(default_factory=dict)
+    inference_provenance: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def lifecycle_matches_training_asset(self) -> ProvenanceSpec:

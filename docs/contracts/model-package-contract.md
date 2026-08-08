@@ -192,6 +192,15 @@ resource limit、diagnostics、approximation limitationを固定し、sampler fa
 別algorithmへ同名fallbackしない。fieldを持たない既存Packageはそのまま読み、
 学習algorithmをarchitecture名やartifact shapeから推測しない。
 
+`bayesian-ridge.v1` と `horseshoe-linear.v1` はこの既存の
+`builtin.posterior_linear.v1` adapterへ数値drawだけを出力する別recipe identityです。
+新しいPackageでは`provenance.inference_identities`へpredictor別の実効
+`inference-identity/v1`を、`provenance.inference_provenance`へrecipe ID、固定prior／
+sampler parameter、diagnostics digestを保存します。係数のsign／ROPE要約は係数の
+不確かさ、runtimeのprediction intervalは新しい観測値のposterior predictive
+不確かさであり、同じ意味として扱いません。相関した入力では係数証拠を共同に
+読む注意を残し、recipeは係数の近さを理由に特徴量を削除しません。
+
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
 標準Tabular Packageが`feature-recipe/v1`を使う場合、pipeline documentの
