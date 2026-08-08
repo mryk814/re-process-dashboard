@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_reviewed": "2026-08-01",
+  "last_reviewed": "2026-08-08",
   "local_reference_patches": [
     {
       "path": "mattpocock-skills/domain-modeling/CONTEXT-FORMAT.md",
@@ -59,7 +59,7 @@
       "license": "MIT (declared in upstream README; no root LICENSE at reviewed commit)",
       "license_evidence": {
         "path": "vercel-agent-skills/UPSTREAM-README.md",
-        "sha256": "54a1e14819a1f09588eb7e2d11ae4b147af22a0d1e8d476e969c012bdf2636af"
+        "sha256": "c0a05286fc2a9d52ec2480bf070867665b9357beef37c9c2812e5b2ece571b6a"
       },
       "skills": [
         {
@@ -85,7 +85,7 @@
       "license": "MIT",
       "snapshot": {
         "path": "command.md",
-        "sha256": "fb9b73dd69cead884f29e8a6fb0adf53d525e65d4bf82c51f78f2c781638f2f1"
+        "sha256": "eea73cb6dd46fee9faec9973e8e7fe198b5f07ec326f14d276a56e50287e1cab"
       }
     }
   ]

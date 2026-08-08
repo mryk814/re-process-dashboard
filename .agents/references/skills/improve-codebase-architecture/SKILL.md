@@ -5,9 +5,9 @@ description: Explicitly scan a named area of this repository for confirmed archi
 
 # Improve Codebase Architecture
 
-Use [`re-process-architecture-review`](../re-process-architecture-review/SKILL.md) as the controlling
+Use the repository's `re-process-architecture-review` wrapper as the controlling
 workflow, then read the pinned upstream
-[`SKILL.md`](../../vendor/mattpocock-skills/improve-codebase-architecture/SKILL.md) for its exploration
+[`SKILL.md`](../../../vendor/mattpocock-skills/improve-codebase-architecture/SKILL.md) for its exploration
 questions.
 
 Do not generate or open the upstream HTML report: it loads floating Tailwind and Mermaid code from

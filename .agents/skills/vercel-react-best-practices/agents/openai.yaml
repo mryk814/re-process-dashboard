@@ -1,7 +1,0 @@
-interface:
-  display_name: "Vercel React Best Practices"
-  short_description: "Review React Vite performance with measured evidence"
-  default_prompt: "Use $vercel-react-best-practices explicitly to review this React Vite code."
-
-policy:
-  allow_implicit_invocation: false

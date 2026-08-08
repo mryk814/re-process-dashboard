@@ -1,0 +1,384 @@
+{
+  "schema_version": "skill-inventory/v1",
+  "inventory_id": "re-process-dashboard/skill-inventory",
+  "inventory_revision": 1,
+  "observed_commit": "f48bdb469e71e4275ab774fd430f490122c892ee",
+  "discovery": {
+    "root": ".agents/skills",
+    "baseline": {
+      "observed_at": "2026-08-08",
+      "method": "repository filesystem inventory; no private client state or UI automation",
+      "visible_count": 12,
+      "visible_names": [
+        "codebase-design",
+        "data-contributor",
+        "domain-modeling",
+        "frontend-ux-architect",
+        "improve-codebase-architecture",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "vercel-composition-patterns",
+        "vercel-react-best-practices",
+        "verification-budget-planner",
+        "web-design-guidelines"
+      ]
+    },
+    "current": {
+      "observed_at": "2026-08-08",
+      "method": "repository filesystem inventory after internal wrapper migration",
+      "visible_count": 6,
+      "visible_names": [
+        "data-contributor",
+        "frontend-ux-architect",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "verification-budget-planner"
+      ]
+    },
+    "target": {
+      "visible_count": 6,
+      "visible_names": [
+        "data-contributor",
+        "frontend-ux-architect",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "verification-budget-planner"
+      ]
+    },
+    "transition": {
+      "status": "migrated_internal_wrappers",
+      "legacy_internal_visibility": "not_visible",
+      "strict_target_requires_root_public_only": true,
+      "move_authorization": "completed_for_repo_discovery_boundary; client_root_external_reference_remains_unknown",
+      "unknown_is_not_unsupported": true
+    }
+  },
+  "clients": {
+    "codex": {
+      "status": "observed",
+      "version": "unknown",
+      "discovery_root": ".agents/skills",
+      "visible_count": 6,
+      "visible_names": [
+        "data-contributor",
+        "frontend-ux-architect",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "verification-budget-planner"
+      ],
+      "explicit_skill_resolution": "unknown",
+      "root_external_reference": "unknown",
+      "evidence": "filesystem observation after repo wrapper migration; runtime client capability was not inferred"
+    },
+    "chatgpt": {
+      "status": "unknown",
+      "version": "unknown",
+      "discovery_root": null,
+      "visible_count": null,
+      "visible_names": null,
+      "explicit_skill_resolution": "unknown",
+      "root_external_reference": "unknown",
+      "evidence": "no client-specific discovery observation in this slice"
+    },
+    "claude": {
+      "status": "unknown",
+      "version": "unknown",
+      "discovery_root": null,
+      "visible_count": null,
+      "visible_names": null,
+      "explicit_skill_resolution": "unknown",
+      "root_external_reference": "unknown",
+      "evidence": "no client-specific discovery observation in this slice"
+    }
+  },
+  "entries": [
+    {
+      "id": "public:re-process-architecture-review",
+      "public_name": "re-process-architecture-review",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/re-process-architecture-review",
+      "source": { "kind": "repo", "owner": "architecture", "purpose": "repository-aware architecture and authority review" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": ["internal:codebase-design", "internal:domain-modeling", "internal:improve-codebase-architecture"],
+      "required_capabilities": ["read_repository", "read_authority_docs"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "public:frontend-ux-architect",
+      "public_name": "frontend-ux-architect",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/frontend-ux-architect",
+      "source": { "kind": "repo", "owner": "frontend", "purpose": "repository-aware user-flow and UX structure" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": ["internal:web-design-guidelines", "internal:vercel-react-best-practices", "internal:vercel-composition-patterns"],
+      "required_capabilities": ["read_repository", "read_ui_authority"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "public:systematic-debugging",
+      "public_name": "systematic-debugging",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/systematic-debugging",
+      "source": { "kind": "repo", "owner": "debugging", "purpose": "repository-bounded root-cause diagnosis" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": ["internal:systematic-debugging-upstream"],
+      "required_capabilities": ["read_repository", "run_focused_checks_only"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "public:verification-budget-planner",
+      "public_name": "verification-budget-planner",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/verification-budget-planner",
+      "source": { "kind": "repo", "owner": "verification", "purpose": "bounded verification and review planning" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": [],
+      "required_capabilities": ["read_verification_policy"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "public:data-contributor",
+      "public_name": "data-contributor",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/data-contributor",
+      "source": { "kind": "repo", "owner": "data-onboarding", "purpose": "UI-first data contribution orchestration" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": ["internal:data-contributor-canonical"],
+      "required_capabilities": ["read_repository", "use_real_ui_when_authorized"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "public:scenario-journey-evaluator",
+      "public_name": "scenario-journey-evaluator",
+      "version": "repo-v1",
+      "visibility": "public_entry",
+      "path": ".agents/skills/scenario-journey-evaluator",
+      "source": { "kind": "repo", "owner": "scenario-evaluation", "purpose": "prepared Project decision-journey evaluation" },
+      "wrapper": { "required_files": ["SKILL.md", "agents/openai.yaml"] },
+      "references": ["internal:scenario-journey-evaluator-canonical"],
+      "required_capabilities": ["read_repository", "use_real_ui_when_authorized"],
+      "client_resolution": { "codex": "observed", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:codebase-design",
+      "reference_name": "codebase-design",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/codebase-design/SKILL.md",
+      "source": { "kind": "vendored", "owner": "mattpocock/skills", "purpose": "deep-module vocabulary used by architecture orchestration" },
+      "legacy_discovery_path": ".agents/skills/codebase-design",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/mattpocock/skills",
+        "commit": "2ab958093e83e0ec752e6c1c5932da465bf23e0c",
+        "license": "MIT",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "codebase-design", "source_path": "skills/engineering/codebase-design" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/mattpocock-skills/codebase-design/SKILL.md", "value": "a8d50abac5a4018f60e1d911d4b6f4e36454ca14d6c390c0695a578c7de65dad" }
+      },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:domain-modeling",
+      "reference_name": "domain-modeling",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/domain-modeling/SKILL.md",
+      "source": { "kind": "vendored", "owner": "mattpocock/skills", "purpose": "domain terminology guidance used inside repository orchestration" },
+      "legacy_discovery_path": ".agents/skills/domain-modeling",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/mattpocock/skills",
+        "commit": "2ab958093e83e0ec752e6c1c5932da465bf23e0c",
+        "license": "MIT",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "domain-modeling", "source_path": "skills/engineering/domain-modeling" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/mattpocock-skills/domain-modeling/SKILL.md", "value": "152e2c97239affb12a60c5f4a7e74ab546a49ae169688c81f4e2ccc42dafa579" }
+      },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:improve-codebase-architecture",
+      "reference_name": "improve-codebase-architecture",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/improve-codebase-architecture/SKILL.md",
+      "source": { "kind": "vendored", "owner": "mattpocock/skills", "purpose": "architecture exploration guidance used by the repository review wrapper" },
+      "legacy_discovery_path": ".agents/skills/improve-codebase-architecture",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/mattpocock/skills",
+        "commit": "2ab958093e83e0ec752e6c1c5932da465bf23e0c",
+        "license": "MIT",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "improve-codebase-architecture", "source_path": "skills/engineering/improve-codebase-architecture" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/mattpocock-skills/improve-codebase-architecture/SKILL.md", "value": "4b4cb798c3863d5b6f5c0b4604af1ecb5beb6df82553c972898a91ba38bcf289" }
+      },
+      "safety": { "network": true, "write": true, "execute": true, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:web-design-guidelines",
+      "reference_name": "web-design-guidelines",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/web-design-guidelines/SKILL.md",
+      "source": { "kind": "vendored", "owner": "vercel-labs/agent-skills", "purpose": "external accessibility and interaction guidance" },
+      "legacy_discovery_path": ".agents/skills/web-design-guidelines",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/vercel-labs/agent-skills",
+        "commit": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+        "license": "MIT (declared in upstream README; no root LICENSE at reviewed commit)",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "web-design-guidelines", "source_path": "skills/web-design-guidelines" },
+        "license_evidence": { "path": ".agents/vendor/vercel-agent-skills/UPSTREAM-README.md", "value": "c0a05286fc2a9d52ec2480bf070867665b9357beef37c9c2812e5b2ece571b6a" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/vercel-agent-skills/web-design-guidelines/SKILL.md", "value": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f" }
+      },
+      "safety": { "network": true, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:vercel-react-best-practices",
+      "reference_name": "vercel-react-best-practices",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/vercel-react-best-practices/SKILL.md",
+      "source": { "kind": "vendored", "owner": "vercel-labs/agent-skills", "purpose": "measured client-side React guidance" },
+      "legacy_discovery_path": ".agents/skills/vercel-react-best-practices",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/vercel-labs/agent-skills",
+        "commit": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+        "license": "MIT (declared in upstream README; no root LICENSE at reviewed commit)",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "vercel-react-best-practices", "source_path": "skills/react-best-practices" },
+        "license_evidence": { "path": ".agents/vendor/vercel-agent-skills/UPSTREAM-README.md", "value": "c0a05286fc2a9d52ec2480bf070867665b9357beef37c9c2812e5b2ece571b6a" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/vercel-agent-skills/react-best-practices/SKILL.md", "value": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355" }
+      },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:vercel-composition-patterns",
+      "reference_name": "vercel-composition-patterns",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/references/skills/vercel-composition-patterns/SKILL.md",
+      "source": { "kind": "vendored", "owner": "vercel-labs/agent-skills", "purpose": "narrow React composition guidance" },
+      "legacy_discovery_path": ".agents/skills/vercel-composition-patterns",
+      "legacy_status": "migrated",
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/vercel-labs/agent-skills",
+        "commit": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+        "license": "MIT (declared in upstream README; no root LICENSE at reviewed commit)",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "vercel-composition-patterns", "source_path": "skills/composition-patterns" },
+        "license_evidence": { "path": ".agents/vendor/vercel-agent-skills/UPSTREAM-README.md", "value": "c0a05286fc2a9d52ec2480bf070867665b9357beef37c9c2812e5b2ece571b6a" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/vercel-agent-skills/composition-patterns/SKILL.md", "value": "e38e0eaa609316b10423a9a138ed95e35099accd3f735585295c8a8f165c28a3" }
+      },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:systematic-debugging-upstream",
+      "reference_name": "systematic-debugging-upstream",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/vendor/obra-superpowers/systematic-debugging/SKILL.md",
+      "source": { "kind": "vendored", "owner": "obra/superpowers", "purpose": "root-cause debugging guidance consumed by the repository wrapper" },
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/obra/superpowers",
+        "commit": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+        "license": "MIT",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "skill_name": "systematic-debugging", "source_path": "skills/systematic-debugging" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/obra-superpowers/systematic-debugging/SKILL.md", "value": "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787" },
+        "pinned_files": [
+          { "path": ".agents/vendor/obra-superpowers/systematic-debugging/find-polluter.sh", "value": "dd7b8f13c4cc2a24b33ff87b18da9248f3e1c80a085c3316224f69ff0fa5c43c" }
+        ]
+      },
+      "safety": { "network": false, "write": false, "execute": true, "vendor_scripts": true, "automatic": false }
+    },
+    {
+      "id": "internal:web-interface-guidelines",
+      "reference_name": "web-interface-guidelines",
+      "version": "pinned",
+      "visibility": "internal_reference",
+      "path": ".agents/vendor/vercel-web-interface-guidelines/command.md",
+      "source": { "kind": "vendored", "owner": "vercel-labs/web-interface-guidelines", "purpose": "local snapshot consumed instead of mutable upstream main" },
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "provenance": {
+        "repository": "https://github.com/vercel-labs/web-interface-guidelines",
+        "commit": "4e799d45c17aec1498c269287a83b9dba22b966b",
+        "license": "MIT",
+        "lock": { "path": ".agents/vendor/external-skills.lock.json", "snapshot_path": "command.md" },
+        "digest": { "algorithm": "sha256", "path": ".agents/vendor/vercel-web-interface-guidelines/command.md", "value": "eea73cb6dd46fee9faec9973e8e7fe198b5f07ec326f14d276a56e50287e1cab" }
+      },
+      "safety": { "network": false, "write": false, "execute": false, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:data-contributor-canonical",
+      "reference_name": "data-contributor-canonical",
+      "version": "repo-canonical",
+      "visibility": "internal_reference",
+      "path": ".claude/skills/data-contributor/SKILL.md",
+      "source": { "kind": "repo", "owner": "data-onboarding", "purpose": "single canonical workflow for the Codex wrapper" },
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": true, "write": true, "execute": true, "vendor_scripts": false, "automatic": false }
+    },
+    {
+      "id": "internal:scenario-journey-evaluator-canonical",
+      "reference_name": "scenario-journey-evaluator-canonical",
+      "version": "repo-canonical",
+      "visibility": "internal_reference",
+      "path": ".claude/skills/scenario-journey-evaluator/SKILL.md",
+      "source": { "kind": "repo", "owner": "scenario-evaluation", "purpose": "single canonical workflow for the Codex wrapper" },
+      "references": [],
+      "required_capabilities": ["read_guidance"],
+      "client_resolution": { "codex": "unknown", "chatgpt": "unknown", "claude": "unknown" },
+      "safety": { "network": true, "write": true, "execute": true, "vendor_scripts": false, "automatic": false }
+    }
+  ],
+  "migration": {
+    "status": "active",
+    "aliases": [
+      { "old_name": "codebase-design", "replacement": "re-process-architecture-review", "status": "active" },
+      { "old_name": "domain-modeling", "replacement": "re-process-architecture-review", "status": "active" },
+      { "old_name": "improve-codebase-architecture", "replacement": "re-process-architecture-review", "status": "active" },
+      { "old_name": "web-design-guidelines", "replacement": "frontend-ux-architect", "status": "active" },
+      { "old_name": "vercel-react-best-practices", "replacement": "frontend-ux-architect", "status": "active" },
+      { "old_name": "vercel-composition-patterns", "replacement": "frontend-ux-architect", "status": "active" }
+    ],
+    "policy": "Do not remove legacy public paths until client-specific explicit-name and root-external-reference behavior is observed. Unknown is recorded, not treated as support."
+  }
+}

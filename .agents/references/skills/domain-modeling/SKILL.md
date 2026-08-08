@@ -5,12 +5,11 @@ description: Explicitly sharpen domain terminology or evaluate a domain boundary
 
 # Domain Modeling
 
-Read the pinned upstream [`SKILL.md`](../../vendor/mattpocock-skills/domain-modeling/SKILL.md)
+Read the pinned upstream [`SKILL.md`](../../../vendor/mattpocock-skills/domain-modeling/SKILL.md)
 completely.
 
-This repository uses [`docs/product/current-system-baseline.md`](../../../docs/product/current-system-baseline.md),
-[`docs/contracts/`](../../../docs/contracts/), and [`docs/decisions/`](../../../docs/decisions/) as
+This repository uses [`docs/product/current-system-baseline.md`](../../../../docs/product/current-system-baseline.md),
+[`docs/contracts/`](../../../../docs/contracts/), and [`docs/decisions/`](../../../../docs/decisions/) as
 current authority. Do not create `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/`, and do not update
 domain documents, unless the user explicitly asks to change the model or record the decision.
-For architecture work, apply [`re-process-architecture-review`](../re-process-architecture-review/SKILL.md)
-first.
+For architecture work, apply the repository's `re-process-architecture-review` wrapper first.

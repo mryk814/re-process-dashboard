@@ -6,7 +6,7 @@ description: Explicitly review or optimize client-side React performance in this
 # Vercel React Best Practices
 
 Read the pinned upstream
-[`SKILL.md`](../../vendor/vercel-agent-skills/react-best-practices/SKILL.md), then load only relevant
+[`SKILL.md`](../../../vendor/vercel-agent-skills/react-best-practices/SKILL.md), then load only relevant
 rule files.
 
 Apply client-side React and framework-neutral JavaScript rules. Exclude Next.js, React Server

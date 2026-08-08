@@ -1,7 +1,0 @@
-interface:
-  display_name: "Improve Codebase Architecture"
-  short_description: "Audit architecture without external reports or writes"
-  default_prompt: "Use $improve-codebase-architecture explicitly for an audit-only architecture review."
-
-policy:
-  allow_implicit_invocation: false
