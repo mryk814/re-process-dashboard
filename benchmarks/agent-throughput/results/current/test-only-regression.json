@@ -1,0 +1,112 @@
+{
+  "schema_version": "agent-throughput-result/v1",
+  "run_id": "current-context-test-only-regression-2026-08-08",
+  "observation_kind": "context_only",
+  "case": {
+    "id": "test-only-regression",
+    "version": 1,
+    "prompt_digest": "3b56e588ded268b7a1a6ef27de9974d41276a2f3aa2b083253f114e7cb263d5f",
+    "prompt_bytes": 233,
+    "prompt_lines": 1,
+    "fixture_digest": "de56df175d2da7eda6435128589b03f1c5cb78efe1d0820d690cf0f417e034bc",
+    "success_criteria_digest": "176bdffa97b8d4d87adcc703edfc717dc95c8292c8c966483e3dd47feaefcfca",
+    "catalog_digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+  },
+  "profile": {
+    "id": "router-receipts-skill-visibility",
+    "expected_lane": "fast",
+    "model_family": null,
+    "reasoning_setting": null,
+    "guidance_identity": {
+      "source_ref": "dd2e9a02de1fdec21e3a8f450ed9628ddda51d36",
+      "materialization": "repository_context_observed_not_task_executed",
+      "root_instruction_bytes": 6928,
+      "root_instruction_lines": 117,
+      "root_instruction_digest": "f14ca33a383ffbdd39ec92c10a56a9313ccafcfd04af1cd812a78b3fab946b25"
+    },
+    "skill_inventory_identity": {
+      "inventory_id": "re-process-dashboard/skill-inventory",
+      "inventory_digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4",
+      "visible_skill_count": 6,
+      "visible_skill_names": [
+        "data-contributor",
+        "frontend-ux-architect",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "verification-budget-planner"
+      ]
+    },
+    "verification_policy_digest": "bcc3fb9cca6d6d0fbffd2633e38f520a719e16303b1880fe789f7afe0ea53ce2"
+  },
+  "conditions": {
+    "repository_commit": "dd2e9a02de1fdec21e3a8f450ed9628ddda51d36",
+    "same_success_criteria": true,
+    "fresh_session": null,
+    "fresh_workspace": null,
+    "session_identity": null,
+    "workspace_identity": null
+  },
+  "metrics": {
+    "first_edit_elapsed_ms": null,
+    "first_edit_read_file_count": null,
+    "first_edit_tool_call_count": null,
+    "total_tool_call_count": null,
+    "duplicate_command_count": null,
+    "local_verification_duration_ms": null,
+    "total_elapsed_ms": null,
+    "edit_to_pass_iteration_count": null,
+    "changed_file_count": null,
+    "changed_line_count": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "command_observations": [],
+    "credit_proxy": {
+      "kind": "repository_root_instruction_bytes",
+      "value": 6928,
+      "unit": "bytes",
+      "not_provider_token": true,
+      "provenance": {
+        "kind": "git_object",
+        "locator": "git:dd2e9a02de1fdec21e3a8f450ed9628ddda51d36:AGENTS.md",
+        "digest": "f14ca33a383ffbdd39ec92c10a56a9313ccafcfd04af1cd812a78b3fab946b25"
+      }
+    }
+  },
+  "verification": {
+    "status": "not_run",
+    "duration_ms": null,
+    "receipt_digest": null,
+    "receipt_locator": null,
+    "note": "No agent task was run; a verification receipt is not claimed."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "success_criteria_met": null,
+    "human_review_status": "not_run",
+    "findings": [],
+    "note": "Context metrics alone cannot approve the fast/deep profile."
+  },
+  "provenance": [
+    {
+      "kind": "case_catalog",
+      "locator": "benchmarks/agent-throughput/cases.json",
+      "digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+    },
+    {
+      "kind": "git_object",
+      "locator": "git:dd2e9a02de1fdec21e3a8f450ed9628ddda51d36:AGENTS.md",
+      "digest": "f14ca33a383ffbdd39ec92c10a56a9313ccafcfd04af1cd812a78b3fab946b25"
+    },
+    {
+      "kind": "skill_inventory",
+      "locator": ".agents/skill-inventory.json",
+      "digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4"
+    },
+    {
+      "kind": "verification_policy",
+      "locator": "docs/operations/verification-policy.md",
+      "digest": "bcc3fb9cca6d6d0fbffd2633e38f520a719e16303b1880fe789f7afe0ea53ce2"
+    }
+  ]
+}

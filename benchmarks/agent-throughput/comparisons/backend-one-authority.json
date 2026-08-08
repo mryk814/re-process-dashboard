@@ -1,0 +1,47 @@
+{
+  "schema_version": "agent-throughput-comparison/v1",
+  "case_id": "backend-one-authority",
+  "baseline_run_id": "baseline-context-backend-one-authority-2026-08-08",
+  "candidate_run_id": "current-context-backend-one-authority-2026-08-08",
+  "comparability": {
+    "status": "incomparable",
+    "reasons": [
+      "model_family:unknown",
+      "reasoning_setting:unknown",
+      "fresh_session:not_proven",
+      "fresh_workspace:not_proven",
+      "agent_run:not_observed",
+      "baseline_quality:not_evaluated",
+      "baseline_verification:not_run"
+    ]
+  },
+  "quality_regression": null,
+  "resource_deltas": {
+    "first_edit_elapsed_ms": null,
+    "total_tool_call_count": null,
+    "duplicate_command_count": null,
+    "local_verification_duration_ms": null,
+    "total_elapsed_ms": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "credit_proxy_value": -8832
+  },
+  "decision": {
+    "action": "rollback_candidate_profile",
+    "rollback_required": true,
+    "scope": "evaluation_profile_only",
+    "reasons": [
+      "model_family:unknown",
+      "reasoning_setting:unknown",
+      "fresh_session:not_proven",
+      "fresh_workspace:not_proven",
+      "agent_run:not_observed",
+      "baseline_quality:not_evaluated",
+      "baseline_verification:not_run",
+      "quality:not_evaluated",
+      "success_criteria:not_met",
+      "verification:not_run"
+    ],
+    "note": "This decision never mutates repository guidance or user configuration automatically."
+  }
+}

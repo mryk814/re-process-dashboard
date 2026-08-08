@@ -393,6 +393,32 @@ test("skill inventory authority paths stay classified and select the focused Nod
   assert.notEqual(checkerPlan.completion, "classification_required");
 });
 
+test("agent throughput eval authority stays bounded to verification and focused Node evidence", () => {
+  for (const path of [
+    "benchmarks/agent-throughput/cases.json",
+    "benchmarks/agent-throughput/results/current/docs-typo.json",
+    "scripts/agent-throughput-eval.mjs",
+    "scripts/agent-throughput-eval.test.mjs",
+  ]) {
+    const classification = classifyChangedPathSemantically(path, catalog);
+    assert.equal(classification.classification, "verification-tooling");
+    assert.equal(classification.risk, "verification-tooling");
+  }
+
+  const plan = planFor([
+    "benchmarks/agent-throughput/cases.json",
+    "benchmarks/agent-throughput/results/current/docs-typo.json",
+    "scripts/agent-throughput-eval.mjs",
+  ]);
+  assert.deepEqual(plan.riskCategories, ["verification-tooling"]);
+  assert.deepEqual(plan.focusedNodeTests, ["scripts/agent-throughput-eval.test.mjs"]);
+  assert.ok(selectedIds(plan).includes("focused-node"));
+  assert.ok(selectedIds(plan).includes("verification-policy-tests"));
+  assert.ok(!selectedIds(plan).includes("full-pytest"));
+  assert.ok(!selectedIds(plan).includes("application-build"));
+  assert.equal(plan.classificationRequired, false);
+});
+
 test("unresolved backend authority is classification-required, never an accidental full-suite default", () => {
   const noAuthorityCatalog = {
     ...catalog,

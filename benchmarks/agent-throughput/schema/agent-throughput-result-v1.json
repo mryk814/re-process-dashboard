@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-throughput-result/v1",
+  "type": "object",
+  "required": ["schema_version", "run_id", "observation_kind", "case", "profile", "conditions", "metrics", "verification", "quality", "provenance"],
+  "properties": {
+    "schema_version": {"const": "agent-throughput-result/v1"},
+    "run_id": {"type": "string"},
+    "observation_kind": {"enum": ["context_only", "agent_run"]},
+    "case": {"type": "object"},
+    "profile": {"type": "object"},
+    "conditions": {"type": "object"},
+    "metrics": {"type": "object"},
+    "verification": {"type": "object"},
+    "quality": {"type": "object"},
+    "provenance": {"type": "array", "minItems": 1}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-throughput-comparison/v1",
+  "type": "object",
+  "required": ["schema_version", "case_id", "baseline_run_id", "candidate_run_id", "comparability", "quality_regression", "resource_deltas", "decision"],
+  "properties": {
+    "schema_version": {"const": "agent-throughput-comparison/v1"},
+    "case_id": {"type": "string"},
+    "baseline_run_id": {"type": "string"},
+    "candidate_run_id": {"type": "string"},
+    "comparability": {"type": "object"},
+    "quality_regression": {"type": ["boolean", "null"]},
+    "resource_deltas": {"type": "object"},
+    "decision": {"type": "object"}
+  },
+  "additionalProperties": false
+}

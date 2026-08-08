@@ -1,0 +1,118 @@
+{
+  "schema_version": "agent-throughput-result/v1",
+  "run_id": "baseline-context-api-field-addition-2026-08-08",
+  "observation_kind": "context_only",
+  "case": {
+    "id": "api-field-addition",
+    "version": 1,
+    "prompt_digest": "a370b41c8f66f80d16c5ec80437185c07aafca9d5e4eeadc8ae0a1a090f667c3",
+    "prompt_bytes": 246,
+    "prompt_lines": 1,
+    "fixture_digest": "083214bcb9682c8a4b2ba6a2223224cca1c4a08226846e1f3917dc2b0a869012",
+    "success_criteria_digest": "2b333160845a516527c71d07745fa33c22e48a2a5ba7e270dc52f488c3dacf40",
+    "catalog_digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+  },
+  "profile": {
+    "id": "pre-throughput-guidance",
+    "expected_lane": "deep",
+    "model_family": null,
+    "reasoning_setting": null,
+    "guidance_identity": {
+      "source_ref": "06f83a11a1a30695b40bd2be8e4181b17d6bb3dd",
+      "materialization": "snapshot_only_not_executed",
+      "root_instruction_bytes": 15760,
+      "root_instruction_lines": 214,
+      "root_instruction_digest": "a4d464dfd88fc6bf429b7be6083ef57815dd65b3c4e540557c9880de393c9268"
+    },
+    "skill_inventory_identity": {
+      "inventory_id": "re-process-dashboard/skill-inventory",
+      "inventory_digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4",
+      "visible_skill_count": 12,
+      "visible_skill_names": [
+        "codebase-design",
+        "data-contributor",
+        "domain-modeling",
+        "frontend-ux-architect",
+        "improve-codebase-architecture",
+        "re-process-architecture-review",
+        "scenario-journey-evaluator",
+        "systematic-debugging",
+        "vercel-composition-patterns",
+        "vercel-react-best-practices",
+        "verification-budget-planner",
+        "web-design-guidelines"
+      ]
+    },
+    "verification_policy_digest": "bcc3fb9cca6d6d0fbffd2633e38f520a719e16303b1880fe789f7afe0ea53ce2"
+  },
+  "conditions": {
+    "repository_commit": "dd2e9a02de1fdec21e3a8f450ed9628ddda51d36",
+    "same_success_criteria": true,
+    "fresh_session": null,
+    "fresh_workspace": null,
+    "session_identity": null,
+    "workspace_identity": null
+  },
+  "metrics": {
+    "first_edit_elapsed_ms": null,
+    "first_edit_read_file_count": null,
+    "first_edit_tool_call_count": null,
+    "total_tool_call_count": null,
+    "duplicate_command_count": null,
+    "local_verification_duration_ms": null,
+    "total_elapsed_ms": null,
+    "edit_to_pass_iteration_count": null,
+    "changed_file_count": null,
+    "changed_line_count": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "command_observations": [],
+    "credit_proxy": {
+      "kind": "repository_root_instruction_bytes",
+      "value": 15760,
+      "unit": "bytes",
+      "not_provider_token": true,
+      "provenance": {
+        "kind": "git_object",
+        "locator": "git:06f83a11a1a30695b40bd2be8e4181b17d6bb3dd:AGENTS.md",
+        "digest": "a4d464dfd88fc6bf429b7be6083ef57815dd65b3c4e540557c9880de393c9268"
+      }
+    }
+  },
+  "verification": {
+    "status": "not_run",
+    "duration_ms": null,
+    "receipt_digest": null,
+    "receipt_locator": null,
+    "note": "No agent task was run; a verification receipt is not claimed."
+  },
+  "quality": {
+    "status": "not_evaluated",
+    "success_criteria_met": null,
+    "human_review_status": "not_run",
+    "findings": [],
+    "note": "Context metrics alone cannot approve the fast/deep profile."
+  },
+  "provenance": [
+    {
+      "kind": "case_catalog",
+      "locator": "benchmarks/agent-throughput/cases.json",
+      "digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+    },
+    {
+      "kind": "git_object",
+      "locator": "git:06f83a11a1a30695b40bd2be8e4181b17d6bb3dd:AGENTS.md",
+      "digest": "a4d464dfd88fc6bf429b7be6083ef57815dd65b3c4e540557c9880de393c9268"
+    },
+    {
+      "kind": "skill_inventory",
+      "locator": ".agents/skill-inventory.json",
+      "digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4"
+    },
+    {
+      "kind": "verification_policy",
+      "locator": "docs/operations/verification-policy.md",
+      "digest": "bcc3fb9cca6d6d0fbffd2633e38f520a719e16303b1880fe789f7afe0ea53ce2"
+    }
+  ]
+}
