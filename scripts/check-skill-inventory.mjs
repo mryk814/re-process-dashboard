@@ -714,7 +714,7 @@ function validateInventory(inventory, { repoRoot, strictTarget = false } = {}) {
 
 export function checkSkillInventory({ repoRoot = process.cwd(), inventoryPath = DEFAULT_INVENTORY_PATH, strictTarget = false } = {}) {
   const absoluteRepoRoot = resolve(repoRoot);
-  const absoluteInventoryPath = resolveWithin(absoluteRepoRoot, inventoryPath) ?? (isAbsolute(inventoryPath) ? resolve(inventoryPath) : null);
+  const absoluteInventoryPath = resolveWithin(absoluteRepoRoot, inventoryPath);
   if (!absoluteInventoryPath) {
     return {
       ok: false,

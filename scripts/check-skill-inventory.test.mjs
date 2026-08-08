@@ -129,6 +129,21 @@ test("unknown clients do not become false support claims", () => {
   assert.equal(inventory.clients.claude.visible_count, null);
 });
 
+test("allows repo-internal absolute inventory paths and rejects repo escapes", () => {
+  const internalPath = join(repositoryRoot, ".agents", "skill-inventory.json");
+  const internalReport = checkSkillInventory({ repoRoot: repositoryRoot, inventoryPath: internalPath, strictTarget: true });
+  assert.equal(internalReport.ok, true, JSON.stringify(internalReport.findings, null, 2));
+
+  for (const inventoryPath of [
+    resolve(repositoryRoot, "..", "outside-skill-inventory.json"),
+    "../outside-skill-inventory.json",
+  ]) {
+    const report = checkSkillInventory({ repoRoot: repositoryRoot, inventoryPath });
+    assert.equal(report.ok, false);
+    assert.ok(report.findings.some((item) => item.code === "inventory-path-escape"), JSON.stringify(report.findings));
+  }
+});
+
 test("rejects duplicate migration aliases", () => {
   const fixture = fixtureInventory({ aliases: [
     { old_name: "old-skill", replacement: "public", status: "active" },
@@ -188,7 +203,7 @@ test("rejects a symlinked internal reference when the platform permits symlink c
 });
 
 test("detects a manually entered provenance digest drift", () => {
-  const temporaryRoot = mkdtempSync(join(tmpdir(), "skill-inventory-digest-"));
+  const temporaryRoot = mkdtempSync(join(repositoryRoot, ".tmp-skill-inventory-digest-"));
   const inventoryPath = join(temporaryRoot, "skill-inventory.json");
   try {
     const inventory = JSON.parse(readFileSync(join(repositoryRoot, ".agents", "skill-inventory.json"), "utf8"));
