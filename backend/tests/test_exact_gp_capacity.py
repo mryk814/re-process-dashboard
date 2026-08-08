@@ -107,6 +107,31 @@ def test_capacity_context_is_exposed_by_readiness_resolver() -> None:
     assert resolution.capacity.recommended_path == "alternative_estimator"
 
 
+def test_capacity_outside_benchmark_basis_is_ready_expensive_without_switching() -> None:
+    data, recipe = _context(raw=12, effective=8, folds=4, restarts=1)
+    capacity = capacity_context_from_training_set(data, recipe)
+    resolution = resolve_estimator_readiness(
+        EstimatorReadinessContext(
+            estimator_id="exact-gp-rbf.v1",
+            target_kind="continuous",
+            row_count=capacity.effective_training_rows,
+            independent_group_count=capacity.independent_validation_group_count,
+            feature_count=capacity.feature_count,
+            target_contract="ready",
+            validation_plan="ready",
+            validation_strategy="grouped_kfold",
+            feature_recipe="ready",
+            capacity=capacity,
+        )
+    )
+
+    assert resolution.status == "ready_expensive"
+    assert resolution.capacity is not None
+    assert resolution.capacity.decision == "exact_expensive"
+    assert resolution.capacity.recommended_path == "exact_gp"
+    assert resolution.capacity.automatic_switch is False
+
+
 def test_default_training_path_never_reduces_requested_folds() -> None:
     with pytest.raises(ValueError, match="fold count is never reduced implicitly"):
         _evaluation_identity(

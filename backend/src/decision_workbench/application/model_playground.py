@@ -835,7 +835,6 @@ class ModelPlaygroundUseCases:
                         ),
                         capacity=capacity_context,
                     )
-                    statuses.append(resolution.status)
                     reasons.extend(resolution.reasons)
                     target_status = resolution.status
                     if (
@@ -843,6 +842,7 @@ class ModelPlaygroundUseCases:
                         and entry.training_cost == "high"
                     ):
                         target_status = "ready_expensive"
+                    statuses.append(target_status)
                     capacity_resolution = resolution.capacity
                     planned_quality_fit_count = (
                         capacity_resolution.context.planned_quality_fit_count
