@@ -339,6 +339,167 @@
       "capacity_policy": null
     },
     {
+      "estimator_id": "bayesian-ridge.v1",
+      "label": "Bayesian ridge shrinkage",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "distribution_candidate",
+      "adoption_status": "experimental",
+      "builder_status": "standard_builder",
+      "runtime_status": "ready",
+      "runtime_type": "builtin.posterior_linear.v1",
+      "artifact_status": "ready",
+      "artifact_format": "bounded-npz",
+      "required_dependency": "numpyro",
+      "limits": {
+        "min_rows": 6,
+        "max_rows": 5000,
+        "min_independent_groups": 4,
+        "max_features": 64,
+        "max_smooth_terms": null,
+        "max_basis_columns": null,
+        "max_categorical_levels": null
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "standard_deviation",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "mean_log_predictive_density",
+        "interval_coverage_90",
+        "mean_interval_width",
+        "posterior_convergence",
+        "coefficient_sign_and_rope"
+      ],
+      "fixed_parameters": {
+        "inference_preset": "standard-evidence",
+        "sampler": "nuts",
+        "chain_method": "sequential",
+        "chains": 2,
+        "warmup": 256,
+        "draws": 256,
+        "target_accept_probability": 0.9,
+        "max_tree_depth": 13,
+        "dense_mass": "enabled",
+        "init_strategy": "prior-median-10/v1",
+        "max_r_hat": 1.05,
+        "min_effective_sample_size": 50.0,
+        "max_divergences": 0,
+        "rope_half_width": 0.1,
+        "folds": 5,
+        "seed": 20260730,
+        "coefficient_prior_scale": 1.0,
+        "intercept_prior_scale": 2.0,
+        "observation_scale_prior": "half-normal-1",
+        "parameterization": "standardized-linear-gaussian/v1"
+      },
+      "training_cost": "high",
+      "known_limitations": [
+        "Bayesian ridge is an experimental shrinkage candidate and is never an automatic replacement for Ridge.",
+        "Coefficient sign and ROPE evidence is associational and can be unstable under correlated inputs; do not read it as an intervention claim or a ranking of explanatory value.",
+        "No feature is deleted from the recipe because a posterior coefficient is near zero.",
+        "Prediction uncertainty is posterior-predictive uncertainty and must not be read as coefficient credible intervals.",
+        "NUTS dependency, sampling failures, divergence, and insufficient ESS produce typed unavailable or quality findings with no Ridge fallback."
+      ],
+      "capacity_policy": null
+    },
+    {
+      "estimator_id": "horseshoe-linear.v1",
+      "label": "Fixed Student-t capped horseshoe linear shrinkage",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "distribution_candidate",
+      "adoption_status": "experimental",
+      "builder_status": "standard_builder",
+      "runtime_status": "ready",
+      "runtime_type": "builtin.posterior_linear.v1",
+      "artifact_status": "ready",
+      "artifact_format": "bounded-npz",
+      "required_dependency": "numpyro",
+      "limits": {
+        "min_rows": 6,
+        "max_rows": 5000,
+        "min_independent_groups": 4,
+        "max_features": 64,
+        "max_smooth_terms": null,
+        "max_basis_columns": null,
+        "max_categorical_levels": null
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "standard_deviation",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "mean_log_predictive_density",
+        "interval_coverage_90",
+        "mean_interval_width",
+        "posterior_convergence",
+        "coefficient_sign_and_rope",
+        "local_scale_summary"
+      ],
+      "fixed_parameters": {
+        "inference_preset": "standard-evidence",
+        "sampler": "nuts",
+        "chain_method": "sequential",
+        "chains": 2,
+        "warmup": 256,
+        "draws": 256,
+        "target_accept_probability": 0.99,
+        "max_tree_depth": 13,
+        "dense_mass": "enabled",
+        "init_strategy": "prior-median-10/v1",
+        "max_r_hat": 1.05,
+        "min_effective_sample_size": 50.0,
+        "max_divergences": 0,
+        "rope_half_width": 0.1,
+        "folds": 5,
+        "seed": 20260730,
+        "intercept_prior_scale": 2.0,
+        "observation_scale_prior": "half-normal-1",
+        "global_scale_prior": "half-normal-1",
+        "local_scale_prior": "half-cauchy-1",
+        "slab_scale": 2.0,
+        "slab_degrees_of_freedom": 4.0,
+        "regularization_policy": "fixed-student-t-capped-horseshoe/v1",
+        "parameterization": "standardized-fixed-student-t-capped-horseshoe/v1"
+      },
+      "training_cost": "high",
+      "known_limitations": [
+        "This is an experimental fixed Student-t capped horseshoe variant, not the canonical regularized horseshoe prior, and is never an automatic replacement for Ridge.",
+        "Global and local shrinkage remains associational evidence; correlated inputs can share or trade off posterior mass, so it is not an intervention claim or a ranking of explanatory value.",
+        "No feature is deleted from the recipe because a posterior coefficient is near zero.",
+        "Prediction uncertainty is posterior-predictive uncertainty and must not be read as coefficient credible intervals.",
+        "NUTS dependency, sampling failures, divergence, and insufficient ESS produce typed unavailable or quality findings with no Ridge fallback."
+      ],
+      "capacity_policy": null
+    },
+    {
       "estimator_id": "numpyro-lognormal-external.v1",
       "label": "Verified lognormal Package",
       "target_kinds": [

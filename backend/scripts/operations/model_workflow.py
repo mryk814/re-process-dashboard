@@ -6,7 +6,11 @@ from pathlib import Path
 import re
 import shutil
 import sys
-from typing import Any
+import tracemalloc
+from time import perf_counter
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 BACKEND_SRC = Path(__file__).resolve().parents[2] / "src"
@@ -45,6 +49,9 @@ from decision_workbench.modeling.packages.contracts import (  # noqa: E402
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
 from decision_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
+from decision_workbench.modeling.training.estimators.bayesian_linear import (  # noqa: E402
+    BayesianTrainingError,
+)
 from decision_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
 from decision_workbench.data.profile_family_registry import (  # noqa: E402
     lifecycle_profile_for_data,
@@ -53,7 +60,9 @@ from decision_workbench.data.profile_family_registry import (  # noqa: E402
 )
 from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from decision_workbench.modeling.training.readiness import (  # noqa: E402
+    buildable_standard_estimator_ids,
     compatible_standard_estimator_ids,
+    standard_estimator_catalog,
 )
 from decision_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
 from decision_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
@@ -65,6 +74,23 @@ from decision_workbench.developer_experience.task_scaffolding import (  # noqa: 
 
 TASKS = tuple(registered_task_modules())
 DEFAULT_SOURCE = PRIMARY_DEFAULT_SOURCE
+
+
+class ComparisonQualityFinding(BaseModel):
+    """Typed non-package evidence retained by a same-cohort comparison."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["standard-comparison-quality-finding/v1"] = (
+        "standard-comparison-quality-finding/v1"
+    )
+    estimator_id: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+    status: Literal["unavailable", "failed"]
+    reason_code: Literal["unavailable_missing_dependency", "training_failed"]
+    message: str = Field(min_length=1)
+    findings: tuple[str, ...] = Field(min_length=1)
+    diagnostics: dict[str, Any] | None = None
 
 
 def _task_source(task_id: str, source: Path) -> Path:
@@ -244,7 +270,7 @@ def build_package(
             )
         contract = load_task_contracts()[task_id]
         allowed = authoring.allowed_estimator_ids(
-            compatible_standard_estimator_ids(
+            buildable_standard_estimator_ids(
                 contract.task_definition.outputs
             )
         )
@@ -333,7 +359,7 @@ def compare_estimators(
         )
     contract = load_task_contracts()[task_id]
     allowed = set(authoring.allowed_estimator_ids(
-        compatible_standard_estimator_ids(contract.task_definition.outputs)
+        buildable_standard_estimator_ids(contract.task_definition.outputs)
     ))
     unsupported = set(estimators) - allowed
     if unsupported:
@@ -363,18 +389,94 @@ def compare_estimators(
     for estimator_id in estimators:
         package_id = f"{package_prefix}-{estimator_id.replace('.', '-')}"
         package_path = output / package_id
-        result = build_package(
-            task_id,
-            source,
-            package_path,
-            dataset_output,
-            package_id=package_id,
-            package_version=package_version,
-            replace=False,
-            estimator=estimator_id,
-            estimator_options=options.get(estimator_id, {}),
-            profile=profile,
-        )
+        build_started = perf_counter()
+        peak_traced_memory_bytes = 0
+        tracemalloc.start()
+        try:
+            result = build_package(
+                task_id,
+                source,
+                package_path,
+                dataset_output,
+                package_id=package_id,
+                package_version=package_version,
+                replace=False,
+                estimator=estimator_id,
+                estimator_options=options.get(estimator_id, {}),
+                profile=profile,
+            )
+        except (BayesianTrainingError, MissingOptionalDependency) as error:
+            _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            build_seconds = perf_counter() - build_started
+            dataset_payload = json.loads(
+                dataset_output.read_text(encoding="utf-8")
+            )
+            feature_dataset_id = str(
+                canonical_training_dataset_digest(dataset_payload)
+            )
+            if common_feature_dataset_id is None:
+                common_feature_dataset_id = feature_dataset_id
+            elif feature_dataset_id != common_feature_dataset_id:
+                raise ValueError(
+                    "comparison estimators did not use the same FeatureDataset"
+                )
+            catalog_entry = next(
+                entry
+                for entry in standard_estimator_catalog().entries
+                if entry.estimator_id == estimator_id
+            )
+            if isinstance(error, BayesianTrainingError):
+                finding = error.quality_finding(
+                    estimator_id=estimator_id,
+                    target=error.target or "package",
+                )
+                serialized_finding = finding.model_dump(mode="json")
+                diagnostics = (
+                    finding.diagnostics.model_dump(mode="json")
+                    if finding.diagnostics is not None
+                    else None
+                )
+            else:
+                serialized_finding = ComparisonQualityFinding(
+                    estimator_id=estimator_id,
+                    target="package",
+                    status="unavailable",
+                    reason_code="unavailable_missing_dependency",
+                    message=str(error),
+                    findings=(str(error),),
+                    diagnostics={
+                        "status": "not_applicable",
+                        "findings": [str(error)],
+                    },
+                ).model_dump(mode="json")
+                diagnostics = serialized_finding["diagnostics"]
+            entries.append({
+                "estimator_id": estimator_id,
+                "package_id": package_id,
+                "package": None,
+                "feature_dataset_id": feature_dataset_id,
+                "quality_report": None,
+                "quality": None,
+                "quality_findings": [serialized_finding],
+                "diagnostics": diagnostics,
+                "cost": {
+                    "build_seconds": round(build_seconds, 6),
+                    "artifact_bytes": None,
+                    "peak_traced_memory_bytes": peak_traced_memory_bytes,
+                },
+                "evaluation": None,
+                "adoption_status": catalog_entry.adoption_status,
+                "adoption_decision": serialized_finding["reason_code"],
+                "known_limitations": list(catalog_entry.known_limitations),
+            })
+            continue
+        finally:
+            if tracemalloc.is_tracing():
+                _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
+        build_seconds = perf_counter() - build_started
+        peak_traced_memory_bytes = int(peak_traced_memory_bytes)
         feature_dataset_id = str(result["dataset"]["feature_dataset_id"])
         stats = json.loads(
             (package_path / "reference" / "training_stats.json").read_text(
@@ -391,20 +493,64 @@ def compare_estimators(
         if common_feature_dataset_id is None:
             common_feature_dataset_id = feature_dataset_id
             common_evaluation = evaluation
-        elif (
-            feature_dataset_id != common_feature_dataset_id
-            or evaluation != common_evaluation
-        ):
+        elif feature_dataset_id != common_feature_dataset_id:
             raise ValueError(
-                "comparison estimators did not use the same "
-                "FeatureDataset/cohort/fold plan"
+                "comparison estimators did not use the same FeatureDataset"
             )
+        elif common_evaluation is None:
+            common_evaluation = evaluation
+        elif evaluation != common_evaluation:
+            raise ValueError(
+                "comparison estimators did not use the same cohort/fold plan"
+            )
+        catalog_entry = next(
+            entry
+            for entry in standard_estimator_catalog().entries
+            if entry.estimator_id == estimator_id
+        )
+        quality_report = result["package"].get("quality_report")
+        if not isinstance(quality_report, dict):
+            raise ValueError(
+                "standard model verification must return a dict quality_report"
+            )
+        diagnostics_path = package_path / "reports" / "training-diagnostics.json"
+        diagnostics = (
+            json.loads(diagnostics_path.read_text(encoding="utf-8"))
+            if diagnostics_path.is_file()
+            else None
+        )
+        manifest_path = package_path / "manifest.json"
+        artifact_bytes = None
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            artifact_bytes = sum(
+                int(item["bytes"])
+                for item in manifest.get("artifacts", [])
+                if isinstance(item, dict) and "bytes" in item
+            )
+        quality_findings = [
+            finding
+            for target_diagnostics in (diagnostics or {}).get("targets", {}).values()
+            for finding in target_diagnostics.get("quality_findings", [])
+        ]
         entries.append({
             "estimator_id": estimator_id,
             "package_id": package_id,
             "package": str(package_path.resolve()),
-            "quality_report": result["package"]["quality_report"],
+            "feature_dataset_id": feature_dataset_id,
+            "quality_report": quality_report,
+            "quality": quality_report,
+            "quality_findings": quality_findings,
+            "diagnostics": diagnostics,
+            "cost": {
+                "build_seconds": round(build_seconds, 6),
+                "artifact_bytes": artifact_bytes,
+                "peak_traced_memory_bytes": peak_traced_memory_bytes,
+            },
             "evaluation": evaluation,
+            "adoption_status": catalog_entry.adoption_status,
+            "adoption_decision": catalog_entry.adoption_status,
+            "known_limitations": list(catalog_entry.known_limitations),
         })
 
     report = {
@@ -414,6 +560,50 @@ def compare_estimators(
         "evaluation": common_evaluation,
         "models": entries,
         "selection": None,
+        "adoption_policy": {
+            "production": "eligible only for explicit promotion review",
+            "experimental": "comparison evidence only; no automatic activation",
+            "no_adopt": "not a buildable comparison candidate",
+        },
+        "interpretation_contract": {
+            "coefficient_evidence": (
+                "sign and ROPE evidence is associational and correlation-sensitive"
+            ),
+            "prediction_uncertainty": (
+                "posterior-predictive uncertainty is separate from coefficient evidence"
+            ),
+            "feature_policy": "the recipe does not delete features",
+        },
+        "counterexample_protocol": {
+            "noisy_fixture": {
+                "status": "required_before_adoption",
+                "criterion": (
+                    "compare posterior-predictive coverage, width, and calibration "
+                    "under injected observation noise"
+                ),
+            },
+            "correlated_features": {
+                "status": "reported_per_model",
+                "criterion": (
+                    "retain all features and report correlation-sensitive sign and "
+                    "ROPE evidence without ranking or deletion"
+                ),
+            },
+        },
+        "evidence_contract": {
+            "calibration": (
+                "quality.targets.interval_coverage_90 and "
+                "quality.targets.mean_interval_width"
+            ),
+            "memory": (
+                "cost.peak_traced_memory_bytes is peak Python allocation evidence; "
+                "native accelerator memory is not inferred"
+            ),
+            "failure_findings": (
+                "typed Bayesian unavailable/sampling/diagnostic and optional-dependency "
+                "findings are retained per model without an implicit estimator fallback"
+            ),
+        },
         "note": (
             "No automatic winner is selected. Compare target-level quality "
             "and scientific suitability before promotion."

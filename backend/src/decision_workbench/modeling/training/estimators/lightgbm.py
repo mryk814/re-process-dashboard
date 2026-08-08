@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
+from decision_workbench.modeling.packages.contracts import MissingOptionalDependency
 from decision_workbench.modeling.training.feature_dataset import (
     TargetTrainingSet,
     prepared_feature_matrix,
@@ -69,7 +70,7 @@ def _train_booster(
     try:
         import lightgbm as lgb
     except ModuleNotFoundError as exc:
-        raise ValueError(
+        raise MissingOptionalDependency(
             "lightgbm estimator requires the allow-listed LightGBM dependency"
         ) from exc
 

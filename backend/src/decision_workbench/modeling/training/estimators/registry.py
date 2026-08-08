@@ -70,6 +70,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=student_t_linear.ARTIFACT_SUFFIX,
             artifact_format=student_t_linear.ARTIFACT_FORMAT,
         )
+    if estimator_id in {"bayesian-ridge.v1", "horseshoe-linear.v1"}:
+        from . import bayesian_linear
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, bayesian_linear.train),
+            runtime_type=bayesian_linear.RUNTIME_TYPE,
+            artifact_suffix=bayesian_linear.ARTIFACT_SUFFIX,
+            artifact_format=bayesian_linear.ARTIFACT_FORMAT,
+        )
     if estimator_id in {"lightgbm-regression.v1", "lightgbm-binary.v1"}:
         from . import lightgbm
 

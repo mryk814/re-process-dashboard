@@ -799,6 +799,26 @@ def _build(
     )
     files.extend((smoke_input, smoke_expected))
 
+    inference_identities = {
+        str(predictor["id"]): predictor["inference_identity"]
+        for predictor in predictors
+        if predictor.get("inference_identity") is not None
+    }
+    recipe_parameters = recipe.model_dump(
+        mode="json",
+        exclude={"validation_plan", "validation_plans_by_target"},
+        exclude_none=True,
+    )
+    inference_provenance = {
+        predictor_id: {
+            "recipe_id": recipe.estimator_id,
+            "recipe_parameters": recipe_parameters,
+            "effective_inference_seed": identity.get("seed"),
+            "inference_identity_digest": identity["identity_digest"],
+            "diagnostics": identity["diagnostics"],
+        }
+        for predictor_id, identity in inference_identities.items()
+    }
     manifest = {
         "schema_version": "model-package/v1",
         "package_id": package_id,
@@ -838,6 +858,16 @@ def _build(
                 f"standard-model-training/v1:{recipe.estimator_id}"
             ),
             "dataset_profile_id": canonical["dataset_profile_digest"],
+            **(
+                {"inference_identities": inference_identities}
+                if inference_identities
+                else {}
+            ),
+            **(
+                {"inference_provenance": inference_provenance}
+                if inference_provenance
+                else {}
+            ),
             **(
                 {
                     "capacity": {

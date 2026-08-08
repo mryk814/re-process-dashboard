@@ -192,6 +192,30 @@ resource limit、diagnostics、approximation limitationを固定し、sampler fa
 別algorithmへ同名fallbackしない。fieldを持たない既存Packageはそのまま読み、
 学習algorithmをarchitecture名やartifact shapeから推測しない。
 
+`bayesian-ridge.v1` と `horseshoe-linear.v1` はこの既存の
+`builtin.posterior_linear.v1` adapterへ数値drawだけを出力する別recipe identityです。
+新しいPackageでは`provenance.inference_identities`へpredictor別の実効
+`inference-identity/v1`を、`provenance.inference_provenance`へrecipe ID、固定prior／
+sampler parameter、diagnostics digestを保存します。係数のsign／ROPE要約は係数の
+不確かさ、runtimeのprediction intervalは新しい観測値のposterior predictive
+不確かさであり、同じ意味として扱いません。相関した入力では係数証拠を共同に
+読む注意を残し、recipeは係数の近さを理由に特徴量を削除しません。
+horseshoeの相関した特徴量に対するNUTSは、target acceptance `0.99`、最大tree depth
+`13`、dense mass、prior-median初期化（10 draw）を固定し、これらを
+`inference_identity.resource_limits`へ記録します。これは収束を隠すretryではなく、
+同じ`fixed-student-t-capped-horseshoe/v1` priorと診断閾値を再現するためのsampler設定です。
+このrecipeはcanonical regularized horseshoeではありません。`coefficient_raw`へ
+Student-tを置き、slab capを`E[c^2] = slab_scale^2 * df / (df - 2)`として固定する
+安定化variantであり、canonical priorのInverse-Gamma slab auxiliaryをサンプリングしません。
+
+この2つのmapは任意のmetadata袋ではない。
+manifestのpredictor IDのうち`inference_identity`を持つものと、両mapのkey集合は
+完全一致し、map内のidentity本体・identity digest・diagnosticsは同じpredictorの
+宣言と一致しなければならない。
+`inference_provenance`のentryはrecipe ID、recipe parameters、identity digest、typed
+diagnosticsだけを許し、未知field、unknown predictor ID、digest不一致はfail-closedで
+拒否する。
+
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
 標準Tabular Packageが`feature-recipe/v1`を使う場合、pipeline documentの
