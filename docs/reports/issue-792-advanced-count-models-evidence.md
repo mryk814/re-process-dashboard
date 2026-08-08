@@ -27,4 +27,6 @@ NB の point estimate は expected count、`overdispersion` は別の distributi
 | varying exposure | explicit offset と exposure-stratified diagnostics |
 | grouped / temporal count | outer-fold feature fit と split identity |
 
-このPRの判定は **experimental** です。今回ローカルで確認できたのは contract、safe runtime、fold identity の unit evidence です。NumPyro/JAX がこの環境にないため、表の real-NUTS synthetic fixture は fresh `backend-science` CI が merge 前に所有します。production claim、active Package の置換、自動 model selection は支持しません。production の個別 Task evidence が揃った場合だけ #781 へ接続します。
+このPRの判定は **experimental** です。ローカルでは固定 seed 792 の6 fixtureを deterministic injected posterior fit で `compile -> fold/temporal train -> bounded NPZ -> safe runtime -> quality` まで実行しました。true Poisson、overdispersed NB、structural ZIP、zero-heavy non-ZIP、varying exposure、temporal countを含み、grouped k-foldとtemporal holdout、数値 exposure strata、全OOF rowのtail calibrationを確認しています。Model Playgroundの完了attemptは同じcohort・fold・exposure digestだけを比較evidenceとしてRunへ保存し、API／再起動後も返します。adoption memoや自動選択は作りません。
+
+NumPyro/JAX がこのローカル環境にないため、同じtrainerのreal-NUTS smokeはdependency-gated testとし、fresh `backend-science` CIがmerge前に所有します。production claim、active Packageの置換、自動model selectionは支持しません。productionの個別Task evidenceが揃った場合だけ #781 へ接続します。

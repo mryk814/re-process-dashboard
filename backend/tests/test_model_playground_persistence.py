@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 
+from decision_workbench.api.dependencies import get_model_playground_use_cases
 from decision_workbench.application.model_playground import (
     ModelPlaygroundError,
     ModelPlaygroundUseCases,
@@ -13,17 +16,21 @@ from decision_workbench.application.model_playground import (
 )
 from decision_workbench.contracts.model_playground_contracts import (
     ModelExplorationAttemptResult,
+    ModelExplorationCountCandidateEvidence,
+    ModelExplorationCountComparisonEvidence,
     ModelExplorationContext,
     ModelExplorationEnvironment,
     ModelExplorationFeatureIdentity,
     ModelExplorationRecipeAttempt,
     ModelExplorationRecipeSelection,
+    ModelExplorationRun,
     ModelExplorationRunDefinition,
     ModelExplorationTargetContext,
     ModelExplorationTargetReadiness,
     ModelExplorationTargetResult,
     semantic_digest,
 )
+from decision_workbench.contracts.task_contracts import CountOutputSemantics
 from decision_workbench.modeling.packages.contracts import (
     SourceLifecycleProvenance,
 )
@@ -264,6 +271,163 @@ def test_run_survives_store_restart_and_cas_rejects_stale_writer(tmp_path) -> No
     restarted.replace_model_exploration_run(updated, expected_revision=1)
     with pytest.raises(ModelExplorationRunConflictError):
         store.replace_model_exploration_run(updated, expected_revision=1)
+
+
+def test_legacy_run_payload_without_count_comparison_fields_still_loads() -> None:
+    payload = _run(status="completed").model_dump(mode="json")
+    payload.pop("count_comparisons")
+    for target in payload["definition"]["context"]["targets"]:
+        target.pop("exposure_contract_digest")
+    for attempt in payload["attempts"]:
+        assert attempt["result"] is not None
+        for target in attempt["result"]["targets"]:
+            target.pop("exposure_contract_digest")
+    payload["execution_payload_digest"] = semantic_digest(
+        {
+            key: value
+            for key, value in payload.items()
+            if key != "execution_payload_digest"
+        }
+    )
+
+    restored = ModelExplorationRun.model_validate_json(json.dumps(payload))
+
+    assert restored.count_comparisons == ()
+
+
+def test_count_comparison_is_persisted_and_returned_by_run_api_without_adoption(
+    client,
+) -> None:
+    base = _run(status="completed")
+    assert base.attempts[0].result is not None
+    original_target = base.attempts[0].result.targets[0]
+    count_semantics = CountOutputSemantics(count_unit="events")
+    exposure_digest = semantic_digest(count_semantics.model_dump(mode="json"))
+
+    def count_attempt(
+        estimator_id: str,
+        attempt_id: str,
+        metrics: dict[str, float | int | str | None],
+    ) -> ModelExplorationRecipeAttempt:
+        target = original_target.model_copy(
+            update={
+                "exposure_contract_digest": exposure_digest,
+                "metrics": metrics,
+            }
+        )
+        result = base.attempts[0].result.model_copy(
+            update={
+                "package_id": f"package-{attempt_id}",
+                "targets": (target,),
+            }
+        )
+        return ModelExplorationRecipeAttempt(
+            attempt_id=attempt_id,
+            recipe_id=estimator_id,
+            sequence=1,
+            status="completed",
+            recipe_digest=DIGEST,
+            started_at=NOW,
+            finished_at=NOW,
+            result=result,
+        )
+
+    attempts = (
+        count_attempt(
+            "poisson.v1",
+            "poisson-attempt",
+            {"mae": 2.0, "parent_conditions": 4, "method": "oof"},
+        ),
+        count_attempt(
+            "negative-binomial-regression.v1",
+            "nb-attempt",
+            {"mae": 1.5, "mean_log_predictive_density": -1.2},
+        ),
+    )
+    service = object.__new__(ModelPlaygroundUseCases)
+    service.registry = SimpleNamespace(
+        contract_for=lambda _task_id: SimpleNamespace(
+            task_definition=SimpleNamespace(
+                outputs=(SimpleNamespace(key="target", count=count_semantics),)
+            )
+        )
+    )
+
+    comparisons = service._count_comparison_evidence("task", attempts)
+
+    assert len(comparisons) == 1
+    comparison = comparisons[0]
+    assert comparison.cohort_digest == original_target.cohort_digest
+    assert comparison.fold_digest == original_target.fold_digest
+    assert comparison.exposure_contract_digest == exposure_digest
+    assert [item.estimator_id for item in comparison.candidates] == [
+        "negative-binomial-regression.v1",
+        "poisson.v1",
+    ]
+    assert comparison.candidates[1].metrics == {
+        "mae": 2.0,
+        "parent_conditions": 4.0,
+    }
+    assert comparison.automatic_selection is False
+    assert comparison.adoption_decision == "experimental"
+
+    run = _replace_run(
+        base,
+        run_id="count-comparison-run",
+        attempts=attempts,
+        count_comparisons=comparisons,
+    )
+    assert run.adoption_memo is None
+    client.app.state.store.create_model_exploration_run(run)
+
+    service.store = client.app.state.store
+    service.execution_instance_id = "count-comparison-test"
+    client.app.dependency_overrides[get_model_playground_use_cases] = lambda: service
+    try:
+        response = client.get("/api/model-playground/runs/count-comparison-run")
+    finally:
+        client.app.dependency_overrides.pop(get_model_playground_use_cases, None)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count_comparisons"][0]["exposure_contract_digest"] == (
+        exposure_digest
+    )
+    assert payload["count_comparisons"][0]["automatic_selection"] is False
+    assert payload["adoption_memo"] is None
+    restarted = Store(client.app.state.store.path)
+    restored = restarted.get_model_exploration_run(run.run_id)
+    assert restored is not None
+    assert restored.count_comparisons == comparisons
+
+
+def test_count_comparison_refuses_cross_fold_evidence() -> None:
+    comparison = ModelExplorationCountComparisonEvidence
+    candidate = ModelExplorationCountCandidateEvidence
+    with pytest.raises(ValueError, match="share cohort, fold, and exposure"):
+        comparison(
+            target_key="target",
+            cohort_digest=DIGEST,
+            fold_digest=DIGEST,
+            exposure_contract_digest=DIGEST,
+            candidates=(
+                candidate(
+                    estimator_id="poisson.v1",
+                    cohort_digest=DIGEST,
+                    fold_digest=DIGEST,
+                    exposure_contract_digest=DIGEST,
+                    metrics={"mae": 2.0},
+                ),
+                candidate(
+                    estimator_id="negative-binomial-regression.v1",
+                    cohort_digest=DIGEST,
+                    fold_digest="sha256:" + "2" * 64,
+                    exposure_contract_digest=DIGEST,
+                    metrics={"mae": 1.5},
+                ),
+            ),
+            adoption_decision="experimental",
+        )
 
 
 def test_restart_marks_running_attempt_interrupted_without_overwriting_it(

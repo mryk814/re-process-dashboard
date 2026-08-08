@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -20,6 +21,7 @@ from decision_workbench.modeling.training.readiness import (
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.estimators.advanced_count import negative_binomial_deviance
+from decision_workbench.modeling.training.estimators import advanced_count
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 
@@ -124,3 +126,85 @@ def test_new_advanced_artifact_rejects_missing_exposure_metadata(tmp_path: Path)
 def test_negative_binomial_deviance_is_zero_at_saturated_mean() -> None:
     observed = np.asarray([0.0, 1.0, 5.0, 12.0])
     assert negative_binomial_deviance(observed, observed, np.full(4, 3.0)) == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    ("fixture", "estimator_id", "strategy", "with_exposure"),
+    [
+        ("true_poisson", "negative-binomial-regression.v1", "grouped_kfold", False),
+        ("overdispersed_nb", "negative-binomial-regression.v1", "grouped_kfold", False),
+        ("structural_zip", "zero-inflated-poisson-regression.v1", "grouped_kfold", False),
+        ("zero_heavy_non_zip", "negative-binomial-regression.v1", "grouped_kfold", False),
+        ("varying_exposure", "negative-binomial-regression.v1", "grouped_kfold", True),
+        ("temporal_count", "negative-binomial-regression.v1", "temporal_holdout", True),
+    ],
+)
+def test_injected_synthetic_matrix_runs_compile_train_artifact_runtime_quality(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fixture: str,
+    estimator_id: str,
+    strategy: str,
+    with_exposure: bool,
+) -> None:
+    rng = np.random.default_rng(792)
+    x = np.linspace(-1.5, 1.5, 30)
+    exposure = np.linspace(0.5, 2.0, 30) if with_exposure else np.ones(30)
+    rate = exposure * np.exp(0.35 * x + 0.7)
+    if fixture == "overdispersed_nb":
+        values = rng.negative_binomial(2.0, 2.0 / (2.0 + rate))
+    else:
+        values = rng.poisson(rate)
+    if fixture == "structural_zip":
+        values[x < 0] = 0
+    if fixture == "zero_heavy_non_zip":
+        values = rng.negative_binomial(0.7, 0.7 / (0.7 + rate))
+    canonical = _canonical(tuple(float(item) for item in values), tuple(float(item) for item in exposure))
+    for index, row in enumerate(canonical["rows"]):
+        row["features"]["x"] = float(x[index])
+    plan = (
+        ValidationPlan(strategy="grouped_kfold", folds=3, group_key="parent_key", seed=792)
+        if strategy == "grouped_kfold"
+        else ValidationPlan(strategy="temporal_holdout", holdout_fraction=0.2, time_key="x", minimum_train_size=10, seed=792)
+    )
+    data = compile_target_training_set(
+        canonical,
+        target="events",
+        unit="events",
+        target_kind="count",
+        exposure_input_path="process.exposure" if with_exposure else None,
+        validation_plan=plan,
+    )
+    identity = SimpleNamespace(model_dump=lambda **_: {"diagnostics": {"status": "passed"}})
+
+    def injected_fit(values, target, exposures, recipe, *, seed):
+        draws = 16
+        coefficients = np.full((draws, values.shape[1]), 0.35)
+        intercepts = np.full(draws, 0.7)
+        if recipe.estimator_id == "negative-binomial-regression.v1":
+            return advanced_count._Fit(coefficients, intercepts, np.full(draws, 2.0), None, None, identity)
+        return advanced_count._Fit(coefficients, intercepts, None, np.full_like(coefficients, -1.0), np.zeros(draws), identity)
+
+    monkeypatch.setattr(advanced_count, "_fit", injected_fit)
+    trained = advanced_count.train(data, estimator_recipe(estimator_id), tmp_path / f"{fixture}.npz")
+    predictor_payload = dict(trained.predictor)
+    predictor_payload.pop("inference_identity")
+    spec = PredictorSpec.model_validate(predictor_payload)
+    runtime = NumpyroDensePosteriorAdapter().load(_Artifacts(trained.artifact), spec)
+    request = SamplingRequest.create(operation="package_verification", policy_id="synthetic-count-matrix/v1", seed=792, requested_sample_count=16)
+    candidate = {"x": 0.25}
+    if with_exposure:
+        candidate["process.exposure"] = 1.25
+    summary = runtime.predict(candidate, sampling_request=request)
+    assert summary.point_estimate >= 0
+    assert trained.quality.mean_log_predictive_density is not None
+    assert isinstance(trained.diagnostics["count_quality"]["tail_predictive_rate"], float)
+    exposure_quality = trained.diagnostics["count_quality"]["exposure_stratified"]
+    assert ("low" in exposure_quality) == with_exposure
+
+
+@pytest.mark.skipif(pytest.importorskip("importlib.util").find_spec("numpyro") is None, reason="backend-science owns real NumPyro fixtures")
+def test_real_numpyro_smoke_is_owned_by_backend_science(tmp_path: Path) -> None:
+    data = compile_target_training_set(_canonical(tuple(range(12)), tuple(1.0 for _ in range(12))), target="events", unit="events", target_kind="count", folds=2, seed=792)
+    trained = advanced_count.train(data, estimator_recipe("negative-binomial-regression.v1", {"warmup": 256, "draws": 256}), tmp_path / "real-nb.npz")
+    assert trained.artifact.exists()

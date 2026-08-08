@@ -35,6 +35,8 @@ from decision_workbench.contracts.model_playground_contracts import (
     ModelExplorationAdoptionMemo,
     ModelExplorationAttemptFailure,
     ModelExplorationAttemptResult,
+    ModelExplorationCountCandidateEvidence,
+    ModelExplorationCountComparisonEvidence,
     ModelExplorationContext,
     ModelExplorationFeatureIdentity,
     ModelExplorationEnvironment,
@@ -72,6 +74,10 @@ from decision_workbench.modeling.training.package_assembler import (
 )
 from decision_workbench.modeling.training.capacity import (
     capacity_context_from_training_set,
+)
+from decision_workbench.modeling.training.count_comparison import (
+    CountCandidateEvidence,
+    compare_same_cohort_counts,
 )
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
@@ -127,6 +133,15 @@ def _replace_run(
     }
     values.update(updates)
     return _with_execution_digest(values)
+
+
+_COUNT_COMPARISON_RECIPE_IDS = frozenset(
+    {
+        "poisson.v1",
+        "negative-binomial-regression.v1",
+        "zero-inflated-poisson-regression.v1",
+    }
+)
 
 
 def _recipe_options(
@@ -448,6 +463,10 @@ class ModelPlaygroundUseCases:
         finished = _replace_run(
             running,
             attempts=(*running.attempts[:-1], terminal),
+            count_comparisons=self._count_comparison_evidence(
+                run.definition.context.task_id,
+                (*running.attempts[:-1], terminal),
+            ),
             execution_revision=running.execution_revision + 1,
             updated_at=terminal.finished_at,
         )
@@ -681,6 +700,13 @@ class ModelPlaygroundUseCases:
                     fold_digest=compiled.fold_digest,
                     validation_plan=plan,
                     validation_plan_digest=compiled.validation_plan_digest,
+                    exposure_contract_digest=(
+                        semantic_digest(
+                            outputs[target_key].count.model_dump(mode="json")
+                        )
+                        if outputs[target_key].count is not None
+                        else None
+                    ),
                 )
             )
         context = ModelExplorationContext(
@@ -1089,6 +1115,7 @@ class ModelPlaygroundUseCases:
                     cohort_digest=actual.cohort_digest,
                     fold_digest=actual.fold_digest,
                     validation_plan_digest=actual.validation_plan_digest,
+                    exposure_contract_digest=expected.exposure_contract_digest,
                     metrics=metrics,
                     inference_identity=(
                         predictors[metric.target].inference_identity
@@ -1124,6 +1151,104 @@ class ModelPlaygroundUseCases:
             targets=tuple(results),
             build_receipt_digest=semantic_digest(receipt),
         )
+
+    def _count_comparison_evidence(
+        self,
+        task_id: str,
+        attempts: tuple[ModelExplorationRecipeAttempt, ...],
+    ) -> tuple[ModelExplorationCountComparisonEvidence, ...]:
+        outputs = {
+            output.key: output
+            for output in self.registry.contract_for(task_id).task_definition.outputs
+            if output.count is not None
+        }
+        latest_by_recipe: dict[str, ModelExplorationRecipeAttempt] = {}
+        for attempt in attempts:
+            if (
+                attempt.recipe_id in _COUNT_COMPARISON_RECIPE_IDS
+                and attempt.status == "completed"
+                and attempt.result is not None
+            ):
+                latest_by_recipe[attempt.recipe_id] = attempt
+
+        comparisons: list[ModelExplorationCountComparisonEvidence] = []
+        for target_key, output in outputs.items():
+            assert output.count is not None
+            exposure_contract_digest = semantic_digest(
+                output.count.model_dump(mode="json")
+            )
+            candidates: list[CountCandidateEvidence] = []
+            for recipe_id in sorted(latest_by_recipe):
+                attempt = latest_by_recipe[recipe_id]
+                assert attempt.result is not None
+                target = next(
+                    (
+                        item
+                        for item in attempt.result.targets
+                        if item.target_key == target_key
+                    ),
+                    None,
+                )
+                if target is None:
+                    continue
+                if target.exposure_contract_digest != exposure_contract_digest:
+                    raise ModelPlaygroundError(
+                        f"{target_key}: count exposure contractがRun contextと不一致です"
+                    )
+                candidates.append(
+                    CountCandidateEvidence(
+                        estimator_id=recipe_id,  # type: ignore[arg-type]
+                        cohort_digest=target.cohort_digest,
+                        fold_digest=target.fold_digest,
+                        exposure_contract_digest=target.exposure_contract_digest,
+                        metrics={
+                            key: float(value)
+                            for key, value in target.metrics.items()
+                            if isinstance(value, (int, float))
+                            and not isinstance(value, bool)
+                        },
+                        structural_zero_evidence=(
+                            output.count.structural_zero_rationale
+                            if recipe_id
+                            == "zero-inflated-poisson-regression.v1"
+                            else None
+                        ),
+                    )
+                )
+            if len(candidates) < 2:
+                continue
+            try:
+                protocol = compare_same_cohort_counts(tuple(candidates))
+            except ValueError as exc:
+                raise ModelPlaygroundError(
+                    f"{target_key}: count comparison evidenceを保存できません: {exc}"
+                ) from exc
+            comparisons.append(
+                ModelExplorationCountComparisonEvidence(
+                    target_key=target_key,
+                    cohort_digest=protocol.cohort_digest,
+                    fold_digest=protocol.fold_digest,
+                    exposure_contract_digest=protocol.exposure_contract_digest,
+                    candidates=tuple(
+                        ModelExplorationCountCandidateEvidence(
+                            estimator_id=item.estimator_id,
+                            cohort_digest=item.cohort_digest,
+                            fold_digest=item.fold_digest,
+                            exposure_contract_digest=(
+                                item.exposure_contract_digest
+                            ),
+                            metrics=item.metrics,
+                            structural_zero_evidence=(
+                                item.structural_zero_evidence
+                            ),
+                        )
+                        for item in protocol.candidates
+                    ),
+                    adoption_decision=protocol.adoption_decision,
+                    automatic_selection=protocol.automatic_selection,
+                )
+            )
+        return tuple(comparisons)
 
     def _recover_running(self, run: ModelExplorationRun) -> ModelExplorationRun:
         running = [
