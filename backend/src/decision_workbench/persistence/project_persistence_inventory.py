@@ -8,6 +8,7 @@ class ProjectPersistenceInventory:
     """Single source of truth for Project-owned and retained persistence."""
 
     direct_tables: tuple[str, ...]
+    case_tables: tuple[str, ...]
     candidate_tables: tuple[str, ...]
     scope_tables: tuple[str, ...]
     retained_tables: tuple[str, ...]
@@ -16,7 +17,12 @@ class ProjectPersistenceInventory:
 
     @property
     def project_owned_tables(self) -> tuple[str, ...]:
-        return self.direct_tables + self.candidate_tables + self.scope_tables
+        return (
+            self.direct_tables
+            + self.case_tables
+            + self.candidate_tables
+            + self.scope_tables
+        )
 
     @property
     def all_tables(self) -> frozenset[str]:
@@ -47,6 +53,9 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "candidates",
         "projects",
     ),
+    # These rows are owned by the Project through their immutable Decision Case.
+    # They must be purged before decision_replay_runs and decision_cases.
+    case_tables=("decision_case_actual_attachments",),
     candidate_tables=(
         "actual_measurements",
         "snapshots",
@@ -107,7 +116,12 @@ def project_scoped_tables_from_schema(connection: object) -> frozenset[str]:
             str(column[1])
             for column in execute(f'PRAGMA table_info("{escaped}")')
         }
-        if table == "projects" or {"project_id", "candidate_id", "scope_id"} & columns:
+        if table == "projects" or {
+            "project_id",
+            "case_id",
+            "candidate_id",
+            "scope_id",
+        } & columns:
             discovered.add(table)
     return frozenset(discovered)
 
