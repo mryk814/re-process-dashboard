@@ -37,6 +37,12 @@ from decision_workbench.persistence.data_lifecycle_training_audit_migration impo
 from decision_workbench.persistence.decision_activity_migration import (
     migrate_decision_activity_runs,
 )
+from decision_workbench.persistence.decision_replay_migration import (
+    migrate_decision_replay,
+)
+from decision_workbench.persistence.decision_replay_repository import (
+    DecisionReplayRepository,
+)
 from decision_workbench.persistence.dataset_disposition_migration import (
     migrate_dataset_disposition_storage,
 )
@@ -121,6 +127,7 @@ class Store(
     ProjectRepository,
     CandidateRepository,
     EvidenceRepository,
+    DecisionReplayRepository,
 ):
     """Persistence facade and transaction owner for cross-aggregate commands.
 
@@ -156,6 +163,7 @@ class Store(
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
+        migrate_decision_replay(self.path)
         migrate_ai_reviews(self.path)
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)

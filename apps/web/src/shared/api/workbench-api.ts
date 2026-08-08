@@ -148,6 +148,11 @@ export type ApiDeterministicTransformResult = components["schemas"]["Determinist
 export type ApiDecisionActivityAvailability = components["schemas"]["DecisionActivityAvailability"];
 export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
 export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
+export type ApiDecisionCase = components["schemas"]["DecisionCase"];
+export type ApiDecisionCaseCreateRequest = components["schemas"]["DecisionCaseCreateRequest"];
+export type ApiDecisionCaseDraftContext = components["schemas"]["DecisionCaseDraftContext"];
+export type ApiDecisionReplayRequest = components["schemas"]["DecisionReplayRequest"];
+export type ApiDecisionReplayRun = components["schemas"]["DecisionReplayRun"];
 export type ApiRawSeriesAsset = components["schemas"]["RawSeriesAsset"];
 export type ApiSeriesAssetDetail = components["schemas"]["SeriesAssetDetail"];
 export type ApiCanonicalSeriesRevision = components["schemas"]["CanonicalSeriesRevision"];
@@ -992,6 +997,39 @@ export const workbenchApi = {
     return requireData(await apiClient.POST("/api/projects/{project_id}/decision-activity-runs/{run_id}/proposals/{proposal_id}/candidate", {
       params: { path: { project_id: projectId, run_id: runId, proposal_id: proposalId } },
     }), "選択した変更案を候補にできませんでした。");
+  },
+  async decisionCaseDraftContext(projectId: string, signal?: AbortSignal): Promise<ApiDecisionCaseDraftContext> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-case-draft-context", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Decision Caseに使える保存済み証拠を取得できませんでした。");
+  },
+  async decisionCases(projectId: string, signal?: AbortSignal): Promise<ApiDecisionCase[]> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-cases", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Decision Caseを取得できませんでした。");
+  },
+  async createDecisionCase(projectId: string, body: ApiDecisionCaseCreateRequest, humanActorId?: string): Promise<ApiDecisionCase> {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/decision-cases", {
+      params: {
+        path: { project_id: projectId },
+        ...(humanActorId ? { header: { "X-Workbench-Human-Actor": humanActorId } } : {}),
+      },
+      body,
+    }), "Decision Caseを保存できませんでした。");
+  },
+  async runDecisionReplay(projectId: string, caseId: string, body: ApiDecisionReplayRequest): Promise<ApiDecisionReplayRun> {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/decision-cases/{case_id}/replay-runs", {
+      params: { path: { project_id: projectId, case_id: caseId } },
+      body,
+    }), "Decision Replayを実行できませんでした。");
+  },
+  async decisionReplayRuns(projectId: string, caseId?: string, signal?: AbortSignal): Promise<ApiDecisionReplayRun[]> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-replay-runs", {
+      params: { path: { project_id: projectId }, query: { case_id: caseId } },
+      signal,
+    }), "保存済みDecision Replayを取得できませんでした。");
   },
   async snapshots(projectId: string, candidateId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/snapshots", { params: { path: { project_id: projectId, candidate_id: candidateId } }, signal }), "スナップショットを取得できませんでした。");

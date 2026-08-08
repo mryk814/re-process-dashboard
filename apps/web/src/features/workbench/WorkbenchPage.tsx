@@ -36,6 +36,7 @@ import {
 import { SimilarityEvidencePanel } from "./SimilarityEvidencePanel";
 import { FeatureEngineeringPanel } from "./FeatureEngineeringPanel";
 import { DecisionActivityPanel } from "./DecisionActivityPanel";
+import { DecisionReplayPanel } from "./DecisionReplayPanel";
 import { ActualMeasurementPanel } from "./ActualMeasurementPanel";
 import { BlendComparisonPanel } from "./BlendComparisonPanel";
 import { BlendOptimizationPanel } from "./BlendOptimizationPanel";
@@ -668,6 +669,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onStateChange={onActivityStateChange}
           onConfigureGoals={onConfigureGoals}
           onCandidateCreated={onOptimizedCandidate}
+        />}
+        {mode === "review" && taskDefinition && <DecisionReplayPanel
+          projectId={projectId}
+          taskDefinition={taskDefinition}
+          onSelectCandidate={onSelect}
         />}
         {mode === "comparison" && beforeActivitySurfaces.map((surface) => (
           <div key={surface.kind} data-workbench-surface={surface.kind}>

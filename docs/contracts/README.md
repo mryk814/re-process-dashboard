@@ -8,6 +8,7 @@ ownerは各backend／frontend／modeling領域で、schema、保存意味、exec
 - [Chain実行](chain-execution.md)
 - [Curation and Proposal](curation-and-proposal-architecture.md)
 - [検討アクティビティ](decision-activities.md)
+- [Decision Replay](decision-replay.md)
 - [特徴量パイプライン](feature-engineering.md)
 - [Feature Recipe](feature-recipe.md)
 - [推論実行](inference-execution.md)

@@ -26,6 +26,7 @@ from decision_workbench.api.data_lifecycle import (
 from decision_workbench.api.decision_activities import (
     router as decision_activities_router,
 )
+from decision_workbench.api.decision_replay import router as decision_replay_router
 from decision_workbench.api.developer import router as developer_router
 from decision_workbench.api.errors import (
     PROJECT_API_ERRORS,
@@ -158,6 +159,7 @@ def create_app(
     app.include_router(historical_observations_router)
     app.include_router(screening_router)
     app.include_router(decision_activities_router)
+    app.include_router(decision_replay_router)
     app.include_router(inference_router)
     app.include_router(records_router)
     for contribution in contributions:
