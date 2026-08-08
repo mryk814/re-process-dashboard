@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-throughput-comparison/v1",
+  "type": "object",
+  "required": ["schema_version", "case_id", "baseline_run_id", "candidate_run_id", "comparability", "external_authentication", "quality_regression", "resource_regression", "resource_deltas", "decision"],
+  "properties": {
+    "schema_version": {"const": "agent-throughput-comparison/v1"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "baseline_run_id": {"type": "string", "minLength": 1},
+    "candidate_run_id": {"type": "string", "minLength": 1},
+    "comparability": {"$ref": "#/$defs/status_reasons"},
+    "external_authentication": {
+      "type": "object",
+      "required": ["status", "required_for_adoption", "note"],
+      "properties": {
+        "status": {"const": "unsupported"},
+        "required_for_adoption": {"const": true},
+        "note": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "quality_regression": {"type": ["boolean", "null"]},
+    "resource_regression": {
+      "type": "object",
+      "required": ["status", "reasons"],
+      "properties": {"status": {"enum": ["within_budget", "regressed"]}, "reasons": {"type": "array", "items": {"type": "string"}}},
+      "additionalProperties": false
+    },
+    "resource_deltas": {
+      "type": "object",
+      "required": ["first_edit_elapsed_ms", "total_tool_call_count", "duplicate_command_count", "local_verification_duration_ms", "total_elapsed_ms", "input_tokens", "output_tokens", "credit_proxy_value"],
+      "properties": {
+        "first_edit_elapsed_ms": {"$ref": "#/$defs/nullable_number"},
+        "total_tool_call_count": {"$ref": "#/$defs/nullable_number"},
+        "duplicate_command_count": {"$ref": "#/$defs/nullable_number"},
+        "local_verification_duration_ms": {"$ref": "#/$defs/nullable_number"},
+        "total_elapsed_ms": {"$ref": "#/$defs/nullable_number"},
+        "input_tokens": {"$ref": "#/$defs/nullable_number"},
+        "output_tokens": {"$ref": "#/$defs/nullable_number"},
+        "credit_proxy_value": {"$ref": "#/$defs/nullable_number"}
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "required": ["action", "rollback_required", "scope", "reasons", "note"],
+      "properties": {
+        "action": {"enum": ["adopt_candidate", "rollback_candidate_profile"]},
+        "rollback_required": {"type": "boolean"},
+        "scope": {"const": "evaluation_profile_only"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "note": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "nullable_number": {"type": ["number", "null"]},
+    "status_reasons": {
+      "type": "object",
+      "required": ["status", "reasons"],
+      "properties": {"status": {"enum": ["comparable", "incomparable"]}, "reasons": {"type": "array", "items": {"type": "string"}}},
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

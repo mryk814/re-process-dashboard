@@ -215,6 +215,38 @@ application code、generated contract、command semanticsを変えていないin
 
 ## 改善の追跡
 
+### Paired eval
+
+[`benchmarks/agent-throughput`](../../benchmarks/agent-throughput/README.md)に、pure docs、
+backend one-authority、Web local interaction、test-only、API field、Model Runtime/scientific
+contractの6代表caseと、baseline/current共通result schemaを置きます。
+
+比較はsame commit、prompt、fixture、success criteria、model family、reasoning、fresh session、
+fresh workspaceが全て揃った場合だけ成立します。品質未達やHigh findingをresource改善で相殺せず、
+取得不能なtoken、tool call、lead time、verification時間は`null`のままにします。local instruction
+bytesはprovider tokenではないproxyとしてprovenanceを残します。
+
+agent runを採用する場合は、全必須metrics、必須gate ID/exact argvごとの#837 passed receiptとcommit/environment/
+command/duration整合、digest付きindependent human reviewが必要です。全gate receiptはmodel/reasoning、
+fresh session/workspace、fixture digest、provider usageを束ねたcontent-addressed run/session receiptへ
+結合します。case別resource ceiling、またはbaseline比
+1.25倍とcatalogのminimum regression deltaを共に超える大幅悪化はrollbackします。6 caseのpatchは固定commitの別clean worktreeへsetupし、
+materialized diff digest一致時だけresetできます。credentialやHOME pathを含む記録はrejectします。
+
+run/session receiptのdigestはintegrityだけを証明し、provider／human authenticityは証明しません。
+authenticated external recorderまたは署名検証が未実装の間は、agent run evidenceが揃っていても
+`authenticated_external_receipt:unsupported`としてincomparable／rollbackにし、profile adoptionを許可しません。
+
+2026-08-08時点ではroot instruction 15,760 bytes／214 linesから6,928 bytes／117 lines、
+visible Skill 12件から6件へのcontext変化だけが実測済みです。6 caseのfresh paired agent runと
+quality reviewは未実施なので、比較は全件`incomparable`、candidate profileはfail closedで
+rollback判定です。fast／deep profileの適用範囲はまだevidence更新しません。
+
+```powershell
+npm.cmd run agent-eval:test
+npm.cmd run agent-eval:check
+```
+
 - #837 — focused evidence reuseとsemantic verification分類
 - #838 — GPT-5.6代表taskのtoken／lead-time eval
 - #839 — Codexへ常時露出するSkillの整理

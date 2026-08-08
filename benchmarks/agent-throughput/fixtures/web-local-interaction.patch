@@ -1,0 +1,12 @@
+diff --git a/apps/web/src/features/candidates/CandidateUi.tsx b/apps/web/src/features/candidates/CandidateUi.tsx
+--- a/apps/web/src/features/candidates/CandidateUi.tsx
++++ b/apps/web/src/features/candidates/CandidateUi.tsx
+@@ -100,7 +100,7 @@ function ComparisonSplitResizer({
+     const step = event.shiftKey ? 8 : 2;
+     const next = event.key === "ArrowLeft"
+       ? value - step
+-      : event.key === "ArrowRight"
++      : event.key === "ArrowUp"
+         ? value + step
+         : event.key === "Home"
+           ? min
