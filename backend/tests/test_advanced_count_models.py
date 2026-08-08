@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,7 +21,10 @@ from decision_workbench.modeling.training.readiness import (
     standard_estimator_catalog,
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
-from decision_workbench.modeling.training.estimators.advanced_count import negative_binomial_deviance
+from decision_workbench.modeling.training.estimators.advanced_count import (
+    negative_binomial_deviance,
+    negative_binomial_zero_mass,
+)
 from decision_workbench.modeling.training.estimators import advanced_count
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
@@ -128,6 +132,59 @@ def test_negative_binomial_deviance_is_zero_at_saturated_mean() -> None:
     assert negative_binomial_deviance(observed, observed, np.full(4, 3.0)) == pytest.approx(0.0)
 
 
+def test_negative_binomial_zero_mass_uses_posterior_nb_probability() -> None:
+    assert negative_binomial_zero_mass(np.asarray([1.0]), np.asarray([2.0]))[0] == pytest.approx(4.0 / 9.0)
+
+
+def test_advanced_count_settings_map_every_shared_inference_field() -> None:
+    recipe = estimator_recipe("negative-binomial-regression.v1")
+    settings = advanced_count._settings(recipe)
+    assert settings.chains == recipe.chains
+    assert settings.warmup == recipe.warmup
+    assert settings.draws == recipe.draws
+    assert settings.max_r_hat == recipe.max_r_hat
+    assert settings.min_ess == recipe.min_effective_sample_size
+    assert settings.max_divergences == recipe.max_divergences
+
+
+def test_posterior_log_score_uses_nb_and_zip_draw_masses() -> None:
+    identity = SimpleNamespace()
+    values = np.asarray([[0.0]])
+    nb_fit = advanced_count._Fit(
+        np.zeros((2, 1)),
+        np.zeros(2),
+        np.full(2, 2.0),
+        None,
+        None,
+        identity,
+    )
+    nb_score = advanced_count._posterior_log_scores(
+        np.asarray([0.0]),
+        nb_fit,
+        values,
+        None,
+        estimator_recipe("negative-binomial-regression.v1"),
+    )
+    assert np.exp(nb_score[0]) == pytest.approx(4.0 / 9.0)
+
+    zip_fit = advanced_count._Fit(
+        np.zeros((2, 1)),
+        np.zeros(2),
+        None,
+        np.zeros((2, 1)),
+        np.zeros(2),
+        identity,
+    )
+    zip_score = advanced_count._posterior_log_scores(
+        np.asarray([0.0]),
+        zip_fit,
+        values,
+        None,
+        estimator_recipe("zero-inflated-poisson-regression.v1"),
+    )
+    assert np.exp(zip_score[0]) == pytest.approx(0.5 + 0.5 * math.exp(-1.0))
+
+
 @pytest.mark.parametrize(
     ("fixture", "estimator_id", "strategy", "with_exposure"),
     [
@@ -203,8 +260,70 @@ def test_injected_synthetic_matrix_runs_compile_train_artifact_runtime_quality(
     assert ("low" in exposure_quality) == with_exposure
 
 
-@pytest.mark.skipif(pytest.importorskip("importlib.util").find_spec("numpyro") is None, reason="backend-science owns real NumPyro fixtures")
-def test_real_numpyro_smoke_is_owned_by_backend_science(tmp_path: Path) -> None:
-    data = compile_target_training_set(_canonical(tuple(range(12)), tuple(1.0 for _ in range(12))), target="events", unit="events", target_kind="count", folds=2, seed=792)
-    trained = advanced_count.train(data, estimator_recipe("negative-binomial-regression.v1", {"warmup": 256, "draws": 256}), tmp_path / "real-nb.npz")
-    assert trained.artifact.exists()
+@pytest.mark.skipif(pytest.importorskip("importlib.util").find_spec("numpyro") is None, reason="backend-science installs runtime-numpyro")
+@pytest.mark.parametrize(
+    ("estimator_id", "observed", "family"),
+    [
+        (
+            "negative-binomial-regression.v1",
+            (0, 1, 1, 0, 2, 1, 4, 2, 5, 3, 8, 4, 7, 6, 11, 8, 14, 9, 16, 13, 20, 16, 25, 21),
+            "negative_binomial_log",
+        ),
+        (
+            "zero-inflated-poisson-regression.v1",
+            (0, 0, 1, 0, 0, 2, 0, 1, 3, 0, 4, 0, 5, 3, 0, 7, 4, 0, 9, 6, 0, 11, 8, 0),
+            "zero_inflated_poisson_log",
+        ),
+    ],
+)
+def test_real_numpyro_nb_and_zip_fit_export_and_runtime(
+    tmp_path: Path,
+    estimator_id: str,
+    observed: tuple[int, ...],
+    family: str,
+) -> None:
+    values = np.linspace(-1.5, 1.5, len(observed), dtype=float)[:, None]
+    recipe = estimator_recipe(estimator_id)
+    fitted = advanced_count._fit(
+        values,
+        np.asarray(observed, dtype=float),
+        None,
+        recipe,
+        seed=792,
+    )
+    assert fitted.inference_identity.diagnostics.status == "passed"
+    assert fitted.inference_identity.chains == 2
+    assert fitted.inference_identity.warmup == 256
+    assert fitted.inference_identity.draws == 256
+
+    artifact = tmp_path / f"{estimator_id}.npz"
+    np.savez(artifact, **advanced_count._artifact_arrays(fitted, recipe))
+    spec = PredictorSpec.model_validate(
+        {
+            "id": estimator_id,
+            "target": "events",
+            "unit": "events",
+            "target_kind": "count",
+            "runtime_type": "numpyro.dense_posterior.v1",
+            "architecture_id": "dense_mlp_v1",
+            "artifact": artifact.name,
+            "predictive_family": family,
+            "feature_names": ["x"],
+            "config": {
+                "advanced_count_contract": "advanced-count-contract/v1",
+                "exposure": {"mode": "not_applicable_unexposed_count/v1"},
+            },
+        }
+    )
+    summary = NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), spec).predict(
+        {"x": 0.25},
+        sampling_request=SamplingRequest.create(
+            operation="package_verification",
+            policy_id="real-count-numpyro-smoke/v1",
+            seed=792,
+            requested_sample_count=64,
+        ),
+    )
+    assert summary.point_estimate >= 0
+    assert summary.prediction_interval is not None
+    assert summary.distribution["mean_semantics"] == "expected_count"

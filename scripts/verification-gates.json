@@ -111,13 +111,13 @@
       "runner": {"executable": "npm", "args": ["run", "security:audit"]}
     },
     "full-pytest": {
-      "command": "uv run --extra dev python -m pytest -vv --durations=20 --durations-min=1",
+      "command": "uv run --extra dev --extra runtime-numpyro python -m pytest -vv --durations=20 --durations-min=1",
       "purpose": "backendの科学・永続化・API契約を横断検証する。",
       "estimatedMinutes": "12-20",
       "platform": "any",
       "riskCategories": ["backend", "persistence", "model-package"],
       "absorbs": ["focused-pytest", "security-boundary-tests", "model-package-contract-tests", "legacy-workspace"],
-      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest", "-vv", "--durations=20", "--durations-min=1"]}
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "--extra", "runtime-numpyro", "python", "-m", "pytest", "-vv", "--durations=20", "--durations-min=1"]}
     },
     "web-unit": {
       "command": "npm run test -w apps/web",

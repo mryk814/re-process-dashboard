@@ -87,7 +87,7 @@ def _settings(recipe: CountRecipe) -> _InferenceSettings:
         warmup=recipe.warmup,
         draws=recipe.draws,
         max_r_hat=recipe.max_r_hat,
-        min_effective_sample_size=recipe.min_effective_sample_size,
+        min_ess=recipe.min_effective_sample_size,
         max_divergences=recipe.max_divergences,
     )
 
@@ -159,7 +159,16 @@ def _fit(values: np.ndarray, target: np.ndarray, exposure: np.ndarray | None, re
     gate_intercepts = np.asarray(samples["gate_intercept"], dtype=float) - gate_coefficients @ x_mean if gate_coefficients is not None else None
     if gate_coefficients is not None and (not np.isfinite(gate_coefficients).all() or not np.isfinite(gate_intercepts).all()):
         raise AdvancedCountSamplingError("sampling_failed", f"{recipe.estimator_id} produced invalid zero-gate draws")
-    return _Fit(coefficients, intercepts, dispersion, gate_coefficients, gate_intercepts, InferenceIdentity.create(policy=inference_policy("nuts"), parameterization=recipe.parameterization, diagnostics=diagnostics, seed=_fit_seed(seed), chains=settings.chains, warmup=settings.warmup, draws=settings.draws, resource_limits=bayesian_inference_resource_limits(recipe), convergence_criteria={"max_r_hat": settings.max_r_hat, "min_ess": settings.min_effective_sample_size, "max_divergences": settings.max_divergences}))
+    return _Fit(coefficients, intercepts, dispersion, gate_coefficients, gate_intercepts, InferenceIdentity.create(policy=inference_policy("nuts"), parameterization=recipe.parameterization, diagnostics=diagnostics, seed=_fit_seed(seed), chains=settings.chains, warmup=settings.warmup, draws=settings.draws, resource_limits=bayesian_inference_resource_limits(recipe), convergence_criteria={"max_r_hat": settings.max_r_hat, "min_ess": settings.min_ess, "max_divergences": settings.max_divergences}))
+
+
+def negative_binomial_zero_mass(mean: np.ndarray, dispersion: np.ndarray) -> np.ndarray:
+    """Return P(Y=0) for matching posterior NB2 mean/dispersion draws."""
+    mean_values = np.asarray(mean, dtype=float)
+    dispersion_values = np.asarray(dispersion, dtype=float)
+    if np.any(mean_values < 0) or np.any(dispersion_values <= 0):
+        raise ValueError("negative-binomial zero mass requires nonnegative means and positive dispersion")
+    return np.power(dispersion_values / (dispersion_values + mean_values), dispersion_values)
 
 
 def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe: CountRecipe, *, seed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
@@ -168,7 +177,8 @@ def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe:
     if recipe.estimator_id == "negative-binomial-regression.v1":
         assert dispersions is not None
         samples = rng.poisson(rng.gamma(shape=dispersions, scale=means / dispersions))
-        return means.mean(axis=1), samples, dispersions.mean(axis=1), np.zeros(len(values))
+        zero_mass = negative_binomial_zero_mass(means, dispersions)
+        return means.mean(axis=1), samples, dispersions.mean(axis=1), zero_mass.mean(axis=1)
     # The second posterior output is deliberately a fixed gate intercept for v1;
     # its probability remains distinct from the expected count.
     assert gates is not None
@@ -178,19 +188,38 @@ def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe:
     return ((1.0 - gate) * means).mean(axis=1), samples, None, gate.mean(axis=1)
 
 
-def _log_score(observed: np.ndarray, expected: np.ndarray, recipe: CountRecipe, dispersion: np.ndarray | None, zero_probability: np.ndarray) -> float:
-    result: list[float] = []
-    for y, mu, alpha, gate in zip(observed.astype(int), expected, dispersion if dispersion is not None else np.full(len(observed), np.inf), zero_probability, strict=True):
-        count_mean = mu if recipe.estimator_id == "negative-binomial-regression.v1" else mu / max(1.0 - gate, 1e-15)
-        poisson_log = y * math.log(max(count_mean, 1e-15)) - count_mean - math.lgamma(y + 1)
+def _posterior_log_scores(
+    observed: np.ndarray,
+    fit: _Fit,
+    values: np.ndarray,
+    exposure: np.ndarray | None,
+    recipe: CountRecipe,
+) -> np.ndarray:
+    """Log posterior-predictive mass per row, mixed across parameter draws."""
+    means, dispersions, gates = fit.parameters(values, exposure)
+    rows: list[float] = []
+    for row, y in enumerate(observed.astype(int)):
+        draw_means = np.maximum(means[row], 1e-15)
         if recipe.estimator_id == "negative-binomial-regression.v1":
-            r = max(float(alpha), 1e-15)
-            result.append(math.lgamma(y + r) - math.lgamma(r) - math.lgamma(y + 1) + r * math.log(r / (r + mu)) + y * math.log(mu / (r + mu)))
-        elif y == 0:
-            result.append(math.log(gate + (1 - gate) * math.exp(-count_mean)))
+            assert dispersions is not None
+            draw_dispersion = np.maximum(dispersions[0], 1e-15)
+            log_mass = (
+                np.asarray([math.lgamma(y + float(item)) - math.lgamma(float(item)) for item in draw_dispersion])
+                - math.lgamma(y + 1)
+                + draw_dispersion * np.log(draw_dispersion / (draw_dispersion + draw_means))
+                + y * np.log(draw_means / (draw_dispersion + draw_means))
+            )
         else:
-            result.append(math.log(1 - gate) + poisson_log)
-    return float(np.mean(result))
+            assert gates is not None
+            draw_gates = np.clip(gates[row], 1e-15, 1 - 1e-15)
+            poisson_log = y * np.log(draw_means) - draw_means - math.lgamma(y + 1)
+            if y == 0:
+                log_mass = np.log(draw_gates + (1 - draw_gates) * np.exp(-draw_means))
+            else:
+                log_mass = np.log1p(-draw_gates) + poisson_log
+        maximum = float(np.max(log_mass))
+        rows.append(maximum + math.log(float(np.mean(np.exp(log_mass - maximum)))))
+    return np.asarray(rows, dtype=float)
 
 
 def negative_binomial_deviance(observed: np.ndarray, mean: np.ndarray, dispersion: np.ndarray) -> float:
@@ -199,6 +228,21 @@ def negative_binomial_deviance(observed: np.ndarray, mean: np.ndarray, dispersio
         first = 0.0 if y == 0 else y * math.log(y / mu)
         terms.append(2.0 * (first - (y + r) * math.log((y + r) / (mu + r))))
     return float(np.mean(terms))
+
+
+def _artifact_arrays(fit: _Fit, recipe: CountRecipe) -> dict[str, np.ndarray]:
+    arrays: dict[str, np.ndarray] = {
+        "w0": fit.coefficients[:, :, None],
+        "b0": fit.intercepts[:, None],
+    }
+    if fit.dispersion is not None:
+        arrays["dispersion"] = fit.dispersion
+    elif recipe.estimator_id == "zero-inflated-poisson-regression.v1":
+        arrays["w0"] = np.concatenate((arrays["w0"], np.zeros_like(arrays["w0"])), axis=2)
+        assert fit.zero_gate_coefficients is not None and fit.zero_gate_intercepts is not None
+        arrays["w0"][:, :, 1] = fit.zero_gate_coefficients
+        arrays["b0"] = np.column_stack((arrays["b0"][:, 0], fit.zero_gate_intercepts))
+    return arrays
 
 
 def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> TrainedPredictor:
@@ -212,6 +256,7 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
     zero_probability = np.full(len(data.y), np.nan)
     dispersions = np.full(len(data.y), np.nan)
     predictive_tail = np.full(len(data.y), np.nan)
+    posterior_log_scores = np.full(len(data.y), np.nan)
     tail_threshold = float(np.quantile(data.y[data.quality_rows], 0.9))
     fold_diagnostics: list[dict[str, Any]] = []
     folds = (0,) if data.is_temporal_validation else range(data.folds)
@@ -223,11 +268,14 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
         else:
             evaluate = data.fold_ids == fold
         fitted = _fit(prepared_feature_matrix(data, fit_rows=train_rows, transform_rows=train_rows), data.y[train_rows], None if data.exposure is None else data.exposure[train_rows], recipe, seed=_fit_seed(recipe.seed, int(fold)))
-        mean, samples, fold_dispersion, fold_zero = _predict(fitted, prepared_feature_matrix(data, fit_rows=train_rows, transform_rows=evaluate), None if data.exposure is None else data.exposure[evaluate], recipe, seed=_fit_seed(recipe.seed, int(fold) + 1_000))
+        evaluation_values = prepared_feature_matrix(data, fit_rows=train_rows, transform_rows=evaluate)
+        evaluation_exposure = None if data.exposure is None else data.exposure[evaluate]
+        mean, samples, fold_dispersion, fold_zero = _predict(fitted, evaluation_values, evaluation_exposure, recipe, seed=_fit_seed(recipe.seed, int(fold) + 1_000))
         expected[evaluate] = mean
         lower[evaluate], upper[evaluate] = np.quantile(samples, (0.05, 0.95), axis=1).astype(int)
         zero_probability[evaluate] = fold_zero
         predictive_tail[evaluate] = np.mean(samples >= tail_threshold, axis=1)
+        posterior_log_scores[evaluate] = _posterior_log_scores(data.y[evaluate], fitted, evaluation_values, evaluation_exposure, recipe)
         if fold_dispersion is not None:
             dispersions[evaluate] = fold_dispersion
         fold_diagnostics.append({"fold": int(fold), "training_rows": int(train_rows.sum()), "evaluation_rows": int(evaluate.sum()), "inference_identity": fitted.inference_identity.model_dump(mode="json")})
@@ -236,20 +284,11 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
         raise AdvancedCountSamplingError("sampling_failed", f"{recipe.estimator_id} produced incomplete fold-safe predictions")
     final = _fit(prepared_feature_matrix(data), data.y, data.exposure, recipe, seed=effective_bayesian_final_inference_seed(recipe.seed))
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    arrays: dict[str, np.ndarray] = {"w0": final.coefficients[:, :, None], "b0": final.intercepts[:, None]}
-    if final.dispersion is not None:
-        arrays["dispersion"] = final.dispersion
-    elif recipe.estimator_id == "zero-inflated-poisson-regression.v1":
-        # Exported zero gate is a posterior dense output as required by the runtime.
-        arrays["w0"] = np.concatenate((arrays["w0"], np.zeros_like(arrays["w0"])), axis=2)
-        assert final.zero_gate_coefficients is not None and final.zero_gate_intercepts is not None
-        arrays["w0"][:, :, 1] = final.zero_gate_coefficients
-        arrays["b0"] = np.column_stack((arrays["b0"][:, 0], final.zero_gate_intercepts))
-    np.savez(artifact_path, **arrays)
+    np.savez(artifact_path, **_artifact_arrays(final, recipe))
     observed = data.y[quality_rows]
     evaluated = expected[quality_rows]
     parameters = recipe.model_dump(mode="json", exclude={"estimator_id", "validation_plan", "validation_plans_by_target"}, exclude_none=True)
-    quality = TargetQualityMetric(target=data.target, parent_conditions=len(set(data.validation_groups)), mae=float(np.mean(np.abs(observed - evaluated))), rmse=float(np.sqrt(np.mean((observed - evaluated) ** 2))), median_absolute_error=float(np.median(np.abs(observed - evaluated))), mean_log_predictive_density=_log_score(observed, evaluated, recipe, dispersions[quality_rows] if np.isfinite(dispersions[quality_rows]).all() else None, zero_probability[quality_rows]), extreme_residual_mae=float(np.mean(np.abs(observed[observed >= np.quantile(observed, 0.9)] - evaluated[observed >= np.quantile(observed, 0.9)]))), interval_coverage_90=float(np.mean((observed >= lower[quality_rows]) & (observed <= upper[quality_rows]))), interval_coverage_method="posterior-predictive-interval", interval_coverage_observations=int(quality_rows.sum()), mean_interval_width=float(np.mean(upper[quality_rows] - lower[quality_rows])))
+    quality = TargetQualityMetric(target=data.target, parent_conditions=len(set(data.validation_groups)), mae=float(np.mean(np.abs(observed - evaluated))), rmse=float(np.sqrt(np.mean((observed - evaluated) ** 2))), median_absolute_error=float(np.median(np.abs(observed - evaluated))), mean_log_predictive_density=float(np.mean(posterior_log_scores[quality_rows])), extreme_residual_mae=float(np.mean(np.abs(observed[observed >= np.quantile(observed, 0.9)] - evaluated[observed >= np.quantile(observed, 0.9)]))), interval_coverage_90=float(np.mean((observed >= lower[quality_rows]) & (observed <= upper[quality_rows]))), interval_coverage_method="posterior-predictive-interval", interval_coverage_observations=int(quality_rows.sum()), mean_interval_width=float(np.mean(upper[quality_rows] - lower[quality_rows])))
     family = "negative_binomial_log" if recipe.estimator_id == "negative-binomial-regression.v1" else "zero_inflated_poisson_log"
     predictor = {"id": f"{data.target.lower()}-{recipe.estimator_id.removesuffix('.v1')}", "target": data.target, "unit": data.unit, "target_kind": "count", "runtime_type": RUNTIME_TYPE, "architecture_id": "dense_mlp_v1", "artifact": artifact_path.as_posix(), "predictive_family": family, "feature_names": list(data.feature_names), "inference_identity": final.inference_identity.model_dump(mode="json"), "config": {"advanced_count_contract": "advanced-count-contract/v1", "activation": "tanh", "interval_semantics": "q05-q95 posterior-predictive count interval", "exposure": ({"mode": "explicit_offset/v1", "input_path": data.exposure_input_path} if data.exposure_input_path is not None else {"mode": "not_applicable_unexposed_count/v1"}), "training": standard_training_metadata(data, estimator_id=recipe.estimator_id, uncertainty="NUTS posterior predictive count distribution", parameters=parameters, effective_inference_seed=effective_bayesian_final_inference_seed(recipe.seed))}}
     exposure_diagnostics = {"status": "not_applicable"}
@@ -260,7 +299,18 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
             "low": {"observed_mean": float(observed[exposed <= median].mean()), "expected_mean": float(evaluated[exposed <= median].mean())},
             "high": {"observed_mean": float(observed[exposed > median].mean()), "expected_mean": float(evaluated[exposed > median].mean())},
         }
-    poisson_deviance = float(2 * np.mean(evaluated - observed + np.where(observed > 0, observed * np.log(observed / np.maximum(evaluated, 1e-15)), 0)))
+    poisson_terms = evaluated - observed
+    positive_observed = observed > 0
+    poisson_terms[positive_observed] += observed[positive_observed] * np.log(
+        observed[positive_observed] / np.maximum(evaluated[positive_observed], 1e-15)
+    )
+    poisson_deviance = float(2 * np.mean(poisson_terms))
     nb_dispersion = dispersions[quality_rows] if np.isfinite(dispersions[quality_rows]).all() else np.full(len(observed), 1.0)
     nb_deviance = negative_binomial_deviance(observed, evaluated, nb_dispersion)
-    return TrainedPredictor(predictor=predictor, artifact=artifact_path, quality=quality, diagnostics={"estimator_id": recipe.estimator_id, "folds": fold_diagnostics, "count_contract": {"target_eligibility": "nonnegative_integer", "observed_zero_rate": float(np.mean(data.y == 0)), "observed_mean": float(np.mean(data.y)), "observed_variance": float(np.var(data.y)), "exposure": predictor["config"]["exposure"]}, "count_quality": {"poisson_deviance": poisson_deviance, "negative_binomial_deviance": nb_deviance, "zero_observed_rate": float(np.mean(observed == 0)), "zero_predicted_rate": float(np.mean(zero_probability[quality_rows] + (1 - zero_probability[quality_rows]) * np.exp(-evaluated / np.maximum(1 - zero_probability[quality_rows], 1e-15)))), "tail_observed_rate": float(np.mean(observed >= tail_threshold)), "tail_predictive_rate": float(np.mean(predictive_tail[quality_rows])), "exposure_stratified": exposure_diagnostics}}, predict=lambda values: float(np.mean(_predict(final, values, None, recipe, seed=recipe.seed)[0])), evaluation_predictions=expected)
+    if recipe.estimator_id == "negative-binomial-regression.v1":
+        predicted_zero_rate = float(np.mean(zero_probability[quality_rows]))
+    else:
+        gates = zero_probability[quality_rows]
+        count_means = evaluated / np.maximum(1 - gates, 1e-15)
+        predicted_zero_rate = float(np.mean(gates + (1 - gates) * np.exp(-count_means)))
+    return TrainedPredictor(predictor=predictor, artifact=artifact_path, quality=quality, diagnostics={"estimator_id": recipe.estimator_id, "folds": fold_diagnostics, "count_contract": {"target_eligibility": "nonnegative_integer", "observed_zero_rate": float(np.mean(data.y == 0)), "observed_mean": float(np.mean(data.y)), "observed_variance": float(np.var(data.y)), "exposure": predictor["config"]["exposure"]}, "count_quality": {"poisson_deviance": poisson_deviance, "negative_binomial_deviance": nb_deviance, "zero_observed_rate": float(np.mean(observed == 0)), "zero_predicted_rate": predicted_zero_rate, "tail_observed_rate": float(np.mean(observed >= tail_threshold)), "tail_predictive_rate": float(np.mean(predictive_tail[quality_rows])), "exposure_stratified": exposure_diagnostics}}, predict=lambda values: float(np.mean(_predict(final, values, None, recipe, seed=recipe.seed)[0])), evaluation_predictions=expected)

@@ -27,6 +27,10 @@ NB の point estimate は expected count、`overdispersion` は別の distributi
 | varying exposure | explicit offset と exposure-stratified diagnostics |
 | grouped / temporal count | outer-fold feature fit と split identity |
 
-このPRの判定は **experimental** です。ローカルでは固定 seed 792 の6 fixtureを deterministic injected posterior fit で `compile -> fold/temporal train -> bounded NPZ -> safe runtime -> quality` まで実行しました。true Poisson、overdispersed NB、structural ZIP、zero-heavy non-ZIP、varying exposure、temporal countを含み、grouped k-foldとtemporal holdout、数値 exposure strata、全OOF rowのtail calibrationを確認しています。Model Playgroundの完了attemptは同じcohort・fold・exposure digestだけを比較evidenceとしてRunへ保存し、API／再起動後も返します。adoption memoや自動選択は作りません。
+このPRの判定は **experimental** です。ローカルでは固定 seed 792 の6 fixtureを deterministic injected posterior fit で `compile -> fold/temporal train -> bounded NPZ -> safe runtime -> quality` まで実行しました。true Poisson、overdispersed NB、structural ZIP、zero-heavy non-ZIP、varying exposure、temporal countを含み、grouped k-foldとtemporal holdout、数値 exposure strata、全OOF rowのtail calibrationを確認しています。これはtrainer全経路の広さを確認するfixtureであり、実NUTSの収束証拠とは区別します。Model Playgroundの完了attemptは同じcohort・fold・exposure digestだけを比較evidenceとしてRunへ保存し、API／再起動後も返します。adoption memoや自動選択は作りません。
 
-NumPyro/JAX がこのローカル環境にないため、同じtrainerのreal-NUTS smokeはdependency-gated testとし、fresh `backend-science` CIがmerge前に所有します。production claim、active Packageの置換、自動model selectionは支持しません。productionの個別Task evidenceが揃った場合だけ #781 へ接続します。
+ローカルでは `uv run --extra dev --extra runtime-numpyro` で固定 sampling identity（2 chain、256 warmup、256 draw、seed 792）の実NUTSをNBとZIPの両方について実行しました。2件は18.48秒で通過し、sampling diagnostics、production artifact serializer、safe runtime predictionまで確認しました。`backend-science` shardも `runtime-numpyro` extraを明示的にinstallし、同じ2件をskipせずmerge前に実行します。OOF trainer全経路は上記injected matrix、実サンプラー式はこのdependency-gated smokeがそれぞれ所有します。
+
+zero calibrationは、NBではposterior drawごとに `(r / (r + mu)) ** r` を計算してOOF行へ集約し、ZIPでは構造的gateとPoisson count-process zero massを分離して合成します。log scoreはNB/ZIPともposterior drawごとの確率質量をlog-mean-expで混合し、tail rateは各foldのposterior predictive sampleを各OOF行へ保存して全quality cohortで集約します。
+
+production claim、active Packageの置換、自動model selectionは支持しません。productionの個別Task evidenceが揃った場合だけ #781 へ接続します。
