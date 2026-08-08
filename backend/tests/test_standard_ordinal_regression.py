@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from decision_workbench.adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
+from decision_workbench.adapters.numpyro_posterior import (
+    NumpyroDensePosteriorAdapter,
+    _category_order_digest,
+)
 from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
@@ -24,6 +28,7 @@ from decision_workbench.modeling.training.readiness import (
     standard_estimator_catalog,
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 CATEGORIES = ("low", "medium", "high")
 
@@ -142,7 +147,8 @@ class _Artifacts:
         return self.path
 
 
-def _predictor() -> PredictorSpec:
+def _predictor(*, category_digest: str | None = None) -> PredictorSpec:
+    digest = category_digest or _category_order_digest(list(CATEGORIES))
     return PredictorSpec.model_validate(
         {
             "id": "grade-ordered-logit",
@@ -154,7 +160,11 @@ def _predictor() -> PredictorSpec:
             "artifact": "posterior.npz",
             "predictive_family": "ordinal_logit",
             "feature_names": ["x"],
-            "config": {"categories": list(CATEGORIES), "thresholds": [-0.5, 0.5]},
+            "config": {
+                "categories": list(CATEGORIES),
+                "thresholds": [-0.5, 0.5],
+                "category_order_digest": digest,
+            },
         }
     )
 
@@ -180,6 +190,20 @@ def test_runtime_uses_posterior_threshold_draws_and_rejects_unordered(
         ),
     )
     assert summary.distribution["categories"] == list(CATEGORIES)
+    probabilities = summary.distribution["probabilities"]
+    assert len(probabilities) == len(CATEGORIES)
+    assert all(value >= 0.0 for value in probabilities)
+    assert sum(probabilities) == pytest.approx(1.0)
+    eta = np.asarray([0.2, 0.24, 0.16])
+    cuts = np.asarray([[-1.0, 0.5], [-0.8, 0.7], [-1.2, 0.4]])
+    cumulative = 1.0 / (1.0 + np.exp(-(cuts - eta[:, None])))
+    expected_probabilities = np.column_stack(
+        [cumulative[:, 0], np.diff(cumulative, axis=1), 1 - cumulative[:, -1]]
+    ).mean(axis=0)
+    np.testing.assert_allclose(probabilities, expected_probabilities)
+    assert summary.point_estimate == pytest.approx(
+        sum(index * value for index, value in enumerate(probabilities))
+    )
     assert 0.0 <= summary.point_estimate <= 2.0
 
     np.savez(
@@ -190,6 +214,84 @@ def test_runtime_uses_posterior_threshold_draws_and_rejects_unordered(
     )
     with pytest.raises(PackageContractError, match="threshold draws"):
         NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), _predictor())
+
+
+@pytest.mark.parametrize("category_digest", ["missing", "sha256:" + "0" * 64])
+def test_posterior_thresholds_require_matching_category_digest(
+    tmp_path: Path,
+    category_digest: str,
+) -> None:
+    artifact = tmp_path / "posterior.npz"
+    np.savez(
+        artifact,
+        w0=np.asarray([[[1.0]], [[1.2]]]),
+        b0=np.zeros((2, 1)),
+        ordinal_thresholds=np.asarray([[-1.0, 0.5], [-0.8, 0.7]]),
+    )
+    predictor = _predictor(category_digest=category_digest)
+    if category_digest == "missing":
+        predictor = predictor.model_copy(
+            update={
+                "config": {
+                    key: value
+                    for key, value in predictor.config.items()
+                    if key != "category_order_digest"
+                }
+            }
+        )
+        message = "require category_order_digest"
+    else:
+        message = "does not match categories"
+    with pytest.raises(PackageContractError, match=message):
+        NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), predictor)
+
+
+@pytest.mark.parametrize("strategy", ["temporal_holdout", "grouped_temporal"])
+def test_temporal_ordinal_evaluates_only_holdout_and_records_category_deficiency(
+    monkeypatch: pytest.MonkeyPatch,
+    strategy: str,
+) -> None:
+    labels = tuple(CATEGORIES[index % 3] for index in range(18)) + ("high",) * 6
+    plan = ValidationPlan(
+        strategy=strategy,
+        holdout_fraction=0.25,
+        time_key="x",
+        group_key="parent_key" if strategy == "grouped_temporal" else None,
+        minimum_train_size=6,
+        seed=791,
+    )
+    data = compile_target_training_set(
+        _canonical(labels),
+        target="grade",
+        unit="1",
+        target_kind="ordinal",
+        ordinal_categories=CATEGORIES,
+        validation_plan=plan,
+    )
+    fake_identity = SimpleNamespace(
+        model_dump=lambda **_: {"diagnostics": {"status": "passed"}}
+    )
+    fake_fit = SimpleNamespace(
+        probabilities=lambda values: np.broadcast_to(
+            np.asarray([[[0.2, 0.5, 0.3]]]),
+            (len(values), 1, 3),
+        ),
+        inference_identity=fake_identity,
+    )
+    monkeypatch.setattr(ordered_logit, "_fit", lambda *args, **kwargs: fake_fit)
+
+    probabilities, _ = ordered_logit._honest_predictions(
+        data,
+        estimator_recipe("ordered-logit.v1", {"validation_plan": plan}),
+    )
+    assert np.isfinite(probabilities[data.quality_rows]).all()
+    assert np.isnan(probabilities[~data.quality_rows]).all()
+    diagnostics = data.validation_diagnostics["ordinal_category_diagnostics"]
+    assert diagnostics["evaluation_cohorts"][0]["missing_categories"] == [
+        "low",
+        "medium",
+    ]
+    assert diagnostics["findings"]
 
 
 def test_missing_numpyro_is_typed_and_never_falls_back(
@@ -303,7 +405,10 @@ def test_real_same_cohort_ordered_logit_beats_fold_local_frequency_baseline(
             operation="package_verification",
             policy_id="issue-791-real-artifact/v1",
             seed=791,
-            requested_sample_count=128,
+            requested_sample_count=512,
         ),
     )
     assert summary.distribution["categories"] == list(CATEGORIES)
+    assert summary.point_estimate == pytest.approx(
+        trained.predict(np.asarray([0.0])), rel=0, abs=1e-12
+    )

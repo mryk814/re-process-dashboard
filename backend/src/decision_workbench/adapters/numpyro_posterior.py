@@ -5,6 +5,9 @@ the fixed dense_mlp_v1 forward pass and one of the finite likelihood ids below.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+
 import numpy as np
 
 from decision_workbench.contracts.sampling_identity_contracts import (
@@ -35,6 +38,16 @@ MAX_TENSOR_ELEMENTS = 4_000_000
 def _sigmoid(value: np.ndarray) -> np.ndarray:
     clipped = np.clip(value, -50, 50)
     return 1.0 / (1.0 + np.exp(-clipped))
+
+
+def _category_order_digest(categories: list[str]) -> str:
+    encoded = json.dumps(
+        categories,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _bayesian_interval(quantiles: dict[str, float]) -> PredictionInterval:
@@ -224,7 +237,15 @@ class _DensePosteriorPredictor:
             probabilities = np.clip(probabilities, 0, 1)
             probabilities /= probabilities.sum(axis=1, keepdims=True)
             samples = np.asarray([rng.choice(probabilities.shape[1], p=row) for row in probabilities])
-            point, distribution = float(np.mean(np.arange(probabilities.shape[1]) * probabilities.mean(axis=0))), {"family": family, "support": "ordered_categories", "categories": categories}
+            mean_probabilities = probabilities.mean(axis=0)
+            point, distribution = float(
+                np.dot(np.arange(probabilities.shape[1]), mean_probabilities)
+            ), {
+                "family": family,
+                "support": "ordered_categories",
+                "categories": categories,
+                "probabilities": mean_probabilities.tolist(),
+            }
         else:
             raise PackageContractError(f"unsupported NumPyro likelihood: {family}")
         quantiles = quantile_summary(samples, discrete=True)
@@ -290,10 +311,20 @@ class NumpyroDensePosteriorAdapter:
                 if posterior_thresholds.ndim != 2 or posterior_thresholds.shape[0] != draws or posterior_thresholds.shape[1] < 1 or not np.isfinite(posterior_thresholds).all() or not np.all(np.diff(posterior_thresholds, axis=1) > 0):
                     raise PackageContractError("ordinal threshold draws must be finite, ordered, and aligned to posterior draws")
                 threshold_count = posterior_thresholds.shape[1]
+                category_digest = predictor.config.get("category_order_digest")
+                if not isinstance(category_digest, str):
+                    raise PackageContractError(
+                        "posterior ordinal thresholds require category_order_digest"
+                    )
             else:
                 if not isinstance(thresholds, list) or len(thresholds) < 1 or not all(isinstance(item, (int, float)) and np.isfinite(item) for item in thresholds) or not np.all(np.diff(thresholds) > 0):
                     raise PackageContractError("ordinal thresholds must be finite and strictly increasing")
                 threshold_count = len(thresholds)
             if not isinstance(categories, list) or len(categories) != threshold_count + 1 or len(categories) != len(set(categories)) or not all(isinstance(item, str) and item for item in categories):
                 raise PackageContractError("ordinal category metadata is invalid")
+            category_digest = predictor.config.get("category_order_digest")
+            if category_digest is not None and category_digest != _category_order_digest(categories):
+                raise PackageContractError(
+                    "ordinal category_order_digest does not match categories"
+                )
         return _DensePosteriorPredictor(predictor, weights, biases, extras)

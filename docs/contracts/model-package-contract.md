@@ -217,8 +217,14 @@ labelを整数categoryへ変換するexperimentalな標準builderです。
 `ordinal_thresholds` として保存します。
 `ordinal_thresholds` はposterior draw数と一致する2次元有限配列で、各draw内が
 狭義単調増加でなければloaderが拒否します。
+posterior threshold形式では `category_order_digest` を必須とし、`categories` の
+順序付き配列から再計算したdigestと一致しなければ読み込みません。
+さらにPackage検証では `categories` がTaskDefinitionのordinal category順序と
+完全一致することを確認します。
 既存ordinal Packageの `config.thresholds` 固定値は引き続き読めますが、新builderは
 threshold uncertaintyを固定値へ潰しません。
+runtimeはTask順序と同じcategory probability配列を返し、expected categoryは
+`sum(category_index * probability)`として計算します。
 category順序digest、実効inference identity、fold category診断、ordinal MAE、
 ranked probability score、log loss、category/cumulative calibration、extreme category recallを
 学習provenanceとdiagnosticsへ残します。

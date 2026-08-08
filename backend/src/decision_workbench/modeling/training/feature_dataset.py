@@ -494,10 +494,42 @@ def compile_target_training_set(
                     f"{target}: {name} is missing Task categories: "
                     + ", ".join(ordered_categories[index] for index in missing)
                 )
+        evaluation_cohorts = (
+            [
+                (
+                    "temporal holdout",
+                    temporal_role_rows(fold_ids, ValidationRowRole.EVALUATION),
+                )
+            ]
+            if plan.strategy in {"temporal_holdout", "grouped_temporal"}
+            else [
+                (f"evaluation fold {fold}", fold_ids == fold)
+                for fold in range(resolved_folds)
+            ]
+        )
+        evaluation_details: list[dict[str, Any]] = []
+        findings: list[str] = []
+        for name, rows in evaluation_cohorts:
+            present = {int(value) for value in np.unique(y[rows])}
+            missing = sorted(expected - present)
+            labels = [ordered_categories[index] for index in missing]
+            evaluation_details.append({
+                "cohort": name,
+                "present_categories": [
+                    ordered_categories[index] for index in sorted(present)
+                ],
+                "missing_categories": labels,
+            })
+            if labels:
+                findings.append(
+                    f"{name} does not observe Task categories: " + ", ".join(labels)
+                )
         ordinal_diagnostics = {
             "category_order": list(ordered_categories),
             "category_order_digest": _semantic_digest(list(ordered_categories)),
             "training_cohorts": details,
+            "evaluation_cohorts": evaluation_details,
+            "findings": findings,
         }
     if feature_recipe is not None:
         assert feature_recipe_state is not None

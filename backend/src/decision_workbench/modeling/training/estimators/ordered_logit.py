@@ -330,7 +330,7 @@ def _honest_predictions(
                 "inference_identity": fitted.inference_identity.model_dump(mode="json"),
             }
         )
-    if not np.isfinite(probabilities).all():
+    if not np.isfinite(probabilities[data.quality_rows]).all():
         raise OrderedLogitSamplingError(
             "sampling_failed",
             "ordered-logit.v1 produced incomplete cross-fitted probabilities",
