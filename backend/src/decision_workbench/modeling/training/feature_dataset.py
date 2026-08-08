@@ -54,6 +54,18 @@ class TargetTrainingSet:
     recipe_rows: tuple[Mapping[str, Any], ...] = ()
 
     @property
+    def raw_observation_count(self) -> int:
+        """Number of source observations before replicate aggregation."""
+
+        return sum(self.repeat_counts)
+
+    @property
+    def effective_replicate_context_count(self) -> int:
+        """Number of rows actually presented to the estimator."""
+
+        return len(self.y)
+
+    @property
     def is_temporal_validation(self) -> bool:
         return self.validation_plan.strategy in {
             "temporal_holdout",
@@ -119,7 +131,13 @@ def _evaluation_identity(
         set(validation_groups),
         key=lambda group: (_fold_order(group, seed=seed), group),
     )
-    folds = min(requested_folds, len(unique_groups))
+    if requested_folds > len(unique_groups):
+        raise ValueError(
+            f"{target}: requested {requested_folds} folds but only "
+            f"{len(unique_groups)} independent validation groups are available; "
+            "fold count is never reduced implicitly"
+        )
+    folds = requested_folds
     if folds < 2:
         raise ValueError(
             f"{target}: at least two independent validation groups are required"

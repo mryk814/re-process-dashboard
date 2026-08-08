@@ -454,7 +454,8 @@
           "seed": 20260730
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "exact-gp-rbf.v1",
@@ -505,7 +506,43 @@
           "max_rows": 500
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": {
+          "schema_version": "exact-gp-capacity-policy/v1",
+          "policy_id": "exact-gp-capacity",
+          "policy_version": "exact-gp-capacity/v1",
+          "default_effective_row_limit": 500,
+          "default_feature_limit": 64,
+          "benchmark_effective_rows": [
+            100,
+            250,
+            500,
+            750,
+            1000
+          ],
+          "benchmark_features": [
+            8,
+            32,
+            64
+          ],
+          "benchmark_folds": [
+            3,
+            5
+          ],
+          "benchmark_restarts": [
+            1,
+            3
+          ],
+          "max_exact_total_fit_count": 12,
+          "warning_wall_seconds": 120.0,
+          "hard_wall_seconds": 300.0,
+          "warning_peak_memory_bytes": 402653184,
+          "hard_peak_memory_bytes": 536870912,
+          "artifact_bytes_limit": 268435456,
+          "no_silent_row_reduction": true,
+          "no_silent_fold_reduction": true,
+          "approximate_adoption": "no_adopt"
+        }
       },
       {
         "estimator_id": "bayesian-additive-spline.v1",
@@ -572,7 +609,8 @@
           "Correlated inputs can leave individual term shapes unstable even when prediction remains useful.",
           "Intervals are a conditional empirical-Bayes approximation with fixed basis and smoothing and plug-in observation noise.",
           "Term contributions are associational model explanations, not causal or independent intervention effects."
-        ]
+        ],
+        "capacity_policy": null
       },
       {
         "estimator_id": "quantile-linear-regression.v1",
@@ -634,7 +672,8 @@
           "q05-q95 is a conditional quantile interval, not a normal distribution or a guarantee of 90 percent observed coverage.",
           "Mean, standard deviation, CDF, joint samples, and goal probability are unavailable.",
           "Additive quantile regression remains a separate unimplemented candidate."
-        ]
+        ],
+        "capacity_policy": null
       },
       {
         "estimator_id": "student-t-linear-regression.v1",
@@ -702,7 +741,8 @@
           "Target posteriors are fitted separately and do not provide cross-target joint samples.",
           "Posterior draws remain inside the safe Package/runtime; raw samples and decomposed uncertainty components are not exposed.",
           "Production adoption means explicit availability as a distribution candidate; it is not an automatic winner over Ridge."
-        ]
+        ],
+        "capacity_policy": null
       },
       {
         "estimator_id": "numpyro-lognormal-external.v1",
@@ -747,7 +787,8 @@
         ],
         "fixed_parameters": {},
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "lightgbm-regression.v1",
@@ -797,7 +838,8 @@
           "monotone_decreasing_features": []
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "logistic.v1",
@@ -849,7 +891,8 @@
           "calibration": "intrinsic-logistic-link"
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "lightgbm-binary.v1",
@@ -899,7 +942,8 @@
           "seed": 20260730
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "poisson.v1",
@@ -949,7 +993,8 @@
           "seed": 20260730
         },
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       },
       {
         "estimator_id": "numpyro-ordinal-external.v1",
@@ -994,7 +1039,8 @@
         ],
         "fixed_parameters": {},
         "training_cost": null,
-        "known_limitations": []
+        "known_limitations": [],
+        "capacity_policy": null
       }
     ]
   },

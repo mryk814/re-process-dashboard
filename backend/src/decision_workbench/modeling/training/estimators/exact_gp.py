@@ -14,6 +14,11 @@ from decision_workbench.modeling.training.feature_dataset import (
     prepared_feature_matrix,
 )
 from decision_workbench.modeling.training.recipe import ExactGPEstimatorRecipe
+from decision_workbench.modeling.training.capacity import (
+    EXACT_GP_OPTIMIZER_MAX_ITERATIONS,
+    capacity_context_from_training_set,
+    resolve_exact_gp_capacity,
+)
 
 from .types import TrainedPredictor, standard_training_metadata
 
@@ -135,7 +140,12 @@ def _fit_hyperparameters(
             method="L-BFGS-B",
             jac=True,
             bounds=bounds,
-            options={"maxiter": 90, "ftol": 1e-6, "gtol": 1e-5, "maxls": 20},
+            options={
+                "maxiter": EXACT_GP_OPTIMIZER_MAX_ITERATIONS,
+                "ftol": 1e-6,
+                "gtol": 1e-5,
+                "maxls": 20,
+            },
         )
         for start in starts
     ]
@@ -314,10 +324,13 @@ def train(
     recipe: ExactGPEstimatorRecipe,
     artifact_path: Path,
 ) -> TrainedPredictor:
-    if len(data.y) > recipe.max_rows:
+    capacity_context = capacity_context_from_training_set(data, recipe)
+    capacity_resolution = resolve_exact_gp_capacity(capacity_context)
+    if capacity_resolution.decision == "approximate_required":
         raise ValueError(
-            f"{data.target}: exact GP received {len(data.y)} rows; "
-            f"recipe max_rows is {recipe.max_rows}"
+            f"{data.target}: exact GP capacity requires an explicit alternative path; "
+            f"recipe max_rows is {recipe.max_rows}; "
+            + "; ".join(capacity_resolution.reasons)
         )
     quality, evaluation_predictions = _honest_grouped_quality(data, recipe)
     fitted = _fit_model(data, np.ones(len(data.y), dtype=bool), recipe)
@@ -327,6 +340,7 @@ def train(
         "cohort_digest": data.cohort_digest,
         "fold_digest": data.fold_digest,
         "evaluation": "outer-fold-refit",
+        "capacity_resolution": capacity_resolution.model_dump(mode="json"),
     })
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -387,6 +401,7 @@ def train(
                         "max_rows": recipe.max_rows,
                         "seed": recipe.seed,
                     },
+                    capacity=capacity_resolution.model_dump(mode="json"),
                 ),
             },
         },
