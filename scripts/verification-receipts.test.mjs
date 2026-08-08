@@ -36,6 +36,8 @@ const baseIdentity = () => createVerificationReceiptIdentity({
     platform: "win32",
     arch: "x64",
     nodeVersion: "v22.20.0",
+    pythonVersion: "Python 3.13.5",
+    uvVersion: "uv 0.8.3",
     lockfileDigests: { "package-lock.json": "c".repeat(64) },
   }),
   gitState: {
@@ -43,6 +45,56 @@ const baseIdentity = () => createVerificationReceiptIdentity({
     status_digest: "e".repeat(64),
     untracked_input_digest: "f".repeat(64),
   },
+});
+
+test("result-affecting environment and actual Python identity prevent false reuse", () => {
+  const base = createEnvironmentIdentity({
+    env: {
+      CI: "false",
+      PYTHONPATH: "C:\\work\\backend",
+      WORKBENCH_DB_PATH: "C:\\work\\one.db",
+      DECISION_WORKBENCH_API_TOKEN: "secret-one",
+      IRRELEVANT_EDITOR_SETTING: "one",
+    },
+    platform: "win32",
+    arch: "x64",
+    nodeVersion: "v22.20.0",
+    pythonVersion: "Python 3.13.5",
+    uvVersion: "uv 0.8.3",
+  });
+  const changedPythonPath = createEnvironmentIdentity({
+    env: {
+      CI: "false",
+      PYTHONPATH: "C:\\work\\other-backend",
+      WORKBENCH_DB_PATH: "C:\\work\\one.db",
+      DECISION_WORKBENCH_API_TOKEN: "secret-one",
+      IRRELEVANT_EDITOR_SETTING: "two",
+    },
+    platform: "win32",
+    arch: "x64",
+    nodeVersion: "v22.20.0",
+    pythonVersion: "Python 3.13.5",
+    uvVersion: "uv 0.8.3",
+  });
+  const changedPython = createEnvironmentIdentity({
+    env: {
+      CI: "false",
+      PYTHONPATH: "C:\\work\\backend",
+      WORKBENCH_DB_PATH: "C:\\work\\one.db",
+      DECISION_WORKBENCH_API_TOKEN: "secret-one",
+    },
+    platform: "win32",
+    arch: "x64",
+    nodeVersion: "v22.20.0",
+    pythonVersion: "Python 3.12.10",
+    uvVersion: "uv 0.8.3",
+  });
+
+  assert.notDeepEqual(base, changedPythonPath);
+  assert.notDeepEqual(base, changedPython);
+  assert.doesNotMatch(JSON.stringify(base), /secret-one|work|backend|one\.db/);
+  assert.equal(base.python, "Python 3.13.5");
+  assert.equal(base.uv, "uv 0.8.3");
 });
 
 test("verification-receipt/v1 stores a safe exact identity and reuses only passed evidence", () => {

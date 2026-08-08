@@ -35,10 +35,32 @@ const argv = process.argv.slice(2);
 const catalog = loadVerificationCatalog();
 const catalogSha256 = verificationCatalogSha256();
 const maximumSemanticDiffBytes = 256 * 1024;
+let cachedToolchainIdentity = null;
 
 function gitOutput(args) {
   const result = spawnSync("git", args, { encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function toolVersion(command, args) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    return `unavailable:${result.status ?? result.error?.code ?? "unknown"}`;
+  }
+  return `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
+}
+
+function verificationToolchainIdentity() {
+  if (cachedToolchainIdentity === null) {
+    cachedToolchainIdentity = {
+      pythonVersion: toolVersion("uv", ["run", "--no-sync", "python", "--version"]),
+      uvVersion: toolVersion("uv", ["--version"]),
+    };
+  }
+  return cachedToolchainIdentity;
 }
 
 function gitFileText(baseRef, path) {
@@ -99,6 +121,7 @@ function commandText(command, args) {
 }
 
 function gateIdentity({ gateId, plan, commandArgv, environment }) {
+  const toolchain = verificationToolchainIdentity();
   return createVerificationReceiptIdentity({
     repoRoot: resolve("."),
     commitSha: plan.fullSuiteOwner.commitSha ?? gitOutput(["rev-parse", "HEAD"]),
@@ -106,7 +129,7 @@ function gateIdentity({ gateId, plan, commandArgv, environment }) {
     commandArgv,
     inputPaths: receiptInputPaths(plan),
     catalogDigest: catalogSha256,
-    environmentOptions: { env: environment },
+    environmentOptions: { env: environment, ...toolchain },
   });
 }
 

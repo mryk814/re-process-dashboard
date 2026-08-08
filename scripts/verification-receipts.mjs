@@ -66,6 +66,28 @@ const safeEnvironmentKeys = Object.freeze([
   "UV_VERSION",
   "VERIFY_BASE_REF",
 ]);
+const resultAffectingEnvironmentPrefixes = Object.freeze([
+  "DECISION_WORKBENCH_",
+  "NODE_",
+  "PLAYWRIGHT_",
+  "PYTHON",
+  "UV_",
+  "VERIFY_",
+  "VIRTUAL_ENV",
+  "WORKBENCH_",
+]);
+const resultAffectingEnvironmentKeys = Object.freeze([
+  "CI",
+  "GITHUB_ACTIONS",
+  "GITHUB_EVENT_NAME",
+  "GITHUB_JOB",
+  "GITHUB_WORKFLOW",
+  "LANG",
+  "LC_ALL",
+  "NPM_CONFIG_USER_AGENT",
+  "npm_config_user_agent",
+  "TZ",
+]);
 const maximumInputFiles = 20_000;
 export const maximumReceiptOutputBytes = 64 * 1024;
 const maximumReceiptFileBytes = 256 * 1024;
@@ -263,11 +285,34 @@ function safeEnvironmentValue(value) {
   return redactSensitiveText(value).replaceAll("\\", "/");
 }
 
+function isSensitiveEnvironmentKey(key) {
+  return /(?:token|secret|password|authorization|api[_-]?key)/i.test(key);
+}
+
+function isResultAffectingEnvironmentKey(key) {
+  return resultAffectingEnvironmentKeys.includes(key)
+    || resultAffectingEnvironmentPrefixes.some((prefix) => key.startsWith(prefix));
+}
+
+function resultAffectingEnvironmentIdentity(env) {
+  return Object.entries(env)
+    .filter(([key, value]) => value !== undefined && isResultAffectingEnvironmentKey(key))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => ({
+      ...(isSensitiveEnvironmentKey(key)
+        ? { name_digest: sha256(`environment-key\0${key}`) }
+        : { name: key }),
+      value_digest: sha256(`environment-value\0${String(value)}`),
+    }));
+}
+
 export function createEnvironmentIdentity({
   env = process.env,
   platform = process.platform,
   arch = process.arch,
   nodeVersion = process.version,
+  pythonVersion = null,
+  uvVersion = null,
   lockfileDigests = {},
 } = {}) {
   const variables = Object.fromEntries(
@@ -280,8 +325,12 @@ export function createEnvironmentIdentity({
     os: platform,
     arch,
     node: nodeVersion,
-    python: safeEnvironmentValue(env.PYTHON_VERSION ?? env.pythonVersion),
+    python: safeEnvironmentValue(
+      pythonVersion ?? env.PYTHON_VERSION ?? env.pythonVersion,
+    ),
+    uv: safeEnvironmentValue(uvVersion ?? env.UV_VERSION),
     variables,
+    result_affecting_variables: resultAffectingEnvironmentIdentity(env),
     lockfile_digests: lockfileDigests,
   };
 }
