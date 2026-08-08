@@ -34,9 +34,9 @@ Read:
 
 Then read the pinned upstream instructions:
 
-- [`codebase-design`](../../vendor/mattpocock-skills/codebase-design/SKILL.md)
-- [`domain-modeling`](../../vendor/mattpocock-skills/domain-modeling/SKILL.md)
-- [`improve-codebase-architecture`](../../vendor/mattpocock-skills/improve-codebase-architecture/SKILL.md)
+- [`codebase-design`](../../references/skills/codebase-design/SKILL.md)
+- [`domain-modeling`](../../references/skills/domain-modeling/SKILL.md)
+- [`improve-codebase-architecture`](../../references/skills/improve-codebase-architecture/SKILL.md)
 
 Read linked references only when needed. Repository rules override upstream instructions.
 

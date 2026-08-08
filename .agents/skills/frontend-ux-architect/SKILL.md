@@ -78,9 +78,9 @@ Use the structural brief, then hand the prepared Project to the canonical [`scen
 
 After selecting the structure, use only the relevant parts of:
 
-- [`web-design-guidelines`](../web-design-guidelines/SKILL.md) for accessibility, interaction, forms, focus, and overflow.
-- [`vercel-react-best-practices`](../vercel-react-best-practices/SKILL.md) for measured client-side React／Vite performance.
-- [`vercel-composition-patterns`](../vercel-composition-patterns/SKILL.md) for component API shape without reducing the UX problem to props.
+- [`web-design-guidelines`](../../references/skills/web-design-guidelines/SKILL.md) for accessibility, interaction, forms, focus, and overflow.
+- [`vercel-react-best-practices`](../../references/skills/vercel-react-best-practices/SKILL.md) for measured client-side React／Vite performance.
+- [`vercel-composition-patterns`](../../references/skills/vercel-composition-patterns/SKILL.md) for component API shape without reducing the UX problem to props.
 
 The repository design system remains the visual authority.
 

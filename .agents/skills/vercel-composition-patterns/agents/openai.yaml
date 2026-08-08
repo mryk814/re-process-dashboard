@@ -1,7 +1,0 @@
-interface:
-  display_name: "Vercel Composition Patterns"
-  short_description: "Review React component composition without over-frameworking"
-  default_prompt: "Use $vercel-composition-patterns explicitly to review this component API."
-
-policy:
-  allow_implicit_invocation: false

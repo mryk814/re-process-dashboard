@@ -1,6 +1,6 @@
 # Agent Skills inventory
 
-最終review: 2026-08-01
+最終review: 2026-08-08
 
 この文書は、repo-scoped Agent Skillsのsource、固定版、安全境界、更新方法の正本です。
 外部Skillは第三者コードと同じ依存として扱います。skills.shのinstall数やrankingは
@@ -10,10 +10,11 @@
 
 Codex公式仕様は、repository Skillを`.agents/skills/<name>/SKILL.md`から検出し、
 `$skill-name`で明示呼び出しできると定めています。Skillのnameが重複してもmergeされないため、
-検出対象とvendor原典を分離します。
+検出対象とrepo内のinternal reference、vendor原典を分離します。
 
 ```text
-.agents/skills/                 Codexが検出するrepo wrapper
+.agents/skills/                 Codexが検出するpublic repo wrapper（6件）
+.agents/references/skills/      inventoryが管理するinternal wrapper（非検出）
 .agents/vendor/                 commit固定した外部原典。CodexのSkill root外
 .claude/skills/                 既存repo固有Skillの単一正本
 .agents/vendor/external-skills.lock.json
@@ -23,24 +24,75 @@ Codex公式仕様は、repository Skillを`.agents/skills/<name>/SKILL.md`から
 Windowsのsymlink／junctionには依存しません。`data-contributor`と
 `scenario-journey-evaluator`は既存`.claude/skills`を単一正本とし、`.agents/skills`側は
 原典を全文読む薄いwrapperです。外部Skillも原典本文を改変せずvendorし、安全制限を
-`.agents/skills`の同名wrapperへ置きます。
+repo wrapperへ置きます。`.agents/references/skills`はCodexの検出root外に置き、
+public wrapperから相対参照します。clientごとのroot外reference対応はinventoryで
+`unknown`と記録し、未観測の対応を推測しません。
 
 Codexの公式根拠:
 
 - [Build skills — Where Codex loads local skills](https://learn.chatgpt.com/docs/build-skills)
 - [openai/codex skills documentation pointer](https://github.com/openai/codex/blob/main/docs/skills.md)
 
+## Typed inventoryとvisible boundary
+
+`.agents/skill-inventory.json`が、public entryとinternal referenceを分ける
+`skill-inventory/v1`のmachine-readable authorityです。`scripts/check-skill-inventory.mjs`
+はinventory、wrapper、lock、filesystemをread-onlyで照合します。
+
+2026-08-08にbase commit `f48bdb469e71e4275ab774fd430f490122c892ee`で観測した
+historical baselineは12件でした。移動後は`.agents/skills`直下のpublic entryが次の6件、
+strict targetも6件です。
+
+```text
+data-contributor
+frontend-ux-architect
+re-process-architecture-review
+scenario-journey-evaluator
+systematic-debugging
+verification-budget-planner
+```
+
+6件の旧外部Skill wrapperは`.agents/references/skills/`へ物理移動し、
+`agents/openai.yaml`を持たせていません。vendor原典と`.claude/skills`のcanonical
+sourceは変更していません。移行表は旧 `$skill-name`を次のpublic入口へ明示誘導します。
+
+| 旧名 | 移行先public entry | 状態 |
+|---|---|---|
+| `codebase-design` | `re-process-architecture-review` | active |
+| `domain-modeling` | `re-process-architecture-review` | active |
+| `improve-codebase-architecture` | `re-process-architecture-review` | active |
+| `web-design-guidelines` | `frontend-ux-architect` | active |
+| `vercel-react-best-practices` | `frontend-ux-architect` | active |
+| `vercel-composition-patterns` | `frontend-ux-architect` | active |
+
+checkerはpublic wrapperからinternal referenceへの到達、broken link、root外への相対path、
+symlink、duplicate、recursive link、public/internalの型境界、pinned commit／license／
+SHA-256とlock driftを検査します。vendor script、network、write、automatic executionは
+実行せず、inventoryの安全フラグでも禁止します。
+
+```powershell
+node scripts/check-skill-inventory.mjs --strict-target --json
+node --test scripts/check-skill-inventory.test.mjs
+```
+
+checkerのJSON reportには`inventory_id`、`inventory_digest`、`observed_commit`、
+`discovery.baseline_count`、`discovery.observed_count`、`discovery.target_count`と
+typed entry countが含まれます。これは#838が後続の代表task比較でbounded evidenceとして
+消費できるidentity/countであり、#839では代表taskの迷い・token量比較自体は実施しません。
+Codexのfilesystem観測以外のChatGPT／Claude clientのresolution、version、root外reference
+対応は`unknown`であり、unsupportedとは扱いません。
+
 ## 導入した外部Skill
 
 | Skill | Source / pinned commit | 更新状況・license | skills.sh | vendor / wrapper | scripts・network・変更権限 | repository制限 |
 |---|---|---|---|---|---|---|
-| `codebase-design` | [mattpocock/skills](https://github.com/mattpocock/skills) `2ab958093e83e0ec752e6c1c5932da465bf23e0c` | SKILL 2026-06-17、repoは2026-07も更新、MIT | [page](https://www.skills.sh/mattpocock/skills/codebase-design) | `.agents/vendor/mattpocock-skills/codebase-design` / `.agents/skills/codebase-design` | script・networkなし。補助文書にsubagentと旧test削除の手順あり | 明示呼び出しのみ。authority、atomicity、実在するsecond adapterを先に確認し、testを機械削除しない |
-| `domain-modeling` | 同上 | SKILL 2026-06-17、MIT | [page](https://www.skills.sh/mattpocock/skills/domain-modeling) | `.agents/vendor/mattpocock-skills/domain-modeling` / `.agents/skills/domain-modeling` | command・networkなし。`CONTEXT.md`とADRを書きうる | 明示呼び出しのみ。repoのauthority docsを使い、明示依頼なしに`CONTEXT.md`／ADRを作らない |
-| `improve-codebase-architecture` | 同上 | SKILL 2026-07-13、MIT | [page](https://www.skills.sh/mattpocock/skills/improve-codebase-architecture) | `.agents/vendor/mattpocock-skills/improve-codebase-architecture` / `.agents/skills/improve-codebase-architecture` | `git log`、temp HTML、browser open。HTMLはfloating Tailwind／Mermaid CDNと`securityLevel: loose`を使用。`grilling`等へ依存 | 明示呼び出しのみ。HTML／CDN／browser openを禁止しMarkdownへ置換。Issue・ADR・code changeは依頼時だけ |
+| `codebase-design` | [mattpocock/skills](https://github.com/mattpocock/skills) `2ab958093e83e0ec752e6c1c5932da465bf23e0c` | SKILL 2026-06-17、repoは2026-07も更新、MIT | [page](https://www.skills.sh/mattpocock/skills/codebase-design) | `.agents/vendor/mattpocock-skills/codebase-design` / `.agents/references/skills/codebase-design` | script・networkなし。補助文書にsubagentと旧test削除の手順あり | 明示呼び出しのみ。authority、atomicity、実在するsecond adapterを先に確認し、testを機械削除しない |
+| `domain-modeling` | 同上 | SKILL 2026-06-17、MIT | [page](https://www.skills.sh/mattpocock/skills/domain-modeling) | `.agents/vendor/mattpocock-skills/domain-modeling` / `.agents/references/skills/domain-modeling` | command・networkなし。`CONTEXT.md`とADRを書きうる | 明示呼び出しのみ。repoのauthority docsを使い、明示依頼なしに`CONTEXT.md`／ADRを作らない |
+| `improve-codebase-architecture` | 同上 | SKILL 2026-07-13、MIT | [page](https://www.skills.sh/mattpocock/skills/improve-codebase-architecture) | `.agents/vendor/mattpocock-skills/improve-codebase-architecture` / `.agents/references/skills/improve-codebase-architecture` | `git log`、temp HTML、browser open。HTMLはfloating Tailwind／Mermaid CDNと`securityLevel: loose`を使用。`grilling`等へ依存 | 明示呼び出しのみ。HTML／CDN／browser openを禁止しMarkdownへ置換。Issue・ADR・code changeは依頼時だけ |
 | `systematic-debugging` | [obra/superpowers](https://github.com/obra/superpowers) `44c9b2d6e889982ac18c27d05a19fefe335194e1` | SKILL 2026-07-24、release v6.2.0、MIT | [page](https://www.skills.sh/obra/superpowers/systematic-debugging) | `.agents/vendor/obra-superpowers/systematic-debugging` / `.agents/skills/systematic-debugging` | `find-polluter.sh`はBash/npm testを反復実行。本文にmacOS signing例あり。自動network／deleteなし。upstreamのTDD／verification Skill依存は未導入 | script・署名例・任意shellを自動実行しない。未導入依存はrepoのfocused failing testとverification policyへ置換。UI/API/persistence/environment/fixtureを分離し、retry／fallbackで隠さない |
-| `web-design-guidelines` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) `7c180d9044c9ae2b442b567aad4e42a28dd5ed62` | SKILL 2026-01-16、repoは2026-07も更新、MIT宣言 | [page](https://www.skills.sh/vercel-labs/agent-skills/web-design-guidelines) | `.agents/vendor/vercel-agent-skills/web-design-guidelines` / `.agents/skills/web-design-guidelines` | 原典は実行時にmutable `main`をfetch | 明示呼び出しのみ。fetchを禁止し、`web-interface-guidelines` `4e799d45c17aec1498c269287a83b9dba22b966b`のlocal snapshotを使う。視覚正本はrepo design system |
-| `vercel-react-best-practices` | 同上 | SKILL 2026-04-14、MIT | [page](https://www.skills.sh/vercel-labs/agent-skills/react-best-practices) | `.agents/vendor/vercel-agent-skills/react-best-practices` / `.agents/skills/vercel-react-best-practices` | Markdown rulesのみ。追加library名は例であり自動installしない | 明示呼び出しのみ。React client/Vite規則だけを使い、Next.js/RSC/Server Actions規則を除外。計測前に最適化しない |
-| `vercel-composition-patterns` | 同上 | SKILL 2026-01-28、MIT | [page](https://www.skills.sh/vercel-labs/agent-skills/composition-patterns) | `.agents/vendor/vercel-agent-skills/composition-patterns` / `.agents/skills/vercel-composition-patterns` | Markdown rulesのみ、React 19節あり | 明示呼び出しのみ。UX問題をcomponent APIへ縮小せず、ownerを曖昧にせず、boolean削減だけのframeworkを作らない |
+| `web-design-guidelines` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) `7c180d9044c9ae2b442b567aad4e42a28dd5ed62` | SKILL 2026-01-16、repoは2026-07も更新、MIT宣言 | [page](https://www.skills.sh/vercel-labs/agent-skills/web-design-guidelines) | `.agents/vendor/vercel-agent-skills/web-design-guidelines` / `.agents/references/skills/web-design-guidelines` | 原典は実行時にmutable `main`をfetch | 明示呼び出しのみ。fetchを禁止し、`web-interface-guidelines` `4e799d45c17aec1498c269287a83b9dba22b966b`のlocal snapshotを使う。視覚正本はrepo design system |
+| `vercel-react-best-practices` | 同上 | SKILL 2026-04-14、MIT | [page](https://www.skills.sh/vercel-labs/agent-skills/react-best-practices) | `.agents/vendor/vercel-agent-skills/react-best-practices` / `.agents/references/skills/vercel-react-best-practices` | Markdown rulesのみ。追加library名は例であり自動installしない | 明示呼び出しのみ。React client/Vite規則だけを使い、Next.js/RSC/Server Actions規則を除外。計測前に最適化しない |
+| `vercel-composition-patterns` | 同上 | SKILL 2026-01-28、MIT | [page](https://www.skills.sh/vercel-labs/agent-skills/composition-patterns) | `.agents/vendor/vercel-agent-skills/composition-patterns` / `.agents/references/skills/vercel-composition-patterns` | Markdown rulesのみ、React 19節あり | 明示呼び出しのみ。UX問題をcomponent APIへ縮小せず、ownerを曖昧にせず、boolean削減だけのframeworkを作らない |
 
 skills.shの各原典ページに`Originally from`表示はありません。
 `web-design-guidelines`がruntimeで参照する規則の原典は
@@ -60,8 +112,8 @@ upstreamで解消済みかを先に確認します。
 
 | Skill | 正本 / 検出wrapper | implicit trigger | 明示例 |
 |---|---|---|---|
-| `re-process-architecture-review` | `.agents/skills/re-process-architecture-review` | architecture audit、責務境界、package、registry、adapter、authority、migration。typoや局所CSSでは発火させない | `$re-process-architecture-review store_unit_of_work.pyをaudit-onlyで確認して` |
-| `frontend-ux-architect` | `.agents/skills/frontend-ux-architect` | 画面構造、navigation、onboarding、form、Workbench、結果配置、handoff。token置換だけでは発火させない | `$frontend-ux-architect Data Libraryの構造を実装なしで監査して` |
+| `re-process-architecture-review` | `.agents/skills/re-process-architecture-review` → `.agents/references/skills/{codebase-design,domain-modeling,improve-codebase-architecture}` | architecture audit、責務境界、package、registry、adapter、authority、migration。typoや局所CSSでは発火させない | `$re-process-architecture-review store_unit_of_work.pyをaudit-onlyで確認して` |
+| `frontend-ux-architect` | `.agents/skills/frontend-ux-architect` → `.agents/references/skills/{web-design-guidelines,vercel-react-best-practices,vercel-composition-patterns}` | 画面構造、navigation、onboarding、form、Workbench、結果配置、handoff。token置換だけでは発火させない | `$frontend-ux-architect Data Libraryの構造を実装なしで監査して` |
 | `data-contributor` | `.claude/skills/data-contributor` / `.agents/skills/data-contributor` | 外部Excel／CSVのUI onboarding | `$data-contributor このExcelをData Libraryから接続して` |
 | `scenario-journey-evaluator` | `.claude/skills/scenario-journey-evaluator` / `.agents/skills/scenario-journey-evaluator` | prediction-ready Projectの判断journey | `$scenario-journey-evaluator handoff済みProjectを実画面で評価して` |
 | `systematic-debugging` | pinned vendor / `.agents/skills/systematic-debugging` | bug、test failure、unexpected behavior | `$systematic-debugging このfixture failureを原因調査だけして` |

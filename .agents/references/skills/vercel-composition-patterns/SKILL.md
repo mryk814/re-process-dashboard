@@ -6,7 +6,7 @@ description: Explicitly review React 19 component APIs with boolean-prop prolife
 # Vercel Composition Patterns
 
 Read the pinned upstream
-[`SKILL.md`](../../vendor/vercel-agent-skills/composition-patterns/SKILL.md), then load only relevant
+[`SKILL.md`](../../../vendor/vercel-agent-skills/composition-patterns/SKILL.md), then load only relevant
 rule files.
 
 Use composition to clarify an already-selected UX structure. Do not reduce a UX problem to props,
