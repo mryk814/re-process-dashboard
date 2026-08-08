@@ -34,6 +34,7 @@ test("parallel selections contain only deliberately isolated or read-only specs"
     "annealing-time-basis.spec.ts",
     "chain-graph-viewer.spec.ts",
     "chain-input-contract.spec.ts",
+    "dataset-disposition.spec.ts",
     "profile-workbench-authoring.spec.ts",
     "screening-workbench.spec.ts",
   ]);
