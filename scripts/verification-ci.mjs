@@ -55,10 +55,24 @@ const shardOrder = [
 ];
 const shardByGate = new Map([
   ["focused-pytest", "backend-science"],
+  ["focused-node", "contract-build"],
   ["full-pytest", "backend-science"],
   ["security-boundary-tests", "backend-science"],
   ["model-package-contract-tests", "backend-science"],
   ["legacy-workspace", "backend-science"],
+  ["dependency-audit-policy", "contract-build"],
+  ["dependency-audit", "contract-build"],
+  ["contracts-check", "contract-build"],
+  ["generated-api-check", "contract-build"],
+  ["web-typecheck", "contract-build"],
+  ["desktop-typecheck", "contract-build"],
+  ["application-build", "contract-build"],
+  ["docs-check", "contract-build"],
+  ["web-unit", "browser-standard"],
+  ["web-build", "browser-standard"],
+  ["desktop-unit", "contract-build"],
+  ["product-e2e", "browser-standard"],
+  ["verification-policy-tests", "contract-build"],
   ["default-playwright", "browser-standard"],
   ["failure-state-e2e", "recovery-failure-state"],
   ["chain-degraded-e2e", "recovery-chain-degraded"],
@@ -343,6 +357,7 @@ function executionGatesFor(logicalGateId, catalog, plan) {
   if (
     logicalGateId === "release-acceptance"
     && !plan.riskCategories.includes("electron-distribution")
+    && !plan.riskCategories.includes("actual-distribution-change")
   ) {
     return gateIds.filter((gateId) => gateId !== "windows-delivery");
   }
@@ -390,6 +405,10 @@ export function ciExecutionMode(ciPlan) {
   const identityExpansions = Object.fromEntries(
     lightweightDirectGateIds.map((gateId) => [gateId, [gateId]]),
   );
+  const lightweightRiskProfile = (
+    sameOrderedValues(plan?.riskCategories, ["verification-tooling"])
+    || sameOrderedValues(plan?.riskCategories, ["script-only", "verification-tooling"])
+  );
   const isStrictVerificationToolingPlan = (
     plan?.requestedLevel === "pr"
     && plan.executionLevel === "pr"
@@ -399,8 +418,11 @@ export function ciExecutionMode(ciPlan) {
     && sameOrderedValues(plan.incompleteReasons, [])
     && plan.requiredFollowUp === null
     && plan.followUpOwner === null
-    && sameOrderedValues(plan.detectedRiskCategories, ["verification-tooling"])
-    && sameOrderedValues(plan.riskCategories, ["verification-tooling"])
+    && (
+      sameOrderedValues(plan.detectedRiskCategories, ["verification-tooling"])
+      || sameOrderedValues(plan.detectedRiskCategories, ["script-only", "verification-tooling"])
+    )
+    && lightweightRiskProfile
     && sameOrderedValues(plan.selectedGateIds, lightweightDirectGateIds)
     && sameOrderedValues(plan.requiredManualGates, [])
     && sameOrderedValues(plan.directEvidenceRequirements, [])
@@ -427,6 +449,15 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
   }
   if (!plan.verificationCatalogSha256) {
     throw new Error("CI planning requires the verification catalog digest");
+  }
+  if (
+    plan.classificationRequired === true
+    || plan.completion === "classification_required"
+    || (Array.isArray(plan.classificationRequirements) && plan.classificationRequirements.length > 0)
+  ) {
+    throw new Error(
+      "CI planning is fail-closed: resolve semantic authority classification before creating a CI plan",
+    );
   }
   const logicalGateExpansions = Object.fromEntries(
     plan.selectedGateIds.map((gateId) => [
@@ -766,6 +797,8 @@ function runGateIds({
     const gate = catalog.gates[gateId];
     const resolvedRunner = resolveRunner(gate, {
       focusedArgs: plan.focusedTests.tests,
+      focusedNodeArgs: plan.focusedNodeTests ?? [],
+      changedPaths: plan.changedPaths,
       baseRef: plan.baseRef,
     });
     const executable = resolveExecutable(resolvedRunner.executable);

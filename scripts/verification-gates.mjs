@@ -91,6 +91,11 @@ export function validateVerificationCatalog(catalog) {
       throw new Error("focused test authority needs tests");
     }
   }
+  for (const rule of catalog.planning.focusedNodeTestAuthority ?? []) {
+    if (!Array.isArray(rule.tests) || rule.tests.length === 0) {
+      throw new Error("focused Node test authority needs tests");
+    }
+  }
   return catalog;
 }
 
@@ -100,12 +105,24 @@ export function getVerificationLevel(catalog, levelId) {
   return level;
 }
 
-export function resolveRunner(gate, { focusedArgs = [], baseRef = "origin/main" } = {}) {
+export function resolveRunner(
+  gate,
+  {
+    focusedArgs = [],
+    focusedNodeArgs = [],
+    changedPaths = [],
+    baseRef = "origin/main",
+  } = {},
+) {
   if (gate.manual) throw new Error(`manual gate cannot be executed: ${gate.command}`);
   const args = gate.runner.args.flatMap((argument) =>
     argument === "$BASE...HEAD" ? [`${baseRef}...HEAD`] : [argument],
   );
   if (gate.runner.appendFocusedArgs) args.push(...focusedArgs);
+  if (gate.runner.appendFocusedNodeArgs) args.push(...focusedNodeArgs);
+  if (gate.runner.appendChangedPaths) {
+    args.push(...changedPaths.filter((path) => /\.spec\.(?:[cm]?js|jsx|ts|tsx)$/i.test(path)));
+  }
   return { executable: gate.runner.executable, args };
 }
 
@@ -176,6 +193,173 @@ function pathMatches(path, matcher) {
   throw new Error(`unsupported path matcher: ${matcher}`);
 }
 
+const semanticRiskMap = Object.freeze({
+  "instruction-only": "instruction-only",
+  "docs-only": "pure-docs",
+  "backend-test-only": "backend-test-only",
+  "web-test-only": "web-test-only",
+  "e2e-product-spec": "e2e-product-spec",
+  "dependency-manifest": "dependency-manifest",
+  "actual-distribution-change": "actual-distribution-change",
+  "script-only": "script-only",
+});
+const manifestDependencyKeys = new Set([
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "overrides",
+  "resolutions",
+  "packageManager",
+  "engines",
+]);
+const manifestDistributionKeys = new Set([
+  "build",
+  "files",
+  "main",
+  "bin",
+  "directories",
+  "publishConfig",
+  "name",
+  "version",
+  "workspaces",
+]);
+const maximumManifestInspectionBytes = 256 * 1024;
+
+function semanticRules(catalog) {
+  return catalog.planning.semanticClassification ?? {};
+}
+
+function semanticRuleMatches(path, matchers = []) {
+  return matchers.some((matcher) => pathMatches(path, matcher));
+}
+
+function changedManifestKeys(before, after) {
+  return [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])]
+    .filter((key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]));
+}
+
+function inspectPackageManifest({ beforeText, afterText }) {
+  if (
+    typeof beforeText !== "string"
+    || typeof afterText !== "string"
+    || Buffer.byteLength(beforeText, "utf8") > maximumManifestInspectionBytes
+    || Buffer.byteLength(afterText, "utf8") > maximumManifestInspectionBytes
+  ) {
+    return {
+      classification: "classification-required",
+      reason: "package manifest diff exceeds the bounded inspector or is unavailable",
+      confidence: "unresolved",
+    };
+  }
+  let before;
+  let after;
+  try {
+    before = JSON.parse(beforeText);
+    after = JSON.parse(afterText);
+  } catch {
+    return {
+      classification: "classification-required",
+      reason: "package manifest is not valid JSON for bounded structural inspection",
+      confidence: "unresolved",
+    };
+  }
+  const changedKeys = changedManifestKeys(before, after);
+  if (changedKeys.length === 0) {
+    return { classification: "script-only", reason: "no semantic package manifest change", confidence: "resolved" };
+  }
+  if (changedKeys.every((key) => key === "scripts")) {
+    return { classification: "script-only", reason: "only package scripts changed", confidence: "resolved" };
+  }
+  if (changedKeys.some((key) => manifestDistributionKeys.has(key))) {
+    return {
+      classification: "actual-distribution-change",
+      reason: `distribution-sensitive package fields changed: ${changedKeys.filter((key) => manifestDistributionKeys.has(key)).join(", ")}`,
+      confidence: "resolved",
+    };
+  }
+  if (changedKeys.some((key) => manifestDependencyKeys.has(key))) {
+    return {
+      classification: "dependency-manifest",
+      reason: `dependency-sensitive package fields changed: ${changedKeys.filter((key) => manifestDependencyKeys.has(key)).join(", ")}`,
+      confidence: "resolved",
+    };
+  }
+  return {
+    classification: "classification-required",
+    reason: `package manifest fields need explicit classification: ${changedKeys.join(", ")}`,
+    confidence: "unresolved",
+  };
+}
+
+function semanticClassificationForPath(path, catalog, { diffs = {} } = {}) {
+  const normalized = path.replaceAll("\\", "/");
+  const candidateRisk = classifyChangedPath(normalized, catalog);
+  const rules = semanticRules(catalog);
+  const diff = diffs[normalized] ?? diffs[path] ?? null;
+  if (normalized === "package.json" || normalized.endsWith("/package.json")) {
+    const inspected = inspectPackageManifest(diff ?? {});
+    const semanticRisk = semanticRiskMap[inspected.classification] ?? "unknown";
+    return {
+      path: normalized,
+      ...inspected,
+      risk: inspected.classification === "actual-distribution-change" && candidateRisk !== "unknown"
+        ? candidateRisk
+        : semanticRisk,
+      candidateRisk,
+      authority: "dependency-and-distribution-manifest",
+      candidates: inspected.classification === "classification-required"
+        ? ["script-only", "dependency-manifest", "actual-distribution-change"]
+        : [],
+    };
+  }
+  if (semanticRuleMatches(normalized, rules.instructionOnly)) {
+    return { path: normalized, classification: "instruction-only", risk: "instruction-only", candidateRisk, confidence: "resolved", reason: "instruction file only", authority: "developer-instructions", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.docsOnly) && candidateRisk !== "evidence" && candidateRisk !== "textbook-edition") {
+    return { path: normalized, classification: "docs-only", risk: "pure-docs", candidateRisk, confidence: "resolved", reason: "documentation-only path", authority: "docs", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.dependencyManifest)) {
+    return { path: normalized, classification: "dependency-manifest", risk: "dependency-manifest", candidateRisk, confidence: "resolved", reason: "lockfile or dependency manifest", authority: "dependency-manifest", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.backendTestOnly)) {
+    return { path: normalized, classification: "backend-test-only", risk: "backend-test-only", candidateRisk, confidence: "resolved", reason: "backend test authority only", authority: "backend-tests", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.webTestOnly)) {
+    return { path: normalized, classification: "web-test-only", risk: "web-test-only", candidateRisk, confidence: "resolved", reason: "Web test authority only", authority: "web-tests", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.actualDistribution)) {
+    return { path: normalized, classification: "actual-distribution-change", risk: candidateRisk === "unknown" ? "actual-distribution-change" : candidateRisk, candidateRisk, confidence: "resolved", reason: "distribution artifact or target path", authority: "distribution", candidates: [] };
+  }
+  if (semanticRuleMatches(normalized, rules.e2eProductSpec)) {
+    if (["e2e-test-infrastructure", "chain-degraded-test-infrastructure", "shared-recovery-test-infrastructure"].includes(candidateRisk)) {
+      return { path: normalized, classification: candidateRisk, risk: candidateRisk, candidateRisk, confidence: "resolved", reason: "E2E infrastructure path", authority: "e2e-infrastructure", candidates: [] };
+    }
+    return { path: normalized, classification: "e2e-product-spec", risk: "e2e-product-spec", candidateRisk, confidence: "resolved", reason: "product journey spec with a bounded changed path", authority: "e2e-product-spec", candidates: [] };
+  }
+  if (candidateRisk !== "unknown") {
+    return { path: normalized, classification: candidateRisk, risk: candidateRisk, candidateRisk, confidence: "path-candidate", reason: "catalog path rule resolved the authority", authority: candidateRisk, candidates: [] };
+  }
+  return {
+    path: normalized,
+    classification: "classification-required",
+    risk: "unknown",
+    candidateRisk,
+    confidence: "unresolved",
+    reason: "no bounded semantic classifier resolved this path",
+    authority: null,
+    candidates: ["instruction-only", "docs-only", "backend-test-only", "web-test-only", "e2e-product-spec", "dependency-manifest", "actual-distribution-change"],
+  };
+}
+
+export function classifyChangedPathSemantically(path, catalog, options = {}) {
+  return semanticClassificationForPath(path, catalog, options);
+}
+
+export function classifyChangedPathsSemantically(paths, catalog, options = {}) {
+  return paths.map((path) => semanticClassificationForPath(path, catalog, options));
+}
+
 export function classifyChangedPath(path, catalog) {
   const normalized = path.replaceAll("\\", "/");
   const rule = catalog.planning.pathRules.find((candidate) =>
@@ -190,7 +374,7 @@ export function classifyChangedPaths(paths, catalog) {
 
 export function requiresBackendPytest(riskCategories) {
   return riskCategories.some((risk) =>
-    ["backend-application", "api-contract", "migration-workspace", "model-runtime-artifact", "model-runtime", "security", "unknown"].includes(risk),
+    ["backend-application", "backend-test-only", "api-contract", "migration-workspace", "model-runtime-artifact", "model-runtime", "security", "unknown"].includes(risk),
   );
 }
 
@@ -280,11 +464,28 @@ function focusedPytestArgs(args) {
   });
 }
 
-export function resolveFocusedTests({ catalog, changedPaths, focusedArgs = [] }) {
+export function resolveFocusedTests({
+  catalog,
+  changedPaths,
+  focusedArgs = [],
+  semanticClassifications = [],
+}) {
   if (focusedArgs.length > 0) {
     return { tests: focusedPytestArgs(focusedArgs), source: "explicit", fallback: false };
   }
   const normalizedPaths = changedPaths.map((path) => path.replaceAll("\\", "/"));
+  const semanticBackendTests = semanticClassifications
+    .filter((item) => item.classification === "backend-test-only")
+    .map((item) => item.path)
+    .filter((path) => /\.py$/i.test(path));
+  if (semanticBackendTests.length > 0) {
+    return {
+      tests: [...new Set(semanticBackendTests)].sort(),
+      source: "semantic-backend-test-only",
+      fallback: false,
+      classificationRequired: false,
+    };
+  }
   const tests = new Set();
   for (const authority of catalog.planning.focusedTestAuthority ?? []) {
     if (normalizedPaths.some((path) => authority.matches.some((matcher) => pathMatches(path, matcher)))) {
@@ -293,10 +494,25 @@ export function resolveFocusedTests({ catalog, changedPaths, focusedArgs = [] })
   }
   if (tests.size > 0) return { tests: [...tests].sort(), source: "authority-map", fallback: false };
   return {
-    tests: catalog.planning.unresolvedBackendFallback.tests,
-    source: "unresolved-backend-fallback",
-    fallback: true,
+    tests: [],
+    source: "classification-required",
+    fallback: false,
+    classificationRequired: true,
+    candidates: catalog.planning.unresolvedBackendFallback?.tests ?? [],
   };
+}
+
+export function resolveFocusedNodeTests({ catalog, changedPaths }) {
+  const normalizedPaths = changedPaths.map((path) => path.replaceAll("\\", "/"));
+  const tests = new Set();
+  for (const authority of catalog.planning.focusedNodeTestAuthority ?? []) {
+    if (normalizedPaths.some((path) => authority.matches.some((matcher) => pathMatches(path, matcher)))) {
+      authority.tests
+        .filter((path) => /\.(?:[cm]?js|jsx|ts|tsx)$/i.test(path))
+        .forEach((path) => tests.add(path));
+    }
+  }
+  return [...tests].sort();
 }
 
 export function buildVerificationPlan({
@@ -309,6 +525,8 @@ export function buildVerificationPlan({
   baseRef = "origin/main",
   commitSha = null,
   ci = false,
+  semanticClassifications = null,
+  semanticDiffs = {},
 }) {
   if (manualRiskOverrides.length > 0 && !manualOverrideReason) {
     throw new Error("manual risk override requires --reason");
@@ -317,14 +535,52 @@ export function buildVerificationPlan({
   for (const risk of manualRiskOverrides) {
     if (!rules.has(risk)) throw new Error(`unknown manual risk override: ${risk}`);
   }
-  const detectedRiskCategories = classifyChangedPaths(changedPaths, catalog);
+  const classifications = semanticClassifications
+    ?? classifyChangedPathsSemantically(changedPaths, catalog, { diffs: semanticDiffs });
+  const detectedRiskCategories = [...new Set(classifications.map((item) => item.risk))].sort();
   const riskCategories = [...new Set([...detectedRiskCategories, ...manualRiskOverrides])].sort();
   const effectiveRisks = riskCategories.length > 0 ? riskCategories : ["unknown"];
   const requested = getVerificationLevel(catalog, requestedLevel);
+  const backendRiskDetected = requiresBackendPytest(effectiveRisks);
+  const focused = backendRiskDetected || focusedArgs.length > 0
+    ? resolveFocusedTests({ catalog, changedPaths, focusedArgs, semanticClassifications: classifications })
+    : { tests: [], source: "not-needed", fallback: false, classificationRequired: false };
+  const focusedNodeTests = resolveFocusedNodeTests({ catalog, changedPaths });
+  const unresolvedClassificationPaths = classifications.filter(
+    (item) => item.classification === "classification-required",
+  );
+  const classificationRequired = (
+    focused.classificationRequired === true
+    || (focusedArgs.length === 0 && unresolvedClassificationPaths.length > 0)
+  );
+  const classificationRequirements = [];
+  const classificationRequirementKeys = new Set();
+  const addClassificationRequirement = (requirement) => {
+    const key = requirement.path ?? "<backend-authority>";
+    if (classificationRequirementKeys.has(key)) return;
+    classificationRequirementKeys.add(key);
+    classificationRequirements.push(requirement);
+  };
+  for (const item of unresolvedClassificationPaths) {
+    addClassificationRequirement({
+      path: item.path,
+      reason: item.reason,
+      candidates: item.candidates,
+    });
+  }
+  if (focused.classificationRequired && unresolvedClassificationPaths.length === 0) {
+    addClassificationRequirement({
+      path: null,
+      reason: "focused backend authority is unresolved; provide an explicit --test path",
+      candidates: focused.candidates ?? [],
+    });
+  }
   const minimumRequiredLevel = strongestMinimumLevel(effectiveRisks, rules, requestedLevel);
   const incomplete = levelRank(requestedLevel) < levelRank(minimumRequiredLevel);
   const unmetRiskRequirements = effectiveRisks
     .filter((risk) => (
+      !(classificationRequired && risk === "unknown")
+      &&
       levelRank(requestedLevel) < levelRank(rules.get(risk).minimumLevel)
     ))
     .map((risk) => {
@@ -362,6 +618,11 @@ export function buildVerificationPlan({
   };
   for (const gateId of requested.gates) select(gateId, `baseline for ${requestedLevel}`);
   for (const risk of effectiveRisks) {
+    if (classificationRequired && risk === "unknown") continue;
+    if (editLoopDefersHigherEvidence && risk === "verification-tooling") {
+      select("verification-policy-tests", "verification-tooling edit evidence");
+      continue;
+    }
     const unmet = unmetByRisk.get(risk);
     if (unmet && editLoopDefersHigherEvidence) {
       for (const gateId of rules.get(risk).requiredGates ?? []) {
@@ -407,27 +668,35 @@ export function buildVerificationPlan({
       }
     }
   }
-  const backendRiskDetected = requiresBackendPytest(effectiveRisks);
-  const focused = backendRiskDetected || focusedArgs.length > 0
-    ? resolveFocusedTests({ catalog, changedPaths, focusedArgs })
-    : { tests: [], source: "not-needed", fallback: false };
+  if (focusedNodeTests.length > 0) {
+    select("focused-node", `Node authority: ${focusedNodeTests.join(", ")}`);
+  }
   const ciOwnsBackendFullSuite = ci
     && backendRiskDetected
+    && !classificationRequired
     && !effectiveRisks.includes("unknown")
     && !directAggregateRequired;
   if (ciOwnsBackendFullSuite) {
     selectedGateReasons.delete("focused-pytest");
     select("full-pytest", "CI is the full-suite owner for backend risk on this commit");
-  } else if (!directAggregateRequired && focused.tests.length > 0 && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!classificationRequired && !directAggregateRequired && focused.tests.length > 0 && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "explicit focused tests were supplied");
-  } else if (!directAggregateRequired && backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!classificationRequired && !directAggregateRequired && backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "backend risk requires focused evidence");
   }
   if (!ciOwnsBackendFullSuite && selectedGateReasons.has("focused-pytest") && focused.tests.length > 0) {
     selectedGateReasons.get("focused-pytest").push(`${focused.source}: ${focused.tests.join(", ")}`);
   }
-  if (effectiveRisks.includes("unknown") && !directAggregateRequired) {
+  if (
+    effectiveRisks.includes("unknown")
+    && focusedArgs.length === 0
+    && !classificationRequired
+    && !directAggregateRequired
+  ) {
     select("full-pytest", "unknown path is handled conservatively");
+  }
+  if (classificationRequired && focused.classificationRequired) {
+    selectedGateReasons.delete("focused-pytest");
   }
   if (strongestDirectRequirement) {
     const aggregateGateIds = new Set(
@@ -459,9 +728,13 @@ export function buildVerificationPlan({
     }));
   const fullSuiteSelected = selectedGateIds.includes("full-pytest");
   const fullSuiteOwner = {
-    owner: fullSuiteSelected || directAggregateRequired ? (ci ? "ci" : "local") : "ci",
+    owner: classificationRequired
+      ? "classification-required"
+      : fullSuiteSelected || directAggregateRequired ? (ci ? "ci" : "local") : "ci",
     commitSha,
-    reason: directAggregateRequired
+    reason: classificationRequired
+      ? "classification must be resolved before local or CI broad evidence is selected"
+      : directAggregateRequired
       ? `${ci ? "CI" : "local"} aggregate acceptance owns the full suite for this commit`
       : fullSuiteSelected
       ? (ci ? "CI executes the required full suite for this commit" : "unknown paths require a local conservative full suite")
@@ -533,14 +806,21 @@ export function buildVerificationPlan({
     executionLevel: requestedLevel,
     selectedLevel: minimumRequiredLevel,
     minimumRequiredLevel,
-    completion: directEvidenceRequirements.length > 0
+    completion: classificationRequired
+      ? "classification_required"
+      : directEvidenceRequirements.length > 0
       ? "direct_evidence_required"
       : requiredFollowUps.length > 0
         ? "follow_up"
         : "ready",
-    incompleteReasons: incomplete
-      ? [`${requestedLevel} is below the ${minimumRequiredLevel} evidence level required by ${effectiveRisks.join(", ")}`]
-      : [],
+    incompleteReasons: [
+      ...(classificationRequired
+        ? ["semantic authority classification is required before selecting a broad gate"]
+        : []),
+      ...(incomplete
+        ? [`${requestedLevel} is below the ${minimumRequiredLevel} evidence level required by ${effectiveRisks.join(", ")}`]
+        : []),
+    ],
     requiredFollowUp: requiredFollowUps[0] ?? null,
     directEvidenceRequirements,
     requiredFollowUps,
@@ -551,6 +831,10 @@ export function buildVerificationPlan({
     changedPaths,
     detectedRiskCategories,
     riskCategories: effectiveRisks,
+    classifications,
+    classificationRequired,
+    classificationRequirements,
+    focusedNodeTests,
     manualOverrides: manualRiskOverrides.map((risk) => ({ risk, reason: manualOverrideReason })),
     focusedTests: focused,
     requiredGates: selectedGates,
@@ -586,7 +870,7 @@ export function verificationGateEnvironment(
 export function evaluateVerificationOutcome({ plan, gateResults }) {
   const byId = new Map(gateResults.map((result) => [result.id, result]));
   const failedGates = gateResults
-    .filter((result) => result.status === "failed")
+    .filter((result) => ["failed", "timeout", "interrupted"].includes(result.status))
     .map((result) => ({
       kind: "gate",
       id: result.id,
@@ -594,6 +878,30 @@ export function evaluateVerificationOutcome({ plan, gateResults }) {
       exit_code: result.exitCode ?? null,
       reason: result.error ?? "command failed",
     }));
+  const plannedClassificationFailures = (plan.classificationRequired ? plan.classificationRequirements ?? [] : [])
+    .map((requirement) => ({
+      kind: "classification_required",
+      id: requirement.path ?? "classification-required",
+      command: null,
+      exit_code: null,
+      reason: requirement.reason,
+      candidates: requirement.candidates ?? [],
+    }));
+  const classificationFailures = (plannedClassificationFailures.length > 0
+    ? plannedClassificationFailures
+    : gateResults
+      .filter((result) => result.status === "classification_required")
+      .map((result) => ({
+        kind: "classification_required",
+        id: result.id,
+        command: result.command ?? null,
+        exit_code: result.exitCode ?? null,
+        reason: result.error ?? "semantic authority classification is required",
+        candidates: result.candidates ?? [],
+      })))
+    .filter((failure, index, failures) => failures.findIndex((candidate) => (
+      candidate.kind === failure.kind && candidate.id === failure.id
+    )) === index);
   const missingPlannedEvidence = (plan.directEvidenceRequirements ?? [])
     .filter((requirement) => (
       byId.get(requirement.gate_id)?.status === "not_run"
@@ -614,10 +922,10 @@ export function evaluateVerificationOutcome({ plan, gateResults }) {
     exit_code: null,
     reason: requirement.reason,
   }));
-  const directFailures = [...failedGates, ...missingDirectEvidence];
+  const directFailures = [...classificationFailures, ...failedGates, ...missingDirectEvidence];
   const pendingGates = plan.selectedGateIds.filter((gateId) => {
     const result = byId.get(gateId);
-    return !result || ["pending", "not_run"].includes(result.status);
+    return !result || ["pending", "not_run", "classification_required"].includes(result.status);
   });
   const outcome = directFailures.length > 0
     ? "failed"
@@ -626,6 +934,12 @@ export function evaluateVerificationOutcome({ plan, gateResults }) {
       : (plan.requiredFollowUps ?? []).length > 0
         ? "passed_with_follow_up"
         : "passed";
+  const evidenceSummary = {
+    executed: gateResults.filter((result) => result.execution === "executed").length,
+    reused: gateResults.filter((result) => result.execution === "reused").length,
+    not_run: gateResults.filter((result) => result.status === "not_run").length,
+    classification_required: classificationFailures.length,
+  };
   return {
     outcome_schema_version: "verification-outcome/v1",
     outcome,
@@ -635,6 +949,7 @@ export function evaluateVerificationOutcome({ plan, gateResults }) {
     full_suite_owner: plan.fullSuiteOwner,
     commit_sha: plan.fullSuiteOwner.commitSha,
     pending_gates: pendingGates,
+    evidence_summary: evidenceSummary,
   };
 }
 
@@ -654,6 +969,7 @@ export function verificationEvidenceMarkdown(outcome) {
     `- Direct failures: ${direct}`,
     `- Follow-up: ${followUp}`,
     `- Full-suite owner: ${outcome.full_suite_owner.owner}`,
+    `- Gate evidence: executed=${outcome.evidence_summary?.executed ?? 0}, reused=${outcome.evidence_summary?.reused ?? 0}, not_run=${outcome.evidence_summary?.not_run ?? 0}, classification_required=${outcome.evidence_summary?.classification_required ?? 0}`,
   ].join("\n");
 }
 
@@ -664,6 +980,7 @@ export function appendNotRunResults(selectedGateIds, results, catalog) {
     ...selectedGateIds.filter((gateId) => !completed.has(gateId)).map((gateId) => ({
       id: gateId,
       status: "not_run",
+      execution: "not_run",
       command: catalog.gates[gateId].command,
       exitCode: null,
       durationSeconds: 0,

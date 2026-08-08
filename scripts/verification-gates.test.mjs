@@ -15,6 +15,7 @@ import {
   buildVerificationPlan,
   classifyChangedPaths,
   classifyChangedPath,
+  classifyChangedPathSemantically,
   evaluateAcceptanceApplicability,
   evaluateVerificationOutcome,
   gateRunsOnPlatform,
@@ -23,6 +24,8 @@ import {
   parseVerificationArguments,
   requiresBackendPytest,
   resolveExecutable,
+  resolveFocusedNodeTests,
+  resolveRunner,
   verificationEvidenceMarkdown,
   verificationCatalogSha256,
   verificationGateEnvironment,
@@ -161,16 +164,97 @@ test("docs-only plan retains document and diff gates without application build",
 test("frontend presentation plan selects web evidence rather than desktop build", () => {
   const plan = planFor(["apps/web/src/features/workbench/Panel.tsx"]);
   assert.deepEqual(plan.riskCategories, ["frontend-presentation"]);
-  assert.deepEqual(selectedIds(plan).filter((id) => ["web-unit", "typecheck", "web-build"].includes(id)), ["web-unit", "typecheck", "web-build"]);
+  assert.deepEqual(selectedIds(plan).filter((id) => ["web-unit", "web-typecheck", "web-build"].includes(id)), ["web-unit", "web-typecheck", "web-build"]);
   assert.ok(!selectedIds(plan).includes("desktop-unit"));
   assert.ok(!selectedIds(plan).includes("application-build"));
 });
 
+test("semantic manifest classification separates scripts, dependencies, and distribution", () => {
+  const scriptOnly = classifyChangedPathSemantically("package.json", catalog, {
+    diffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: { test: "old" } }),
+        afterText: JSON.stringify({ scripts: { test: "new", verify: "node verify" } }),
+      },
+    },
+  });
+  assert.equal(scriptOnly.classification, "script-only");
+  assert.equal(scriptOnly.risk, "script-only");
+
+  const dependency = classifyChangedPathSemantically("package.json", catalog, {
+    diffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: {} }),
+        afterText: JSON.stringify({ scripts: {}, devDependencies: { vitest: "1" } }),
+      },
+    },
+  });
+  assert.equal(dependency.classification, "dependency-manifest");
+  assert.equal(dependency.risk, "dependency-manifest");
+
+  const distribution = classifyChangedPathSemantically("package.json", catalog, {
+    diffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: {} }),
+        afterText: JSON.stringify({ scripts: {}, build: { appId: "workbench" } }),
+      },
+    },
+  });
+  assert.equal(distribution.classification, "actual-distribution-change");
+  assert.equal(distribution.risk, "electron-distribution");
+
+  const oversized = classifyChangedPathSemantically("package.json", catalog, {
+    diffs: {
+      "package.json": {
+        beforeText: "x".repeat(256 * 1024 + 1),
+        afterText: "{}",
+      },
+    },
+  });
+  assert.equal(oversized.classification, "classification-required");
+
+  const scriptPlan = planFor(["package.json"], {
+    semanticDiffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: { test: "old" } }),
+        afterText: JSON.stringify({ scripts: { test: "new" } }),
+      },
+    },
+  });
+  assert.deepEqual(scriptPlan.riskCategories, ["script-only"]);
+  assert.ok(!selectedIds(scriptPlan).includes("dependency-audit-policy"));
+  assert.ok(!selectedIds(scriptPlan).includes("release-acceptance"));
+
+  const dependencyPlan = planFor(["package.json"], {
+    semanticDiffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: {} }),
+        afterText: JSON.stringify({ scripts: {}, dependencies: { express: "1" } }),
+      },
+    },
+  });
+  assert.deepEqual(dependencyPlan.riskCategories, ["dependency-manifest"]);
+  assert.ok(selectedIds(dependencyPlan).includes("dependency-audit-policy"));
+  assert.ok(!selectedIds(dependencyPlan).includes("release-acceptance"));
+
+  const distributionPlan = planFor(["package.json"], {
+    semanticDiffs: {
+      "package.json": {
+        beforeText: JSON.stringify({ scripts: {} }),
+        afterText: JSON.stringify({ scripts: {}, build: { appId: "workbench" } }),
+      },
+    },
+  });
+  assert.deepEqual(distributionPlan.riskCategories, ["electron-distribution"]);
+  assert.ok(selectedIds(distributionPlan).includes("release-acceptance"));
+});
+
 test("focused product E2E specs stay at PR level while E2E infrastructure requires checkpoint evidence", () => {
   const productSpec = planFor(["e2e/data-library-structure.spec.ts"]);
-  assert.deepEqual(productSpec.riskCategories, ["frontend-presentation"]);
+  assert.deepEqual(productSpec.riskCategories, ["e2e-product-spec"]);
   assert.equal(productSpec.selectedLevel, "pr");
   assert.equal(productSpec.completion, "ready");
+  assert.ok(selectedIds(productSpec).includes("product-e2e"));
   assert.ok(!selectedIds(productSpec).includes("failure-state-e2e"));
 
   const infrastructure = planFor(["e2e/helpers.ts"]);
@@ -189,14 +273,19 @@ test("focused product E2E specs stay at PR level while E2E infrastructure requir
 });
 
 test("backend plan resolves authority-map focused tests and CI owns the full suite", () => {
-  const plan = planFor(["backend/src/decision_workbench/application/project_runtime.py"]);
-  assert.deepEqual(plan.riskCategories, ["backend-application"]);
-  assert.deepEqual(plan.focusedTests, { tests: ["backend/tests"], source: "authority-map", fallback: false });
+  const changedPath = "backend/src/decision_workbench/api/openapi.py";
+  const plan = planFor([changedPath]);
+  assert.deepEqual(plan.riskCategories, ["api-contract"]);
+  assert.deepEqual(plan.focusedTests, {
+    tests: ["backend/tests/test_api.py", "backend/tests/test_openapi_contract.py"],
+    source: "authority-map",
+    fallback: false,
+  });
   assert.ok(selectedIds(plan).includes("focused-pytest"));
   assert.equal(plan.fullSuiteOwner.owner, "ci");
   assert.equal(plan.fullSuiteOwner.commitSha, "abc123");
   assert.ok(!selectedIds(plan).includes("full-pytest"));
-  const ciPlan = planFor(["backend/src/decision_workbench/application/project_runtime.py"], { ci: true });
+  const ciPlan = planFor([changedPath], { ci: true });
   assert.ok(selectedIds(ciPlan).includes("full-pytest"));
   assert.ok(!selectedIds(ciPlan).includes("focused-pytest"));
   assert.equal(ciPlan.fullSuiteOwner.owner, "ci");
@@ -205,16 +294,19 @@ test("backend plan resolves authority-map focused tests and CI owns the full sui
 
 test("Node verification tests stay out of focused pytest and keep their owning gate", () => {
   const mixedPlan = planFor([
-    "backend/src/decision_workbench/application/project_runtime.py",
+    "backend/src/decision_workbench/api/openapi.py",
     "scripts/verification-gates.test.mjs",
   ]);
-  assert.deepEqual(mixedPlan.focusedTests.tests, ["backend/tests"]);
+  assert.deepEqual(mixedPlan.focusedTests.tests, [
+    "backend/tests/test_api.py",
+    "backend/tests/test_openapi_contract.py",
+  ]);
   assert.ok(!mixedPlan.focusedTests.tests.includes("scripts/verification-gates.test.mjs"));
   assert.ok(selectedIds(mixedPlan).includes("focused-pytest"));
   assert.ok(selectedIds(mixedPlan).includes("verification-policy-tests"));
 
   const explicitPlan = planFor(
-    ["backend/src/decision_workbench/application/project_runtime.py"],
+    ["backend/src/decision_workbench/api/openapi.py"],
     {
       focusedArgs: [
         "backend/tests/test_api.py::test_health",
@@ -254,9 +346,54 @@ test("Node verification tests stay out of focused pytest and keep their owning g
   assert.deepEqual(nodeOnlyPlan.focusedTests.tests, []);
   assert.ok(!selectedIds(nodeOnlyPlan).includes("focused-pytest"));
   assert.ok(selectedIds(nodeOnlyPlan).includes("verification-policy-tests"));
+
+  const editPlan = planFor(["scripts/verification-receipts.test.mjs"], {
+    requestedLevel: "edit",
+  });
+  assert.ok(selectedIds(editPlan).includes("verification-policy-tests"));
 });
 
-test("unresolved backend authority is an explicit broad fallback, never an accidental full-suite default", () => {
+test("skill inventory authority paths stay classified and select the focused Node checker test", () => {
+  const inventory = classifyChangedPathSemantically(".agents/skill-inventory.json", catalog);
+  assert.equal(inventory.classification, "instruction-only");
+  assert.equal(inventory.risk, "instruction-only");
+
+  const reference = classifyChangedPathSemantically(".agents/references/skills/domain-modeling/SKILL.md", catalog);
+  assert.equal(reference.classification, "instruction-only");
+  assert.equal(reference.risk, "instruction-only");
+
+  for (const path of ["scripts/check-skill-inventory.mjs", "scripts/check-skill-inventory.test.mjs"]) {
+    const classification = classifyChangedPathSemantically(path, catalog);
+    assert.equal(classification.classification, "verification-tooling");
+    assert.equal(classification.risk, "verification-tooling");
+  }
+
+  assert.deepEqual(
+    resolveFocusedNodeTests({
+      catalog,
+      changedPaths: ["scripts/check-skill-inventory.mjs"],
+    }),
+    ["scripts/check-skill-inventory.test.mjs"],
+  );
+  assert.deepEqual(
+    resolveRunner(catalog.gates["focused-node"], {
+      focusedNodeArgs: ["scripts/check-skill-inventory.test.mjs"],
+    }),
+    {
+      executable: "node",
+      args: ["--test", "scripts/check-skill-inventory.test.mjs"],
+    },
+  );
+  const checkerPlan = planFor(["scripts/check-skill-inventory.mjs"]);
+  assert.deepEqual(checkerPlan.riskCategories, ["verification-tooling"]);
+  assert.deepEqual(checkerPlan.focusedNodeTests, ["scripts/check-skill-inventory.test.mjs"]);
+  assert.ok(selectedIds(checkerPlan).includes("verification-policy-tests"));
+  assert.ok(selectedIds(checkerPlan).includes("focused-node"));
+  assert.equal(checkerPlan.classificationRequired, false);
+  assert.notEqual(checkerPlan.completion, "classification_required");
+});
+
+test("unresolved backend authority is classification-required, never an accidental full-suite default", () => {
   const noAuthorityCatalog = {
     ...catalog,
     planning: { ...catalog.planning, focusedTestAuthority: [] },
@@ -267,9 +404,30 @@ test("unresolved backend authority is an explicit broad fallback, never an accid
     changedPaths: ["backend/src/decision_workbench/application/project_runtime.py"],
     commitSha: "abc123",
   });
-  assert.deepEqual(plan.focusedTests, { tests: ["backend/tests"], source: "unresolved-backend-fallback", fallback: true });
-  assert.ok(selectedIds(plan).includes("focused-pytest"));
+  assert.deepEqual(plan.focusedTests, {
+    tests: [],
+    source: "classification-required",
+    fallback: false,
+    classificationRequired: true,
+    candidates: [],
+  });
+  assert.equal(plan.classificationRequired, true);
+  assert.equal(plan.completion, "classification_required");
+  assert.ok(plan.classificationRequirements.some((item) => item.path === null));
+  assert.ok(!selectedIds(plan).includes("focused-pytest"));
   assert.ok(!selectedIds(plan).includes("full-pytest"));
+});
+
+test("CI planning fails closed for unresolved semantic classification", () => {
+  const plan = planFor(["unclassified.file"], { ci: true });
+  assert.equal(plan.completion, "classification_required");
+  assert.throws(
+    () => createCiPlan({
+      plan: { ...plan, verificationCatalogSha256: "catalog-sha" },
+      catalog,
+    }),
+    /fail-closed/,
+  );
 });
 
 test("direct release risks select one executable acceptance gate", () => {
@@ -345,9 +503,12 @@ test("stronger direct aggregate absorbs weaker follow-up gates without duplicati
 
 test("a weaker direct aggregate preserves the stronger risk's follow-up owner", () => {
   const mixed = planFor([
-    "unclassified.file",
+    "docs/reports/follow-up.md",
     "backend/src/decision_workbench/modeling/runtime.py",
-  ]);
+  ], {
+    manualRiskOverrides: ["unknown"],
+    manualOverrideReason: "fixture models an unresolved checkpoint authority",
+  });
   assert.deepEqual(mixed.directEvidenceRequirements.map((item) => item.command), [
     "npm run verify:checkpoint",
   ]);
@@ -367,15 +528,60 @@ test("checkpoint-only gates become selected only at checkpoint evidence level", 
   assert.match(checkpointPlan.requiredGates.find((gate) => gate.id === "default-playwright").reasons.join(" "), /checkpoint evidence/);
 });
 
-test("unclassified paths receive the conservative full verification plan", () => {
+test("unclassified paths fail closed until semantic authority is resolved", () => {
   const plan = planFor(["unclassified.file"]);
   assert.deepEqual(plan.riskCategories, ["unknown"]);
   assert.equal(plan.minimumRequiredLevel, "checkpoint");
-  assert.equal(plan.completion, "direct_evidence_required");
-  assert.equal(plan.directEvidenceRequirements[0].command, "npm run verify:checkpoint");
-  assert.ok(selectedIds(plan).includes("checkpoint-acceptance"));
+  assert.equal(plan.completion, "classification_required");
+  assert.equal(plan.classificationRequired, true);
+  assert.ok(plan.classificationRequirements.some((item) => item.path === "unclassified.file"));
+  assert.ok(!selectedIds(plan).includes("checkpoint-acceptance"));
   assert.ok(!selectedIds(plan).includes("full-pytest"));
-  assert.equal(plan.fullSuiteOwner.owner, "local");
+  assert.equal(plan.fullSuiteOwner.owner, "classification-required");
+});
+
+test("classification-required is serialized as distinct evidence instead of passed or not_run", () => {
+  const plan = planFor(["unclassified.file"]);
+  assert.equal(plan.classificationRequirements.length, 1);
+  const outcome = evaluateVerificationOutcome({
+    plan,
+    gateResults: [{
+      id: "classification-required",
+      status: "classification_required",
+      execution: "classification_required",
+      command: null,
+      exitCode: null,
+      error: "resolve the authority",
+    }],
+  });
+  assert.equal(outcome.outcome, "failed");
+  assert.equal(outcome.evidence_summary.classification_required, 1);
+  assert.equal(outcome.direct_failures.length, 1);
+  assert.ok(outcome.direct_failures.every((failure) => failure.kind === "classification_required"));
+});
+
+test("multiple unclassified paths produce one classification event per path", () => {
+  const plan = planFor(["unclassified-a.file", "unclassified-b.file"]);
+  assert.deepEqual(
+    plan.classificationRequirements.map((item) => item.path),
+    ["unclassified-a.file", "unclassified-b.file"],
+  );
+  const outcome = evaluateVerificationOutcome({
+    plan,
+    gateResults: [{
+      id: "classification-required",
+      status: "classification_required",
+      execution: "classification_required",
+      command: null,
+      exitCode: null,
+      error: "resolve the authority",
+    }],
+  });
+  assert.equal(outcome.evidence_summary.classification_required, 2);
+  assert.deepEqual(
+    outcome.direct_failures.map((failure) => failure.id),
+    ["unclassified-a.file", "unclassified-b.file"],
+  );
 });
 
 test("manual risk overrides require a reason and are recorded in the plan", () => {
@@ -441,7 +647,7 @@ test("edit loop defers higher evidence instead of running aggregate acceptance",
     requestedLevel: "edit",
     focusedArgs: ["backend/tests/test_legacy_workspace_acceptance.py"],
   });
-  assert.deepEqual(plan.selectedGateIds, ["focused-pytest", "typecheck"]);
+  assert.deepEqual(plan.selectedGateIds, ["working-tree-diff", "focused-pytest"]);
   assert.ok(!plan.selectedGateIds.includes("release-acceptance"));
   assert.equal(plan.directEvidenceRequirements.length, 0);
   assert.ok(
@@ -465,8 +671,8 @@ test("edit loop defers higher evidence instead of running aggregate acceptance",
     focusedArgs: ["backend/tests/test_runtime.py"],
   });
   assert.deepEqual(modelRuntimePlan.selectedGateIds, [
+    "working-tree-diff",
     "focused-pytest",
-    "typecheck",
   ]);
   assert.ok(
     modelRuntimePlan.requiredFollowUps.some(
@@ -573,7 +779,7 @@ test("verification outcome fixtures keep direct failures separate from follow-up
 
 test("CI full-suite ownership remains pending until completion and fails on regression", () => {
   const plan = planFor(
-    ["backend/src/decision_workbench/application/project_runtime.py"],
+    ["backend/src/decision_workbench/api/projects.py"],
     { ci: true },
   );
   const pending = evaluateVerificationOutcome({
@@ -640,8 +846,8 @@ test("docs pass, direct acceptance is result-aware, and structural follow-up sta
   assert.equal(structuralOutcome.follow_up_owner, "epic-checkpoint");
 });
 
-function ciPlanFor(changedPaths) {
-  const plan = planFor(changedPaths, { ci: true });
+function ciPlanFor(changedPaths, options = {}) {
+  const plan = planFor(changedPaths, { ci: true, ...options });
   return createCiPlan({
     plan: {
       ...plan,
@@ -731,7 +937,11 @@ test("CI plan expands aggregate acceptance without dropping or duplicating gates
     [...releasePlan.executionGateIds].sort(),
   );
 
-  const checkpointPlan = ciPlanFor(["unclassified.file"]);
+  const checkpointPlan = ciPlanFor(["docs/operations/verification-policy.md"], {
+    manualRiskOverrides: ["unknown"],
+    manualOverrideReason: "fixture models a checkpoint-required unknown risk",
+    focusedArgs: ["backend/tests/test_api.py"],
+  });
   assert.ok(checkpointPlan.originalPlan.selectedGateIds.includes("checkpoint-acceptance"));
   assert.equal(
     checkpointPlan.executionGateIds.filter((id) => id === "branch-diff").length,
@@ -747,7 +957,7 @@ test("catalog-declared full pytest absorption removes every contained pytest gat
     "legacy-workspace",
   ]);
   const basePlan = planFor(
-    ["backend/src/decision_workbench/api/projects.py"],
+    ["backend/src/decision_workbench/api/openapi.py"],
     { ci: true },
   );
   const ciPlan = createCiPlan({
@@ -876,7 +1086,9 @@ test("CI aggregation restores the logical verification outcome", () => {
 });
 
 test("CI aggregation fails closed for missing, stale, and duplicate evidence", () => {
-  const ciPlan = ciPlanFor(["unclassified.file"]);
+  const ciPlan = ciPlanFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ]);
   const reports = passedShardReports(ciPlan);
   const missing = aggregateVerificationShards({
     ciPlan,
