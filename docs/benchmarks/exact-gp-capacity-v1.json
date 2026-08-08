@@ -151,9 +151,10 @@
     },
     "memory_measurement": {
       "metric": "process_peak_working_set_bytes",
-      "scope": "benchmark process high-water mark; not an isolated per-case process",
+      "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
       "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
       "includes_native_allocations": true,
+      "process_isolation": "one fresh child process per measured case",
       "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
     }
   },
@@ -169,7 +170,7 @@
       "numpy": "2.5.1",
       "scipy": "1.18.0"
     },
-    "commit_identity": "0aae685994324907e3213a3922130d1a6d1f80be",
+    "commit_identity": "c81b5e8c23667105e3f4d157da8cf21cf06c93d5",
     "seed": 20260808
   },
   "measurement_design": [
@@ -420,13 +421,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 2.567295,
-        "peak_working_set_bytes": 108691456,
+        "build_wall_seconds": 0.808792,
+        "peak_working_set_bytes": 109187072,
+        "memory_baseline_working_set_bytes": 98717696,
+        "current_working_set_bytes_at_measurement": 108421120,
+        "peak_working_set_delta_bytes": 10469376,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -434,7 +439,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 91012,
-        "prediction_latency_ms": 0.085505,
+        "prediction_latency_ms": 0.06527,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -521,13 +526,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 2.991702,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 1.146375,
+        "peak_working_set_bytes": 109256704,
+        "memory_baseline_working_set_bytes": 98775040,
+        "current_working_set_bytes_at_measurement": 108793856,
+        "peak_working_set_delta_bytes": 10481664,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -535,7 +544,7 @@
           "restarts": 3
         },
         "artifact_size_bytes": 91012,
-        "prediction_latency_ms": 0.073075,
+        "prediction_latency_ms": 0.073765,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -622,13 +631,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 0.993743,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 0.582647,
+        "peak_working_set_bytes": 108802048,
+        "memory_baseline_working_set_bytes": 98725888,
+        "current_working_set_bytes_at_measurement": 108343296,
+        "peak_working_set_delta_bytes": 10076160,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -636,7 +649,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 91012,
-        "prediction_latency_ms": 0.071865,
+        "prediction_latency_ms": 0.09246,
         "total_fit_count": 6,
         "capacity_decision": "exact"
       }
@@ -730,6 +743,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -824,13 +838,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 1.413976,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 1.267619,
+        "peak_working_set_bytes": 113123328,
+        "memory_baseline_working_set_bytes": 98689024,
+        "current_working_set_bytes_at_measurement": 108015616,
+        "peak_working_set_delta_bytes": 14434304,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -838,7 +856,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 110788,
-        "prediction_latency_ms": 0.07747,
+        "prediction_latency_ms": 0.0896,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -932,6 +950,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1033,6 +1052,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1134,6 +1154,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1228,13 +1249,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 0.24248,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 0.168815,
+        "peak_working_set_bytes": 118349824,
+        "memory_baseline_working_set_bytes": 98951168,
+        "current_working_set_bytes_at_measurement": 108122112,
+        "peak_working_set_delta_bytes": 19398656,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1242,7 +1267,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 137156,
-        "prediction_latency_ms": 0.08042,
+        "prediction_latency_ms": 0.079735,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -1336,6 +1361,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1437,6 +1463,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1538,6 +1565,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1632,13 +1660,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 34.910576,
-        "peak_working_set_bytes": 122142720,
+        "build_wall_seconds": 16.136561,
+        "peak_working_set_bytes": 122335232,
+        "memory_baseline_working_set_bytes": 98816000,
+        "current_working_set_bytes_at_measurement": 111214592,
+        "peak_working_set_delta_bytes": 23519232,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1646,7 +1678,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 523012,
-        "prediction_latency_ms": 0.137995,
+        "prediction_latency_ms": 0.15952,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -1740,6 +1772,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1841,6 +1874,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -1942,6 +1976,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2043,6 +2078,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2144,6 +2180,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2245,6 +2282,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2346,6 +2384,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2447,6 +2486,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2548,6 +2588,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2649,6 +2690,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2750,6 +2792,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2844,13 +2887,17 @@
       },
       "metrics": {
         "measurement_status": "measured_full_fit",
-        "build_wall_seconds": 82.982938,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 44.983376,
+        "peak_working_set_bytes": 166027264,
+        "memory_baseline_working_set_bytes": 98820096,
+        "current_working_set_bytes_at_measurement": 120025088,
+        "peak_working_set_delta_bytes": 67207168,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -2858,7 +2905,7 @@
           "restarts": 1
         },
         "artifact_size_bytes": 2043012,
-        "prediction_latency_ms": 0.144725,
+        "prediction_latency_ms": 0.204585,
         "total_fit_count": 4,
         "capacity_decision": "exact"
       }
@@ -2952,6 +2999,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3053,6 +3101,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3154,6 +3203,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3255,6 +3305,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3356,6 +3407,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3457,6 +3509,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3558,6 +3611,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3659,6 +3713,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3760,6 +3815,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3861,6 +3917,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -3962,6 +4019,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4056,13 +4114,17 @@
       },
       "metrics": {
         "measurement_status": "measured_preflight",
-        "build_wall_seconds": 2.4e-05,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 2.8e-05,
+        "peak_working_set_bytes": 98824192,
+        "memory_baseline_working_set_bytes": 98820096,
+        "current_working_set_bytes_at_measurement": 98824192,
+        "peak_working_set_delta_bytes": 4096,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4165,6 +4227,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4266,6 +4329,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4367,6 +4431,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4468,6 +4533,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4569,6 +4635,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4670,6 +4737,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4772,6 +4840,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4873,6 +4942,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -4975,6 +5045,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5076,6 +5147,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5178,6 +5250,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5272,13 +5345,17 @@
       },
       "metrics": {
         "measurement_status": "measured_preflight",
-        "build_wall_seconds": 1.9e-05,
-        "peak_working_set_bytes": 165224448,
+        "build_wall_seconds": 2.5e-05,
+        "peak_working_set_bytes": 98873344,
+        "memory_baseline_working_set_bytes": 98869248,
+        "current_working_set_bytes_at_measurement": 98873344,
+        "peak_working_set_delta_bytes": 4096,
         "memory_measurement": {
           "metric": "process_peak_working_set_bytes",
-          "scope": "benchmark process high-water mark; not an isolated per-case process",
+          "scope": "isolated child-process high-water mark for one measured case; baseline current working set is recorded after import",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": true,
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5381,6 +5458,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5482,6 +5560,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5583,6 +5662,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5684,6 +5764,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5786,6 +5867,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5887,6 +5969,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -5989,6 +6072,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -6091,6 +6175,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -6194,6 +6279,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -6297,6 +6383,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
@@ -6400,6 +6487,7 @@
           "scope": "versioned policy estimate; no native allocation measurement for projected case",
           "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
           "includes_native_allocations": "modeled, not measured",
+          "process_isolation": "one fresh child process per measured case",
           "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
         },
         "convergence": {
