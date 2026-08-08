@@ -120,7 +120,7 @@ Spikeの再現手順と中断時のcleanupは
 - `npm run clean:dry-run`: 同じ対象を一覧し、削除しない。
 - `npm run clean:evidence`: Playwright、test result、明示したacceptance evidenceだけを削除する。
 - `npm run workspace:list`: `.dev-workspaces`を変更せず一覧する。
-- `npm run workspace:prune -- --database <exact-path>`: 未参照の既知branch DBだけを明示削除する。
+- `npm run workspace:prune -- --database <exact-path>`: launcher marker付きsandboxまたは旧形式の未参照branch DBだけを明示削除する。
 
 どのcleanupも `data/source/`、`models/packages/`、`data/workbench.db`、
 `.dev-workspaces/`全体を対象にしません。Workspace pruneはmain、現branch、登録済み

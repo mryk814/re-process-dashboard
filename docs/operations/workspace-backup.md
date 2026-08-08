@@ -8,19 +8,39 @@ SQLiteファイルを直接コピーせず、動作中でも整合したsnapshot
 
 ## 開発・レビュー用Workspace
 
-`npm run dev` は判断台帳の `data/workbench.db` ではなく、git branchごとの
-`.dev-workspaces/<branch名>-<短いhash>.db` を既定にする。branch名を正規化した
-表示名に元のbranch名のhashを加えるため、`feature/a`と`feature-a`も衝突しない。
+`npm run dev` は判断台帳の `data/workbench.db` ではなく、checkoutとgit branchを
+組み合わせた次のignored sandboxを既定にする。
+
+```text
+.dev-workspaces/<branch名>-<branch hash>-<checkout path hash>/
+  workspace.db
+  data-library/
+  profiles/
+  tasks/
+  models/
+  workspace-manifest.json
+```
+
+branch名を正規化した表示名へbranch hashとcanonical checkout path hashを加える。
+同じcheckout／branchでは再起動後も同じidentityになり、同名branchの別cloneとは
+共有しない。launcher markerと一致するこのrootだけがrepository内のmutable
+Profile／Task／Model保存先として許可される。markerなしdirectory、別のrepository
+path、symlink／reparse pointは許可しない。
 `WORKBENCH_DB_PATH` が指定されて
 いる場合はそのパスを優先し、`npm run dev:main-workspace` は明示的に
 `data/workbench.db` を開く。現在のDBとData Libraryのパスは起動ログと
 「ワークスペース」画面で確認する。
 
-branch-defaultの開発Workspaceでは、個人TaskとModel Packageもbranchごとに
-`%LOCALAPPDATA%\\Material Decision Workbench\\dev-workspaces\\<branch名>-<hash>\\tasks|models`
-へ分離する。Data LibraryのCSV onboardingは起動時にこの2つの保存先を受け取り、
+branch-defaultの開発Workspaceでは、Profile、個人Task、Model Packageも同じsandboxへ
+束ねる。Data LibraryのCSV onboardingは起動時にこの保存先を受け取り、
 安全境界の検証に成功した場合だけ準備を開始する。利用可否と失敗時の次の操作は
-「ワークスペース」→「保存場所を管理」で確認できる。
+「ワークスペース」→「保存場所を管理」で、Workspace identity、全保存先、
+bundled assets、backup／cleanup対象とともに確認できる。
+
+旧AppData dev-workspaceや旧直下DBを自動移行・採用・削除しない。Desktop、
+`dev:main-workspace`、明示指定Workspaceのuser-owned保存先も従来どおりである。
+古いpersonal TaskのPackageが欠損・非互換なら、そのTaskだけをorigin pathと
+回復手順付きでunavailableにし、別Taskを停止しない。
 
 レビュー開始点を揃える場合はserverを停止して次を実行する。
 
@@ -67,13 +87,14 @@ branch Workspaceの一覧はDBをread-onlyで扱う次のcommandで確認する�
 npm run workspace:list
 ```
 
-path、対応branch、最終更新時刻、DB/WAL/SHMの合計sizeと保護理由を表示する。
+path、origin、対応branch、最終更新時刻、sandbox全体sizeと保護理由を表示する。
 `main`、現在branch、登録済みgit worktree、対応branchが不明なDBはprune不可である。
+稼働中serverのlock、marker不一致、symlink／reparse pointを含むsandboxも拒否する。
 孤児DBは自動判定で消さず、必要なら由来を確認して手動で退避する。
 削除するときはdev serverを止め、一覧に表示された未参照DBのpathを省略せず指定する。
 
 ```powershell
-npm run workspace:prune -- --database C:\path\to\repo\.dev-workspaces\<name>.db
+npm run workspace:prune -- --database C:\path\to\repo\.dev-workspaces\<name>\workspace.db
 ```
 
 `npm run clean`はbuild生成物、`npm run clean:evidence`はtest／Playwright／

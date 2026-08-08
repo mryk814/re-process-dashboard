@@ -136,8 +136,6 @@ def external_task_bundles(
             if package_path
             else None
         )
-        if resolved_package is not None and not resolved_package.is_dir():
-            raise FileNotFoundError(resolved_package)
         result[task_id] = (
             external_tabular_task_module(
                 task_id=task_id,

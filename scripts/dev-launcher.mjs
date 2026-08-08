@@ -1,7 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import {
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:net";
-import { resolveDevWorkspace } from "./dev-workspace.mjs";
+import {
+  materializeDevWorkspace,
+  resolveDevWorkspace,
+} from "./dev-workspace.mjs";
 
 function port(name, fallback) {
   const value = process.env[name] ?? fallback;
@@ -55,6 +63,9 @@ const webPort = checkOnly
 const workspace = resolveDevWorkspace({
   mainWorkspace: process.argv.includes("--main-workspace"),
 });
+if (!checkOnly && !resolvePortsOnly) {
+  materializeDevWorkspace(workspace);
+}
 const launchToken = randomBytes(32).toString("base64url");
 const childEnvironment = {
   ...process.env,
@@ -65,9 +76,13 @@ const childEnvironment = {
   VITE_API_URL: `http://127.0.0.1:${webPort}`,
   WORKBENCH_DB_PATH: workspace.database,
   WORKBENCH_DATA_LIBRARY_PATH: workspace.dataLibrary,
-  ...(workspace.personalTaskStore && workspace.personalModelStore ? {
+  ...(workspace.personalProfileStore && workspace.personalTaskStore && workspace.personalModelStore ? {
+    WORKBENCH_PROFILE_STORE_PATH: workspace.personalProfileStore,
     WORKBENCH_TASK_STORE_PATH: workspace.personalTaskStore,
     WORKBENCH_MODEL_STORE_PATH: workspace.personalModelStore,
+    WORKBENCH_DEV_WORKSPACE_ROOT: workspace.workspaceRoot,
+    WORKBENCH_DEV_WORKSPACE_MANIFEST: workspace.workspaceManifestPath,
+    WORKBENCH_WORKSPACE_ID: workspace.workspaceName,
   } : {}),
   WORKBENCH_WORKSPACE_KIND: workspace.source,
   WORKBENCH_DEFER_RESOURCES:
@@ -85,16 +100,26 @@ if (checkOnly || resolvePortsOnly) {
     webPort: childEnvironment.WORKBENCH_DEV_WEB_PORT,
     workspaceDatabase: childEnvironment.WORKBENCH_DB_PATH,
     workspaceDataLibrary: childEnvironment.WORKBENCH_DATA_LIBRARY_PATH,
+    workspaceProfileStore: childEnvironment.WORKBENCH_PROFILE_STORE_PATH,
     workspaceTaskStore: childEnvironment.WORKBENCH_TASK_STORE_PATH,
     workspaceModelStore: childEnvironment.WORKBENCH_MODEL_STORE_PATH,
+    workspaceRoot: workspace.workspaceRoot,
+    workspaceManifest: workspace.workspaceManifestPath,
+    workspaceId: workspace.workspaceName,
+    checkoutIdentity: workspace.checkoutIdentity,
     workspaceSource: workspace.source,
   }));
   process.exit(0);
 }
 
 process.stdout.write(
-  `[workspace] database=${workspace.database}\n`
-  + `[workspace] data-library=${workspace.dataLibrary}\n`,
+  `[workspace] kind=${workspace.source} id=${workspace.workspaceName}\n`
+  + `[workspace] root=${workspace.workspaceRoot ?? "user-owned"}\n`
+  + `[workspace] database=${workspace.database}\n`
+  + `[workspace] data-library=${workspace.dataLibrary}\n`
+  + `[workspace] profiles=${workspace.personalProfileStore ?? "user-owned default"}\n`
+  + `[workspace] tasks=${workspace.personalTaskStore ?? "user-owned default"}\n`
+  + `[workspace] models=${workspace.personalModelStore ?? "user-owned default"}\n`,
 );
 const preflight = spawnSync(
   "uv",
@@ -136,6 +161,37 @@ if (preflight.status !== 0) {
   }
 }
 
+const activeLockPath = workspace.workspaceRoot
+  ? `${workspace.workspaceRoot}/workspace-active.json`
+  : undefined;
+if (activeLockPath) {
+  const lockPayload = `${JSON.stringify({
+    pid: process.pid,
+    workspace_id: workspace.workspaceName,
+  })}\n`;
+  try {
+    writeFileSync(activeLockPath, lockPayload, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    let owner = "unknown";
+    try {
+      const current = JSON.parse(readFileSync(activeLockPath, "utf8"));
+      if (Number.isInteger(current.pid) && current.pid > 0) {
+        owner = `pid=${current.pid}`;
+      }
+    } catch {
+      owner = "invalid lock";
+    }
+    throw new Error(
+      `Workspace lockが既に存在します (${owner})。`
+      + `server停止を確認し、必要なら手動で削除してください: ${activeLockPath}`,
+    );
+  }
+}
+
 const { default: concurrently } = await import("concurrently");
 const { result } = concurrently(
   [
@@ -165,4 +221,13 @@ try {
   await result;
 } catch {
   process.exitCode = 1;
+} finally {
+  if (activeLockPath) {
+    try {
+      const current = JSON.parse(readFileSync(activeLockPath, "utf8"));
+      if (current.pid === process.pid) unlinkSync(activeLockPath);
+    } catch {
+      // A missing or replaced lock belongs to no cleanup action here.
+    }
+  }
 }

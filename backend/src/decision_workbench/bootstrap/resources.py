@@ -206,8 +206,15 @@ def prepare_app_resources(
                 resource_id=task_id,
                 expected_locator=configured_package.resolve(),
                 recovery_hint=(
-                    f"{module.package_override_env}、active-packages.json、"
-                    "対象Packageのmanifestとartifactを確認して再起動してください。"
+                    (
+                        "Task store内のbundle.jsonが示すPackageを復元するか、"
+                        "このWorkspaceから対象Taskをarchive/detachして再起動してください。"
+                    )
+                    if module.source_kind.startswith("external_task:")
+                    else (
+                        f"{module.package_override_env}、active-packages.json、"
+                        "対象Packageのmanifestとartifactを確認して再起動してください。"
+                    )
                 ),
                 exc=exc,
             )

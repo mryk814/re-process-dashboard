@@ -26,6 +26,9 @@ from decision_workbench.modeling.training.recipe import (
     CSV_ONBOARDING_ESTIMATOR_IDS,
     estimator_recipe,
 )
+from decision_workbench.bootstrap.dev_workspace_storage import (
+    validate_personal_or_dev_store,
+)
 
 
 TASK_BUNDLE_SCHEMA_VERSION = "external-task-bundle/v1"
@@ -118,13 +121,10 @@ def use_personal_task_store(path: Path):
 
 
 def validate_personal_task_store_path(path: Path | None = None) -> Path:
-    store = (path or personal_task_store_path()).expanduser().resolve()
-    repository = Path(__file__).resolve().parents[4]
-    if store == repository or repository in store.parents:
-        raise ValueError(
-            "Personal Task store must be outside the repository. "
-            "Set WORKBENCH_TASK_STORE_PATH to a user data directory."
-        )
+    store = validate_personal_or_dev_store(
+        path or personal_task_store_path(),
+        resource_kind="task",
+    )
     store.mkdir(parents=True, exist_ok=True)
     return store
 

@@ -310,6 +310,42 @@ def test_task_store_validation_applies_to_load_and_link(
     assert not model_store.exists()
 
 
+def test_stale_personal_battery_package_is_localized_as_unavailable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    task_store = tmp_path / "personal-tasks"
+    task_id = "battery-stale-personal-v1"
+    scaffold = create_task_scaffold(
+        source=_source(tmp_path / "battery-observations.csv"),
+        task_id=task_id,
+        label="旧電池寿命Task",
+        fields=_fields(),
+        grain_confirmation="one-row-one-observation",
+        relation_confirmation="no-relations",
+        store=task_store,
+    )
+    assert scaffold.state == "ready"
+    missing_package = tmp_path / "old-clone" / "models" / "battery-package"
+    bundle_path = task_store / task_id / "bundle.json"
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["package_path"] = str(missing_package)
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+
+    resources = prepare_app_resources(
+        task_store_path=task_store,
+        task_ids=frozenset({ANNEALED_TASK_ID, task_id}),
+    )
+
+    availability = resources.task_registry.availability_for(task_id)
+    assert availability.status == "unavailable"
+    assert availability.stage == "package"
+    assert availability.expected_locator == str(missing_package.resolve())
+    assert "archive/detach" in availability.recovery_hint
+    assert resources.task_registry.availability_for(ANNEALED_TASK_ID).status == "available"
+
+
 def test_link_promoted_package_retries_a_transient_windows_replace_denial(
     tmp_path: Path,
     monkeypatch,

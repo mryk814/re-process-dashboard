@@ -3,12 +3,16 @@ import os
 from pathlib import Path
 import sqlite3
 import subprocess
+import shutil
 
 from fastapi.testclient import TestClient
 
 from decision_workbench.app import create_app
 from decision_workbench.bootstrap.startup import default_data_library_path
 from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.developer_experience.workspace_lifecycle import (
+    checkout_identity,
+)
 
 
 def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, app_resources: AppResources) -> None:
@@ -37,11 +41,17 @@ def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, a
         assert preflight.headers["access-control-allow-origin"] == "null"
         health = client.get("/health", headers=headers)
         assert health.status_code == 200
-        assert health.json()["workspace"] == {
-            "database_path": str((tmp_path / "workbench.db").resolve()),
-            "data_library_path": str((tmp_path / "data-library").resolve()),
-            "kind": "custom",
-        }
+        workspace = health.json()["workspace"]
+        assert workspace["database_path"] == str((tmp_path / "workbench.db").resolve())
+        assert workspace["data_library_path"] == str(
+            (tmp_path / "data-library").resolve()
+        )
+        assert workspace["kind"] == "custom"
+        assert workspace["id"] is None
+        assert workspace["root_path"] is None
+        assert workspace["storage_scope"] == "user-owned persistent storage"
+        assert workspace["cleanup_policy"] == "自動削除しない"
+        assert health.json()["storage"]["profile_store"]["path"]
         assert client.get("/api/projects", headers=headers).status_code == 200
         exported = client.get("/api/projects/default/candidates/export.xlsx", headers=headers)
         assert exported.status_code == 200
@@ -89,22 +99,79 @@ def test_dev_launcher_uses_one_ephemeral_token_for_api_and_vite_proxy() -> None:
         "webPort": "5180",
         "workspaceDatabase": payload["workspaceDatabase"],
         "workspaceDataLibrary": payload["workspaceDataLibrary"],
+        "workspaceProfileStore": payload["workspaceProfileStore"],
         "workspaceTaskStore": payload["workspaceTaskStore"],
         "workspaceModelStore": payload["workspaceModelStore"],
+        "workspaceRoot": payload["workspaceRoot"],
+        "workspaceManifest": payload["workspaceManifest"],
+        "workspaceId": payload["workspaceId"],
+        "checkoutIdentity": payload["checkoutIdentity"],
         "workspaceSource": "branch-default",
     }
     database = Path(payload["workspaceDatabase"])
     data_library = Path(payload["workspaceDataLibrary"])
-    assert database.parent == root / ".dev-workspaces"
-    assert database.suffix == ".db"
-    assert data_library.parent == root / ".dev-workspaces"
-    assert data_library.name.endswith("-data-library")
+    workspace_root = Path(payload["workspaceRoot"])
+    assert workspace_root.parent == root / ".dev-workspaces"
+    assert database == workspace_root / "workspace.db"
+    assert data_library == workspace_root / "data-library"
+    assert Path(payload["workspaceProfileStore"]) == workspace_root / "profiles"
     task_store = Path(payload["workspaceTaskStore"])
     model_store = Path(payload["workspaceModelStore"])
-    assert task_store.name == "tasks"
-    assert model_store.name == "models"
-    assert root not in task_store.parents
-    assert root not in model_store.parents
+    assert task_store == workspace_root / "tasks"
+    assert model_store == workspace_root / "models"
+    assert Path(payload["workspaceManifest"]) == workspace_root / "workspace-manifest.json"
+    assert payload["checkoutIdentity"] == checkout_identity(root)
+    assert payload["workspaceId"].endswith(f"-{checkout_identity(root)}")
+    assert not workspace_root.exists()
+
+
+def test_same_branch_in_two_clones_has_distinct_workspace_identity(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[2]
+    clones = [tmp_path / "clone-a", tmp_path / "clone-b"]
+    payloads = []
+    for clone in clones:
+        (clone / "scripts").mkdir(parents=True)
+        shutil.copy2(
+            root / "scripts" / "dev-workspace.mjs",
+            clone / "scripts" / "dev-workspace.mjs",
+        )
+        shutil.copy2(
+            root / "scripts" / "dev-launcher.mjs",
+            clone / "scripts" / "dev-launcher.mjs",
+        )
+        subprocess.run(
+            ["git", "init", "-b", "fixture-same-branch"],
+            cwd=clone,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        result = subprocess.run(
+            ["node", "scripts/dev-launcher.mjs", "--check"],
+            cwd=clone,
+            env={
+                **os.environ,
+                "WORKBENCH_DB_PATH": "",
+                "WORKBENCH_DATA_LIBRARY_PATH": "",
+            },
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payloads.append(json.loads(result.stdout))
+
+    assert payloads[0]["workspaceId"] != payloads[1]["workspaceId"]
+    for field in (
+        "workspaceDatabase",
+        "workspaceDataLibrary",
+        "workspaceProfileStore",
+        "workspaceTaskStore",
+        "workspaceModelStore",
+    ):
+        assert payloads[0][field] != payloads[1][field]
+    assert payloads[0]["workspaceSource"] == payloads[1]["workspaceSource"] == "branch-default"
 
 
 def test_dev_launcher_respects_explicit_workspace_path(tmp_path: Path) -> None:
@@ -127,6 +194,8 @@ def test_dev_launcher_respects_explicit_workspace_path(tmp_path: Path) -> None:
 
     assert Path(payload["workspaceDatabase"]) == database
     assert payload["workspaceSource"] == "environment"
+    assert payload["workspaceProfileStore"] is None
+    assert payload["workspaceRoot"] is None
     assert not database.exists()
 
     preflight = subprocess.run(
@@ -168,6 +237,8 @@ def test_main_workspace_flag_ignores_environment_workspace_override(
     payload = json.loads(result.stdout)
 
     assert payload["workspaceSource"] == "main"
+    assert payload["workspaceProfileStore"] is None
+    assert payload["workspaceRoot"] is None
     assert Path(payload["workspaceDatabase"]) == root / "data" / "workbench.db"
     expected_library = local_app_data / "Material Decision Workbench" / "data-library"
     assert Path(payload["workspaceDataLibrary"]) == expected_library

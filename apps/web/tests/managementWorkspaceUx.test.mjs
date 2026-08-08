@@ -144,6 +144,27 @@ test("Workspace overview code keeps normal-text contrast", async () => {
   );
 });
 
+test("Workspace storage management presents one identity and every resource root", async () => {
+  const content = await source("../src/features/workspace/WorkspaceManagerDialog.tsx");
+  const contract = await source("../src/shared/api/workbench-api.ts");
+  assert.match(content, /Workspace ID:/);
+  assert.match(content, /Checkout:/);
+  assert.match(content, /storage_scope/);
+  assert.match(content, /bundled_assets_root/);
+  assert.match(content, /backup_target/);
+  assert.match(content, /cleanup_policy/);
+  assert.match(content, /health\.storage\.profile_store/);
+  for (const field of [
+    "database_path",
+    "data_library_path",
+    "profile_store_path",
+    "task_store_path",
+    "model_store_path",
+  ]) {
+    assert.match(contract, new RegExp(`${field}:`));
+  }
+});
+
 test("CSV onboarding distinguishes a newly prepared Task from a reused identity", async () => {
   const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
   assert.match(content, /data\.reused_existing/);

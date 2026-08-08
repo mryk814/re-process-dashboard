@@ -175,8 +175,16 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
                   ? "判断台帳Workspace"
                   : "指定Workspace"}
             </strong>
+            {health.workspace.id && <span>Workspace ID: {health.workspace.id}</span>}
+            {health.workspace.checkout_identity && (
+              <span>Checkout: {health.workspace.checkout_identity}</span>
+            )}
             <code>{health.workspace.database_path}</code>
             <span>Data Library: {health.workspace.data_library_path}</span>
+            <span>{health.workspace.storage_scope}</span>
+            <small>Bundled assets: {health.workspace.bundled_assets_root}</small>
+            <small>Backup: {health.workspace.backup_target}</small>
+            <small>Cleanup: {health.workspace.cleanup_policy}</small>
           </div>
           <section
             className={`workspace-personal-storage ${health.storage.ready ? "ready" : "blocked"}`}
@@ -192,7 +200,7 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
               </button>
             </header>
             <div className="workspace-personal-storage-grid">
-              {[health.storage.task_store, health.storage.model_store].map((storage) => (
+              {[health.storage.profile_store, health.storage.task_store, health.storage.model_store].map((storage) => (
                 <div key={storage.label}>
                   <span>{storage.label}</span>
                   <b>{storage.available ? "利用可能" : "要確認"}</b>
