@@ -13,7 +13,8 @@ test("decision replay presents historical evidence before hindsight evidence", a
   assert.ok(retrospective > historical);
   assert.match(panel, /decision-replay-layer historical/);
   assert.match(panel, /decision-replay-layer retrospective/);
-  assert.match(panel, /現在Packageでの再評価（hindsight）/);
+  assert.match(panel, /選択した後発Project\/Packageでの再評価（hindsight）/);
+  assert.match(panel, /hindsight_project_id: hindsightProjectId/);
   assert.match(panel, /Actualはまだ到着していません/);
 });
 
@@ -23,7 +24,8 @@ test("decision case creation derives before and after evidence from one cutoff",
   assert.match(panel, /Date\.parse\(snapshot\.created_at\) > cutoffTime/);
   assert.match(panel, /Date\.parse\(actual\.created_at\) > cutoffTime/);
   assert.match(panel, /snapshot_ids: evidence\.map/);
-  assert.match(panel, /actual_measurement_ids: laterActuals\.map/);
+  assert.match(panel, /attachDecisionCaseActual/);
+  assert.match(panel, /decisionReplayHindsightProjectOptions/);
   assert.match(panel, /status: "no_decision"/);
 });
 

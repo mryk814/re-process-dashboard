@@ -9,8 +9,9 @@ from decision_workbench.application.inference import InferenceService
 from decision_workbench.application.projects import ProjectService
 from decision_workbench.contracts.candidate_project_contracts import Candidate
 from decision_workbench.contracts.decision_replay_contracts import (
-    CurrentPackageReevaluation,
     DecisionCase,
+    DecisionCaseActualAttachment,
+    DecisionCaseActualAttachmentCreateRequest,
     DecisionCaseCreateRequest,
     DecisionCaseDraftContext,
     DecisionCaseDraftSnapshot,
@@ -22,14 +23,16 @@ from decision_workbench.contracts.decision_replay_contracts import (
     HistoricalCandidateEvaluation,
     HistoricalCandidateEvidence,
     RealizedOutcome,
-    RetrospectiveActualEvidence,
+    HindsightProjectOption,
+    HindsightProjectProvenance,
+    HindsightProjectReevaluation,
     SimilarDecisionCase,
 )
 from decision_workbench.contracts.evidence_contracts import SnapshotResponse
 from decision_workbench.contracts.objective_contracts import ObjectiveTerm
 from decision_workbench.contracts.prediction_catalog_contracts import Prediction
 from decision_workbench.execution.inference_work_graph import semantic_digest
-from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.store import Store, StoreDataIntegrityError
 from decision_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -183,53 +186,6 @@ class DecisionReplayService:
                 "各Candidate revisionに判断時点のSnapshotが一つ必要です"
             )
 
-        actual_by_id = {
-            item.id: item for item in self.store.list_project_actuals(project_id)
-        }
-        retrospective: list[RetrospectiveActualEvidence] = []
-        allowed_candidates = {item.candidate_id for item in payload.candidates}
-        for actual_id in payload.actual_measurement_ids:
-            actual = actual_by_id.get(actual_id)
-            if actual is None or actual.candidate_id not in allowed_candidates:
-                raise DecisionReplayValidationError(
-                    "Actual Measurementは固定Candidate setの同じProjectに必要です"
-                )
-            if _aware(actual.created_at) <= cutoff:
-                raise DecisionReplayValidationError(
-                    "判断時刻以前のActualを後から得たevidenceとして扱えません"
-                )
-            if actual.property not in payload.outcome_policy.target_keys:
-                raise DecisionReplayValidationError(
-                    "Actual Measurementがoutcome policy対象外です"
-                )
-            raw_snapshot = self.store.get_snapshot(actual.snapshot_id)
-            try:
-                actual_snapshot = SnapshotResponse.model_validate(raw_snapshot)
-                actual_candidate = Candidate.model_validate(
-                    raw_snapshot["payload"]["raw_candidate"]
-                )
-                actual_prediction = actual_snapshot.payload.prediction
-                actual_key = (actual_candidate.id, actual_candidate.revision)
-                if (
-                    actual_prediction is None
-                    or actual_snapshot.candidate_id != actual.candidate_id
-                    or actual_candidate.project_id != project_id
-                    or actual_key not in candidate_by_key
-                    or actual.property not in actual_prediction.predictions
-                ):
-                    raise ValueError
-            except (ValidationError, KeyError, TypeError, ValueError) as exc:
-                raise DecisionReplayValidationError(
-                    "Actualは固定Candidate revisionのPrediction Snapshotを参照する必要があります"
-                ) from exc
-            retrospective.append(
-                RetrospectiveActualEvidence(
-                    actual=actual,
-                    candidate=key_to_reference(actual_key),
-                    prediction_snapshot_created_at=actual_snapshot.created_at,
-                )
-            )
-
         rationale = None
         if payload.rationale is not None:
             if human_actor_id is None or re.fullmatch(
@@ -277,9 +233,6 @@ class DecisionReplayService:
             "historical_evidence": [item.model_dump(mode="json") for item in historical],
             "selection": payload.selection.model_dump(mode="json"),
             "rationale": rationale.model_dump(mode="json") if rationale else None,
-            "retrospective_actuals": [
-                item.model_dump(mode="json") for item in retrospective
-            ],
             "outcome_policy": payload.outcome_policy.model_dump(mode="json"),
         }
         return self.store.create_decision_case(
@@ -292,6 +245,83 @@ class DecisionReplayService:
             decision_timestamp=cutoff.isoformat(),
             payload=stored_payload,
         )
+
+    def attach_actual(
+        self,
+        project_id: str,
+        case_id: str,
+        payload: DecisionCaseActualAttachmentCreateRequest,
+    ) -> DecisionCaseActualAttachment:
+        case = self.get_case(project_id, case_id)
+        actual_by_id = {
+            item.id: item for item in self.store.list_project_actuals(project_id)
+        }
+        actual = actual_by_id.get(payload.actual_measurement_id)
+        if actual is None:
+            raise DecisionReplayValidationError(
+                "Actual MeasurementはDecision Caseと同じProjectに必要です"
+            )
+        if any(item.actual.id == actual.id for item in self.store.list_decision_case_actual_attachments(project_id, case_id)):
+            raise DecisionReplayValidationError("Actual MeasurementはすでにDecision Caseへ追加されています")
+        if _aware(actual.created_at) <= _aware(case.decision_timestamp):
+            raise DecisionReplayValidationError(
+                "判断時刻以前のActualを後から得たevidenceとして追加できません"
+            )
+        if actual.property not in case.outcome_policy.target_keys:
+            raise DecisionReplayValidationError("Actual Measurementがoutcome policy対象外です")
+        candidate_keys = {
+            (item.candidate_id, item.candidate_revision) for item in case.candidates
+        }
+        raw_snapshot = self.store.get_snapshot(actual.snapshot_id)
+        try:
+            actual_snapshot = SnapshotResponse.model_validate(raw_snapshot)
+            actual_candidate = Candidate.model_validate(raw_snapshot["payload"]["raw_candidate"])
+            actual_prediction = actual_snapshot.payload.prediction
+            actual_key = (actual_candidate.id, actual_candidate.revision)
+            if (
+                actual_prediction is None
+                or actual_snapshot.candidate_id != actual.candidate_id
+                or actual_candidate.project_id != project_id
+                or actual_key not in candidate_keys
+                or actual.property not in actual_prediction.predictions
+            ):
+                raise ValueError
+        except (ValidationError, KeyError, TypeError, ValueError) as exc:
+            raise DecisionReplayValidationError(
+                "Actualは固定Candidate revisionのPrediction Snapshotを参照する必要があります"
+            ) from exc
+        reference = key_to_reference(actual_key)
+        identity_payload = {
+            "case_identity": case.semantic_identity,
+            "actual_id": actual.id,
+            "candidate": reference.model_dump(mode="json"),
+            "prediction_snapshot_id": actual.snapshot_id,
+        }
+        semantic_identity = semantic_digest(identity_payload)
+        attachment_id = (
+            "decision-case-actual-attachment-"
+            f"{semantic_identity.removeprefix('sha256:')[:24]}"
+        )
+        try:
+            return self.store.create_decision_case_actual_attachment(
+                attachment_id=attachment_id,
+                semantic_identity=semantic_identity,
+                project_id=project_id,
+                case_id=case_id,
+                actual_id=actual.id,
+                candidate_id=reference.candidate_id,
+                candidate_revision=reference.candidate_revision,
+                prediction_snapshot_id=actual.snapshot_id,
+                payload={
+                    "schema_version": "decision-case-actual-attachment/v1",
+                    "actual": actual.model_dump(mode="json"),
+                    "candidate": reference.model_dump(mode="json"),
+                    "prediction_snapshot_id": actual.snapshot_id,
+                    "prediction_snapshot_created_at": actual_snapshot.created_at.isoformat(),
+                },
+            )
+        except StoreDataIntegrityError as exc:
+            raise DecisionReplayValidationError(str(exc)) from exc
 
     def draft_context(self, project_id: str) -> DecisionCaseDraftContext:
         project = self.projects.require(project_id)
@@ -349,11 +379,31 @@ class DecisionReplayService:
             raise DecisionReplayNotFoundError("Decision Caseが見つかりません")
         return case
 
+    def list_actual_attachments(
+        self, project_id: str, case_id: str
+    ) -> list[DecisionCaseActualAttachment]:
+        self.get_case(project_id, case_id)
+        return self.store.list_decision_case_actual_attachments(project_id, case_id)
+
+    def hindsight_project_options(
+        self, project_id: str, case_id: str
+    ) -> list[HindsightProjectOption]:
+        case = self.get_case(project_id, case_id)
+        options: list[HindsightProjectOption] = []
+        for candidate_project in self.store.list_projects():
+            try:
+                options.append(self._hindsight_project_provenance(case, candidate_project))
+            except DecisionReplayValidationError:
+                continue
+        return options
+
     def run(
         self, project_id: str, case_id: str, request: DecisionReplayRequest
     ) -> DecisionReplayRun:
-        project = self.projects.require(project_id)
         case = self.get_case(project_id, case_id)
+        hindsight_project = self.projects.require(request.hindsight_project_id)
+        hindsight_provenance = self._hindsight_project_provenance(case, hindsight_project)
+        attachments = tuple(self.store.list_decision_case_actual_attachments(project_id, case_id))
         historical = tuple(
             HistoricalCandidateEvaluation(
                 candidate=item.candidate,
@@ -374,18 +424,19 @@ class DecisionReplayService:
         }
         realized: list[RealizedOutcome] = []
         observed_targets: set[str] = set()
-        for item in case.retrospective_actuals:
-            actual = item.actual
+        for attachment in attachments:
+            actual = attachment.actual
             if actual.mean is None:
                 raise DecisionReplayValidationError(
                     "normalized Actualに数値表現がありません"
                 )
             fixed_prediction = historical_by_candidate[
-                (item.candidate.candidate_id, item.candidate.candidate_revision)
+                (attachment.candidate.candidate_id, attachment.candidate.candidate_revision)
             ].predictions[actual.property]
             observed_targets.add(actual.property)
             realized.append(
                 RealizedOutcome(
+                    attachment_id=attachment.id,
                     candidate_id=actual.candidate_id,
                     target=actual.property,
                     actual_id=actual.id,
@@ -397,7 +448,7 @@ class DecisionReplayService:
                 )
             )
 
-        current: list[CurrentPackageReevaluation] = []
+        hindsight: list[HindsightProjectReevaluation] = []
         for item in case.historical_evidence:
             candidate = self.store.get_candidate_revision(
                 item.candidate.candidate_id,
@@ -408,15 +459,15 @@ class DecisionReplayService:
                 raise DecisionReplayValidationError(
                     "Replay対象のCandidate revisionが見つかりません"
                 )
-            prediction = self.inference.detailed_for(project, candidate)
+            prediction = self.inference.detailed_for(hindsight_project, candidate)
             predictions = {
                 key: Prediction.model_validate(prediction["predictions"][key])
                 for key in case.outcome_policy.target_keys
             }
-            current.append(
-                CurrentPackageReevaluation(
+            hindsight.append(
+                HindsightProjectReevaluation(
                     candidate=item.candidate,
-                    model_package_manifest_digest=project.model_package_manifest_digest,
+                    model_package_manifest_digest=hindsight_project.model_package_manifest_digest,
                     predictions=predictions,
                 )
             )
@@ -430,7 +481,9 @@ class DecisionReplayService:
                 snapshot_ids=tuple(
                     evidence.snapshot_id for evidence in item.historical_evidence
                 ),
-                actual_references=item.retrospective_actuals,
+                actual_attachments=tuple(
+                    self.store.list_decision_case_actual_attachments(item.project_id, item.id)
+                ),
             )
             for item in self.store.list_compatible_decision_cases(
                 task_id=case.task_id,
@@ -451,7 +504,9 @@ class DecisionReplayService:
             alternative_policy=request.alternative_policy,
             alternative_selection=alternative,
             alternative_selection_reason=reason,
-            current_package_reevaluation=tuple(current),
+            actual_attachments=attachments,
+            hindsight_project=hindsight_provenance,
+            hindsight_reevaluation=tuple(hindsight),
             similar_cases=similar,
             warnings=(
                 ("実測が一部または未到着です。",)
@@ -463,8 +518,15 @@ class DecisionReplayService:
             {
                 "case_identity": case.semantic_identity,
                 "request": request.model_dump(mode="json"),
-                "current_package_manifest_digest": project.model_package_manifest_digest,
-                "actual_ids": sorted(item.actual.id for item in case.retrospective_actuals),
+                "hindsight_project": hindsight_provenance.model_dump(mode="json"),
+                "actual_attachments": [
+                    {
+                        "identity": item.semantic_identity,
+                        "actual_id": item.actual.id,
+                        "candidate": item.candidate.model_dump(mode="json"),
+                    }
+                    for item in attachments
+                ],
             }
         )
         run_id = f"decision-replay-{semantic_identity.removeprefix('sha256:')[:24]}"
@@ -485,6 +547,49 @@ class DecisionReplayService:
     ) -> list[DecisionReplayRun]:
         self.projects.require(project_id)
         return self.store.list_decision_replay_runs(project_id, case_id)
+
+    def _hindsight_project_provenance(
+        self, case: DecisionCase, hindsight_project
+    ) -> HindsightProjectProvenance:
+        if hindsight_project.id == case.project_id:
+            raise DecisionReplayValidationError(
+                "hindsightにはDecision Caseと別の後発Projectを選択してください"
+            )
+        if hindsight_project.scientific_identity.identity_kind != "single_task":
+            raise DecisionReplayValidationError("hindsight Projectはsingle-Task Projectに限られます")
+        if _aware(hindsight_project.created_at) <= _aware(case.decision_timestamp):
+            raise DecisionReplayValidationError("hindsight Projectは判断時点より後に作成されている必要があります")
+        if (
+            hindsight_project.task_id != case.task_id
+            or hindsight_project.task_contract_digest != case.task_contract_digest
+        ):
+            raise DecisionReplayValidationError("hindsight ProjectのTask contractがDecision Caseと一致しません")
+        if hindsight_project.objective_definition_digest != case.objective_definition_digest:
+            raise DecisionReplayValidationError("hindsight ProjectのObjectiveがDecision Caseと一致しません")
+        outputs = {
+            item.key for item in self.registry.contract_for(hindsight_project.task_id).task_definition.outputs
+        }
+        if set(case.outcome_policy.target_keys) - outputs:
+            raise DecisionReplayValidationError("hindsight Projectのtarget semanticsがDecision Caseと一致しません")
+        if not hindsight_project.dataset_view_revision_id or not hindsight_project.model_package_ref_id:
+            raise DecisionReplayValidationError("hindsight ProjectのDatasetまたはModel Packageが固定されていません")
+        try:
+            source_sha256 = self.inference.resolver.context_runtime_for(hindsight_project).data.source_sha256
+        except Exception as exc:
+            raise DecisionReplayValidationError("hindsight ProjectのDataset provenanceを解決できません") from exc
+        return HindsightProjectProvenance(
+            project_id=hindsight_project.id,
+            project_name=hindsight_project.name,
+            created_at=hindsight_project.created_at,
+            model_package_ref_id=hindsight_project.model_package_ref_id,
+            model_package_manifest_digest=hindsight_project.model_package_manifest_digest,
+            dataset_view_revision_id=hindsight_project.dataset_view_revision_id,
+            dataset_source_sha256=source_sha256,
+            task_id=hindsight_project.task_id,
+            task_contract_digest=hindsight_project.task_contract_digest,
+            objective_definition_digest=hindsight_project.objective_definition_digest,
+            target_keys=case.outcome_policy.target_keys,
+        )
 
     @staticmethod
     def _alternative_selection(case: DecisionCase):

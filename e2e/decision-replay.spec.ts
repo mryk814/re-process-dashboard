@@ -79,6 +79,16 @@ test("a completed decision replays historical evidence separately from later act
   ));
   await panel.getByRole("button", { name: "Decision Caseを固定" }).click();
   expect((await caseResponse).status()).toBe(201);
+  const hindsightProjectResponse = await request.post(`${apiBaseUrl}/api/projects`, {
+    data: {
+      name: "Decision Replay hindsight browser journey",
+      ...binding,
+      target_values: { TS: 500 },
+    },
+  });
+  expect(hindsightProjectResponse.status(), await hindsightProjectResponse.text()).toBe(201);
+  const hindsightProject = await hindsightProjectResponse.json() as { id: string };
+  await page.reload();
   const historical = panel.locator(".decision-replay-layer.historical");
   const retrospective = panel.locator(".decision-replay-layer.retrospective");
   await expect(historical).toContainText("判断時点で利用できた証拠");
@@ -89,6 +99,8 @@ test("a completed decision replays historical evidence separately from later act
   expect(retrospectiveBox).not.toBeNull();
   expect(historicalBox!.x).toBeLessThan(retrospectiveBox!.x);
 
+  const hindsightSelect = retrospective.getByLabel("hindsight用の後発Project");
+  await expect(hindsightSelect).toHaveValue(hindsightProject.id);
   const replayResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/replay-runs")
@@ -97,12 +109,13 @@ test("a completed decision replays historical evidence separately from later act
   expect((await replayResponse).status()).toBe(201);
   await expect(retrospective).toContainText("実測が一部または未到着です");
   await expect(retrospective).toContainText("未観測 target");
-  await expect(retrospective).toContainText("現在Packageでの再評価（hindsight）");
+  await expect(retrospective).toContainText("選択した後発Project/Packageでの再評価（hindsight）");
+  await expect(retrospective).toContainText("Decision Replay hindsight browser journey");
 
   await page.reload();
   await expect(panel).toContainText("判断時点で利用できた証拠");
   await expect(panel).toContainText("実測が一部または未到着です");
-  await expect(panel).toContainText("現在Packageでの再評価（hindsight）");
+  await expect(panel).toContainText("選択した後発Project/Packageでの再評価（hindsight）");
   await expect(panel.locator(".decision-replay-history button[aria-current=true]")).toHaveCount(1);
   expect(snapshots).toHaveLength(2);
 });

@@ -2324,6 +2324,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Case Actual Attachments */
+        get: operations["listDecisionCaseActualAttachments"];
+        put?: never;
+        /** Attach Decision Case Actual */
+        post: operations["attachDecisionCaseActual"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/decision-cases/{case_id}/hindsight-project-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Hindsight Project Options */
+        get: operations["listDecisionReplayHindsightProjectOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/decision-cases/{case_id}/replay-runs": {
         parameters: {
             query?: never;
@@ -6165,22 +6200,6 @@ export interface components {
             /** Row Count */
             row_count: number;
         };
-        /** CurrentPackageReevaluation */
-        CurrentPackageReevaluation: {
-            candidate: components["schemas"]["DecisionCandidateReference"];
-            /**
-             * Evidence Layer
-             * @default hindsight
-             * @constant
-             */
-            evidence_layer: "hindsight";
-            /** Model Package Manifest Digest */
-            model_package_manifest_digest: string;
-            /** Predictions */
-            predictions: {
-                [key: string]: components["schemas"]["Prediction"];
-            };
-        };
         /** CurveFamilyResponse */
         CurveFamilyResponse: {
             axis: components["schemas"]["CurveVariable"];
@@ -6909,8 +6928,6 @@ export interface components {
             /** Project Id */
             project_id: string;
             rationale?: components["schemas"]["DecisionRationale"] | null;
-            /** Retrospective Actuals */
-            retrospective_actuals: components["schemas"]["RetrospectiveActualEvidence"][];
             /**
              * Schema Version
              * @default decision-case/v1
@@ -6925,13 +6942,51 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
+        /**
+         * DecisionCaseActualAttachment
+         * @description An append-only link from a fixed Case to a later Actual Measurement.
+         */
+        DecisionCaseActualAttachment: {
+            actual: components["schemas"]["ActualMeasurement"];
+            /**
+             * Attached At
+             * Format: date-time
+             */
+            attached_at: string;
+            candidate: components["schemas"]["DecisionCandidateReference"];
+            /** Case Id */
+            case_id: string;
+            /** Id */
+            id: string;
+            /**
+             * Prediction Snapshot Created At
+             * Format: date-time
+             */
+            prediction_snapshot_created_at: string;
+            /** Prediction Snapshot Id */
+            prediction_snapshot_id: string;
+            /**
+             * Schema Version
+             * @default decision-case-actual-attachment/v1
+             * @constant
+             */
+            schema_version: "decision-case-actual-attachment/v1";
+            /** Semantic Identity */
+            semantic_identity: string;
+        };
+        /** DecisionCaseActualAttachmentCreateRequest */
+        DecisionCaseActualAttachmentCreateRequest: {
+            /** Actual Measurement Id */
+            actual_measurement_id: string;
+            /**
+             * Schema Version
+             * @default decision-case-actual-attachment-create/v1
+             * @constant
+             */
+            schema_version: "decision-case-actual-attachment-create/v1";
+        };
         /** DecisionCaseCreateRequest */
         DecisionCaseCreateRequest: {
-            /**
-             * Actual Measurement Ids
-             * @default []
-             */
-            actual_measurement_ids: string[];
             /** Candidates */
             candidates: components["schemas"]["DecisionCandidateReference"][];
             /**
@@ -7081,6 +7136,8 @@ export interface components {
              * @constant
              */
             alternative_policy: "primary-objective-point-estimate/v1";
+            /** Hindsight Project Id */
+            hindsight_project_id: string;
             /**
              * Schema Version
              * @default decision-replay-request/v1
@@ -7090,6 +7147,8 @@ export interface components {
         };
         /** DecisionReplayResult */
         DecisionReplayResult: {
+            /** Actual Attachments */
+            actual_attachments: components["schemas"]["DecisionCaseActualAttachment"][];
             /**
              * Alternative Policy
              * @constant
@@ -7098,8 +7157,9 @@ export interface components {
             alternative_selection?: components["schemas"]["DecisionCandidateReference"] | null;
             /** Alternative Selection Reason */
             alternative_selection_reason: string;
-            /** Current Package Reevaluation */
-            current_package_reevaluation: components["schemas"]["CurrentPackageReevaluation"][];
+            hindsight_project: components["schemas"]["HindsightProjectProvenance"];
+            /** Hindsight Reevaluation */
+            hindsight_reevaluation: components["schemas"]["HindsightProjectReevaluation"][];
             /** Historical */
             historical: components["schemas"]["HistoricalCandidateEvaluation"][];
             /** Realized Outcomes */
@@ -8367,6 +8427,70 @@ export interface components {
             temperature_c: number;
             /** Time S */
             time_s: number;
+        };
+        /** HindsightProjectOption */
+        HindsightProjectOption: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset Source Sha256 */
+            dataset_source_sha256: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest: string;
+            /** Model Package Ref Id */
+            model_package_ref_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+        };
+        /** HindsightProjectProvenance */
+        HindsightProjectProvenance: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset Source Sha256 */
+            dataset_source_sha256: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest: string;
+            /** Model Package Ref Id */
+            model_package_ref_id: string;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Target Keys */
+            target_keys: string[];
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+        };
+        /** HindsightProjectReevaluation */
+        HindsightProjectReevaluation: {
+            candidate: components["schemas"]["DecisionCandidateReference"];
+            /**
+             * Evidence Layer
+             * @default hindsight
+             * @constant
+             */
+            evidence_layer: "hindsight";
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest: string;
+            /** Predictions */
+            predictions: {
+                [key: string]: components["schemas"]["Prediction"];
+            };
         };
         /** HistoricalCandidateEvaluation */
         HistoricalCandidateEvaluation: {
@@ -13811,6 +13935,8 @@ export interface components {
             absolute_error: number;
             /** Actual Id */
             actual_id: string;
+            /** Attachment Id */
+            attachment_id: string;
             /** Candidate Id */
             candidate_id: string;
             /** Measured At */
@@ -14035,16 +14161,6 @@ export interface components {
              * @enum {string}
              */
             time_transform: "direct" | "inverse_heat_time";
-        };
-        /** RetrospectiveActualEvidence */
-        RetrospectiveActualEvidence: {
-            actual: components["schemas"]["ActualMeasurement"];
-            candidate: components["schemas"]["DecisionCandidateReference"];
-            /**
-             * Prediction Snapshot Created At
-             * Format: date-time
-             */
-            prediction_snapshot_created_at: string;
         };
         /** RevisionRef */
         RevisionRef: {
@@ -14991,8 +15107,8 @@ export interface components {
         };
         /** SimilarDecisionCase */
         SimilarDecisionCase: {
-            /** Actual References */
-            actual_references: components["schemas"]["RetrospectiveActualEvidence"][];
+            /** Actual Attachments */
+            actual_attachments: components["schemas"]["DecisionCaseActualAttachment"][];
             /** Case Id */
             case_id: string;
             /**
@@ -22215,6 +22331,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DecisionCase"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listDecisionCaseActualAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionCaseActualAttachment"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    attachDecisionCaseActual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionCaseActualAttachmentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionCaseActualAttachment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listDecisionReplayHindsightProjectOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HindsightProjectOption"][];
                 };
             };
             /** @description Validation Error */

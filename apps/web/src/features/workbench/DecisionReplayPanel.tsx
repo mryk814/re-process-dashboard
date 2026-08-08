@@ -4,8 +4,10 @@ import type { TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
   type ApiDecisionCase,
+  type ApiDecisionCaseActualAttachment,
   type ApiDecisionCaseDraftContext,
   type ApiDecisionReplayRun,
+  type ApiHindsightProjectOption,
 } from "../../shared/api/workbench-api";
 
 const localDateTime = (value: string) => {
@@ -30,6 +32,9 @@ export function DecisionReplayPanel({
   const [context, setContext] = useState<ApiDecisionCaseDraftContext | null>(null);
   const [cases, setCases] = useState<ApiDecisionCase[]>([]);
   const [runs, setRuns] = useState<ApiDecisionReplayRun[]>([]);
+  const [attachments, setAttachments] = useState<ApiDecisionCaseActualAttachment[]>([]);
+  const [hindsightOptions, setHindsightOptions] = useState<ApiHindsightProjectOption[]>([]);
+  const [hindsightProjectId, setHindsightProjectId] = useState("");
   const [activeCaseId, setActiveCaseId] = useState("");
   const [cutoff, setCutoff] = useState("");
   const [selectionKey, setSelectionKey] = useState("no_decision");
@@ -68,6 +73,30 @@ export function DecisionReplayPanel({
     });
     return () => controller.abort();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!activeCaseId) {
+      setAttachments([]);
+      setHindsightOptions([]);
+      setHindsightProjectId("");
+      return;
+    }
+    const controller = new AbortController();
+    Promise.all([
+      workbenchApi.decisionCaseActualAttachments(projectId, activeCaseId, controller.signal),
+      workbenchApi.decisionReplayHindsightProjectOptions(projectId, activeCaseId, controller.signal),
+    ]).then(([nextAttachments, nextOptions]) => {
+      if (controller.signal.aborted) return;
+      setAttachments(nextAttachments);
+      setHindsightOptions(nextOptions);
+      setHindsightProjectId(nextOptions[0]?.project_id ?? "");
+    }).catch((cause: unknown) => {
+      if (!controller.signal.aborted) {
+        setError(cause instanceof Error ? cause.message : "Decision Replayの後着evidenceを読み込めませんでした。");
+      }
+    });
+    return () => controller.abort();
+  }, [projectId, activeCaseId]);
 
   const cutoffIso = cutoff ? new Date(cutoff).toISOString() : "";
   const cutoffTime = cutoffIso ? Date.parse(cutoffIso) : Number.NaN;
@@ -118,15 +147,19 @@ export function DecisionReplayPanel({
               rationale: rationale.trim(),
             }
           : null,
-        actual_measurement_ids: laterActuals.map((item) => item.id),
         outcome_policy: {
           schema_version: "decision-outcome-policy/v1",
           target_keys: context.target_keys,
           missing_actual_policy: "retain_partial",
         },
       }, rationale.trim() ? "local-researcher" : undefined);
+      const attached = await Promise.all(laterActuals.map((actual) => workbenchApi.attachDecisionCaseActual(projectId, created.id, {
+        schema_version: "decision-case-actual-attachment-create/v1",
+        actual_measurement_id: actual.id,
+      })));
       setCases((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setActiveCaseId(created.id);
+      setAttachments(attached);
       setRationale("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Decision Caseを保存できませんでした。");
@@ -136,17 +169,35 @@ export function DecisionReplayPanel({
   };
 
   const replay = async () => {
-    if (!activeCase) return;
+    if (!activeCase || !hindsightProjectId) return;
     setSaving(true);
     setError("");
     try {
       const run = await workbenchApi.runDecisionReplay(projectId, activeCase.id, {
         schema_version: "decision-replay-request/v1",
         alternative_policy: "primary-objective-point-estimate/v1",
+        hindsight_project_id: hindsightProjectId,
       });
       setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Decision Replayを実行できませんでした。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const attachActual = async (actualId: string) => {
+    if (!activeCase) return;
+    setSaving(true);
+    setError("");
+    try {
+      const attached = await workbenchApi.attachDecisionCaseActual(projectId, activeCase.id, {
+        schema_version: "decision-case-actual-attachment-create/v1",
+        actual_measurement_id: actualId,
+      });
+      setAttachments((current) => [...current, attached]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "ActualをDecision Caseへ追加できませんでした。");
     } finally {
       setSaving(false);
     }
@@ -204,7 +255,21 @@ export function DecisionReplayPanel({
 
       <section className="decision-replay-layer retrospective" aria-labelledby="decision-replay-retrospective">
         <header><span>後から</span><h3 id="decision-replay-retrospective">実測と現在の見方</h3></header>
-        {!activeRun && <div className="decision-replay-run-prompt"><p>当時のSnapshotは変えず、後着Actualと現在Packageによる再評価を別レイヤーで作成します。</p><button type="button" className="primary-button" disabled={saving} onClick={() => void replay()}>Replayを実行</button></div>}
+        {context && <div className="decision-replay-attachments">
+          <strong>このCaseへ追加した後着Actual: {attachments.length}件</strong>
+          {context.actuals.filter((actual) => (
+            Date.parse(actual.created_at) > Date.parse(activeCase.decision_timestamp)
+            && activeCase.outcome_policy.target_keys.includes(actual.property)
+            && activeCase.candidates.some((candidate) => candidate.candidate_id === actual.candidate_id)
+            && !attachments.some((attachment) => attachment.actual.id === actual.id)
+          )).map((actual) => <button key={actual.id} type="button" disabled={saving} onClick={() => void attachActual(actual.id)}>Actualを追加 · {actual.property}</button>)}
+        </div>}
+        <div className="decision-replay-run-prompt"><p>当時のSnapshotは変えず、後着Actualと選択した後発Project/Packageによる再評価を別レイヤーで作成します。</p>
+          <label>hindsight用の後発Project<select value={hindsightProjectId} onChange={(event) => setHindsightProjectId(event.target.value)}>
+            {hindsightOptions.length === 0 && <option value="">互換性のある後発Projectがありません</option>}
+            {hindsightOptions.map((option) => <option key={option.project_id} value={option.project_id}>{option.project_name} · {option.model_package_manifest_digest.slice(0, 16)}</option>)}
+          </select></label>
+          <button type="button" className="primary-button" disabled={saving || !hindsightProjectId} onClick={() => void replay()}>{activeRun ? "更新した後着evidenceでReplayを実行" : "Replayを実行"}</button></div>
         {activeRun && <>
           {activeRun.result.warnings.length > 0 && <div className="decision-replay-warning"><strong>実測は部分的です</strong><span>{activeRun.result.warnings.join(" / ")}</span></div>}
           {activeRun.result.unobserved_targets.length > 0 && <p className="decision-replay-unobserved">未観測 target: {activeRun.result.unobserved_targets.map((target) => outputByKey.get(target)?.label ?? target).join(" / ")}</p>}
@@ -217,13 +282,14 @@ export function DecisionReplayPanel({
             </article>)}
           </div>
           <p className="decision-replay-policy">固定policy: {activeRun.result.alternative_selection ? `候補 ${activeRun.result.alternative_selection.candidate_id}` : "比較不能"} · {activeRun.result.alternative_selection_reason}</p>
-          <details className="decision-replay-hindsight"><summary>現在Packageでの再評価（hindsight）</summary>
-            {activeRun.result.current_package_reevaluation.map((item) => <div key={candidateKey(item.candidate)}><button type="button" className="link-button" onClick={() => onSelectCandidate(item.candidate.candidate_id)}>{item.candidate.candidate_id}</button><span>{Object.entries(item.predictions).map(([target, prediction]) => `${outputByKey.get(target)?.label ?? target} ${prediction.value.toLocaleString("ja-JP")}`).join(" · ")}</span></div>)}
+          <details className="decision-replay-hindsight"><summary>選択した後発Project/Packageでの再評価（hindsight）</summary>
+            <div><strong>{activeRun.result.hindsight_project.project_name}</strong><span>Project {activeRun.result.hindsight_project.project_id} · Package {activeRun.result.hindsight_project.model_package_manifest_digest} · Dataset View {activeRun.result.hindsight_project.dataset_view_revision_id} · source {activeRun.result.hindsight_project.dataset_source_sha256}</span></div>
+            {activeRun.result.hindsight_reevaluation.map((item) => <div key={candidateKey(item.candidate)}><button type="button" className="link-button" onClick={() => onSelectCandidate(item.candidate.candidate_id)}>{item.candidate.candidate_id}</button><span>{Object.entries(item.predictions).map(([target, prediction]) => `${outputByKey.get(target)?.label ?? target} ${prediction.value.toLocaleString("ja-JP")}`).join(" · ")}</span></div>)}
           </details>
           {activeRun.result.similar_cases.length > 0 && <div className="decision-replay-similar"><strong>同じTask・Objective・targetのCase</strong>{activeRun.result.similar_cases.map((item) => <div key={item.case_id}>
             <a href={`?view=project&project=${encodeURIComponent(item.project_id)}`}>{new Date(item.decision_timestamp).toLocaleDateString("ja-JP")} · {item.selection_status}</a>
             {item.snapshot_ids.map((snapshotId, index) => <a key={snapshotId} href={`?view=project&project=${encodeURIComponent(item.project_id)}&snapshot=${encodeURIComponent(snapshotId)}`}>Snapshot {index + 1}</a>)}
-            {item.actual_references.map((actual) => <a key={actual.actual.id} href={`?view=candidates&project=${encodeURIComponent(item.project_id)}&candidate=${encodeURIComponent(actual.actual.candidate_id)}&candidate_section=actuals`}>Actual · {actual.actual.property}</a>)}
+            {item.actual_attachments.map((attachment) => <a key={attachment.id} href={`?view=candidates&project=${encodeURIComponent(item.project_id)}&candidate=${encodeURIComponent(attachment.actual.candidate_id)}&candidate_section=actuals`}>Actual · {attachment.actual.property}</a>)}
           </div>)}</div>}
         </>}
       </section>

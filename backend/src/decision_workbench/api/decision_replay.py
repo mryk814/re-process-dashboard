@@ -19,10 +19,13 @@ from decision_workbench.application.inference import InferenceService
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.contracts.decision_replay_contracts import (
     DecisionCase,
+    DecisionCaseActualAttachment,
+    DecisionCaseActualAttachmentCreateRequest,
     DecisionCaseCreateRequest,
     DecisionCaseDraftContext,
     DecisionReplayRequest,
     DecisionReplayRun,
+    HindsightProjectOption,
 )
 from decision_workbench.execution.inference_work_graph import InferenceWorkGraph
 from decision_workbench.persistence.store import ProjectNotFoundError, Store
@@ -130,6 +133,56 @@ def get_decision_case(
 ) -> DecisionCase:
     try:
         return service.get_case(project_id, case_id)
+    except (ProjectNotFoundError, DecisionReplayNotFoundError) as exc:
+        _raise_error(exc)
+
+
+@router.post(
+    "/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments",
+    status_code=201,
+    response_model=DecisionCaseActualAttachment,
+    operation_id="attachDecisionCaseActual",
+)
+def attach_decision_case_actual(
+    project_id: str,
+    case_id: str,
+    payload: DecisionCaseActualAttachmentCreateRequest,
+    service: ServiceDependency,
+) -> DecisionCaseActualAttachment:
+    try:
+        return service.attach_actual(project_id, case_id, payload)
+    except (
+        ProjectNotFoundError,
+        DecisionReplayNotFoundError,
+        DecisionReplayValidationError,
+    ) as exc:
+        _raise_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments",
+    response_model=list[DecisionCaseActualAttachment],
+    operation_id="listDecisionCaseActualAttachments",
+)
+def list_decision_case_actual_attachments(
+    project_id: str, case_id: str, service: ServiceDependency
+) -> list[DecisionCaseActualAttachment]:
+    try:
+        return service.list_actual_attachments(project_id, case_id)
+    except (ProjectNotFoundError, DecisionReplayNotFoundError) as exc:
+        _raise_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/decision-cases/{case_id}/hindsight-project-options",
+    response_model=list[HindsightProjectOption],
+    operation_id="listDecisionReplayHindsightProjectOptions",
+)
+def list_hindsight_project_options(
+    project_id: str, case_id: str, service: ServiceDependency
+) -> list[HindsightProjectOption]:
+    try:
+        return service.hindsight_project_options(project_id, case_id)
     except (ProjectNotFoundError, DecisionReplayNotFoundError) as exc:
         _raise_error(exc)
 

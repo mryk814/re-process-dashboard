@@ -1857,6 +1857,11 @@
 .decision-replay-warning { display: grid; gap: 2px; border-left: 4px solid #c58a16; border-radius: 5px; background: #fffaf0; padding: 9px 11px; color: #72581d; font-size: 12px; }
 .decision-replay-run-prompt { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .decision-replay-run-prompt p { margin: 0; color: #536277; font-size: 12px; line-height: 1.5; }
+.decision-replay-run-prompt label,
+.decision-replay-attachments { display: grid; gap: 5px; color: #536277; font-size: 12px; }
+.decision-replay-run-prompt select { min-width: 220px; }
+.decision-replay-attachments { margin: 0 0 9px; padding: 8px 10px; border: 1px solid #d8e0ea; border-radius: 5px; }
+.decision-replay-attachments button { justify-self: start; }
 .decision-replay-outcomes { display: grid; gap: 7px; }
 .decision-replay-outcomes article { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; border: 1px solid #d8e0ea; border-radius: 5px; padding: 8px 9px; color: #536277; font-size: 11px; }
 .decision-replay-outcomes article strong { color: #20344b; font-size: 12px; }

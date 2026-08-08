@@ -176,7 +176,7 @@ Activityは画面名ではなく、問い、必要能力、入力parameter、結
 
 ### Decision Replay
 
-Decision Caseは判断時点までのCandidate RevisionとPrediction Snapshotを固定し、後着Actualとcurrent Package再評価を別レイヤーで扱う。Replayは当時のCandidate集合だけへ固定policyを再適用し、同じTask contract、Objective、target集合のCaseを検索する。CaseとRunは追加専用であり、既存のCandidate、Snapshot、Actual、Decision Activity identityを変更しない。詳細は[Decision Replay](../contracts/decision-replay.md)を参照する。
+Decision Caseは判断時点までのCandidate RevisionとPrediction Snapshotを固定する。後着ActualはCase本体を変更せず追加専用attachmentとして別レイヤーへ結ぶ。Replayは当時のCandidate集合だけへ固定policyを再適用し、同じTask contract、Objective、target集合を持つ後発Project/Packageを明示選択してhindsight再評価する。Case、attachment、Runはいずれも追加専用であり、既存のCandidate、Snapshot、Actual、Decision Activity identityを変更しない。詳細は[Decision Replay](../contracts/decision-replay.md)を参照する。
 
 ### Chain Definition
 

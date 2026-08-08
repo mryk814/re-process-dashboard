@@ -60,7 +60,6 @@ class DecisionCaseCreateRequest(ContractModel):
     snapshot_ids: Annotated[tuple[str, ...], Field(min_length=1)]
     selection: DecisionSelection
     rationale: DecisionRationaleInput | None = None
-    actual_measurement_ids: tuple[str, ...] = ()
     outcome_policy: DecisionOutcomePolicy
 
     @model_validator(mode="after")
@@ -72,8 +71,6 @@ class DecisionCaseCreateRequest(ContractModel):
             raise ValueError("candidate revisions must be unique")
         if len(self.snapshot_ids) != len(set(self.snapshot_ids)):
             raise ValueError("snapshot identities must be unique")
-        if len(self.actual_measurement_ids) != len(set(self.actual_measurement_ids)):
-            raise ValueError("actual measurement identities must be unique")
         if self.selection.candidate is not None and (
             self.selection.candidate.candidate_id,
             self.selection.candidate.candidate_revision,
@@ -116,6 +113,29 @@ class RetrospectiveActualEvidence(ContractModel):
     prediction_snapshot_created_at: datetime
 
 
+class DecisionCaseActualAttachmentCreateRequest(ContractModel):
+    schema_version: Literal["decision-case-actual-attachment-create/v1"] = (
+        "decision-case-actual-attachment-create/v1"
+    )
+    actual_measurement_id: Annotated[str, Field(min_length=1)]
+
+
+class DecisionCaseActualAttachment(ContractModel):
+    """An append-only link from a fixed Case to a later Actual Measurement."""
+
+    schema_version: Literal["decision-case-actual-attachment/v1"] = (
+        "decision-case-actual-attachment/v1"
+    )
+    id: str
+    semantic_identity: str
+    case_id: str
+    actual: ActualMeasurement
+    candidate: DecisionCandidateReference
+    prediction_snapshot_id: str
+    prediction_snapshot_created_at: datetime
+    attached_at: datetime
+
+
 class DecisionCase(ContractModel):
     schema_version: Literal["decision-case/v1"] = "decision-case/v1"
     id: str
@@ -130,7 +150,6 @@ class DecisionCase(ContractModel):
     historical_evidence: tuple[HistoricalCandidateEvidence, ...]
     selection: DecisionSelection
     rationale: DecisionRationale | None = None
-    retrospective_actuals: tuple[RetrospectiveActualEvidence, ...]
     outcome_policy: DecisionOutcomePolicy
     created_at: datetime
 
@@ -140,6 +159,7 @@ class DecisionReplayRequest(ContractModel):
     alternative_policy: Literal["primary-objective-point-estimate/v1"] = (
         "primary-objective-point-estimate/v1"
     )
+    hindsight_project_id: Annotated[str, Field(min_length=1)]
 
 
 class HistoricalCandidateEvaluation(ContractModel):
@@ -150,6 +170,7 @@ class HistoricalCandidateEvaluation(ContractModel):
 
 
 class RealizedOutcome(ContractModel):
+    attachment_id: str
     candidate_id: str
     target: str
     actual_id: str
@@ -160,7 +181,24 @@ class RealizedOutcome(ContractModel):
     measured_at: date | None = None
 
 
-class CurrentPackageReevaluation(ContractModel):
+class HindsightProjectOption(ContractModel):
+    project_id: str
+    project_name: str
+    created_at: datetime
+    model_package_ref_id: str
+    model_package_manifest_digest: str
+    dataset_view_revision_id: str
+    dataset_source_sha256: str
+
+
+class HindsightProjectProvenance(HindsightProjectOption):
+    task_id: str
+    task_contract_digest: str
+    objective_definition_digest: str | None = None
+    target_keys: tuple[str, ...]
+
+
+class HindsightProjectReevaluation(ContractModel):
     candidate: DecisionCandidateReference
     model_package_manifest_digest: str
     predictions: dict[str, Prediction]
@@ -173,7 +211,7 @@ class SimilarDecisionCase(ContractModel):
     decision_timestamp: datetime
     selection_status: Literal["selected", "no_decision"]
     snapshot_ids: tuple[str, ...]
-    actual_references: tuple[RetrospectiveActualEvidence, ...]
+    actual_attachments: tuple[DecisionCaseActualAttachment, ...]
     compatibility: Literal["same_task_objective_targets"] = (
         "same_task_objective_targets"
     )
@@ -187,7 +225,9 @@ class DecisionReplayResult(ContractModel):
     alternative_policy: Literal["primary-objective-point-estimate/v1"]
     alternative_selection: DecisionCandidateReference | None = None
     alternative_selection_reason: str
-    current_package_reevaluation: tuple[CurrentPackageReevaluation, ...]
+    actual_attachments: tuple[DecisionCaseActualAttachment, ...]
+    hindsight_project: HindsightProjectProvenance
+    hindsight_reevaluation: tuple[HindsightProjectReevaluation, ...]
     similar_cases: tuple[SimilarDecisionCase, ...]
     warnings: tuple[str, ...] = ()
 

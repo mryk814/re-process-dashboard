@@ -149,10 +149,13 @@ export type ApiDecisionActivityAvailability = components["schemas"]["DecisionAct
 export type ApiDecisionActivityRun = components["schemas"]["DecisionActivityRun"];
 export type ApiDecisionActivityRunRequest = components["schemas"]["DecisionActivityRunRequest"];
 export type ApiDecisionCase = components["schemas"]["DecisionCase"];
+export type ApiDecisionCaseActualAttachment = components["schemas"]["DecisionCaseActualAttachment"];
+export type ApiDecisionCaseActualAttachmentCreateRequest = components["schemas"]["DecisionCaseActualAttachmentCreateRequest"];
 export type ApiDecisionCaseCreateRequest = components["schemas"]["DecisionCaseCreateRequest"];
 export type ApiDecisionCaseDraftContext = components["schemas"]["DecisionCaseDraftContext"];
 export type ApiDecisionReplayRequest = components["schemas"]["DecisionReplayRequest"];
 export type ApiDecisionReplayRun = components["schemas"]["DecisionReplayRun"];
+export type ApiHindsightProjectOption = components["schemas"]["HindsightProjectOption"];
 export type ApiRawSeriesAsset = components["schemas"]["RawSeriesAsset"];
 export type ApiSeriesAssetDetail = components["schemas"]["SeriesAssetDetail"];
 export type ApiCanonicalSeriesRevision = components["schemas"]["CanonicalSeriesRevision"];
@@ -1018,6 +1021,36 @@ export const workbenchApi = {
       },
       body,
     }), "Decision Caseを保存できませんでした。");
+  },
+  async attachDecisionCaseActual(
+    projectId: string,
+    caseId: string,
+    body: ApiDecisionCaseActualAttachmentCreateRequest,
+  ): Promise<ApiDecisionCaseActualAttachment> {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments", {
+      params: { path: { project_id: projectId, case_id: caseId } },
+      body,
+    }), "Decision CaseへActualを追加できませんでした。");
+  },
+  async decisionCaseActualAttachments(
+    projectId: string,
+    caseId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiDecisionCaseActualAttachment[]> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-cases/{case_id}/actual-attachments", {
+      params: { path: { project_id: projectId, case_id: caseId } },
+      signal,
+    }), "Decision CaseのActualを取得できませんでした。");
+  },
+  async decisionReplayHindsightProjectOptions(
+    projectId: string,
+    caseId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiHindsightProjectOption[]> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/decision-cases/{case_id}/hindsight-project-options", {
+      params: { path: { project_id: projectId, case_id: caseId } },
+      signal,
+    }), "hindsight用Projectを取得できませんでした。");
   },
   async runDecisionReplay(projectId: string, caseId: string, body: ApiDecisionReplayRequest): Promise<ApiDecisionReplayRun> {
     return requireData(await apiClient.POST("/api/projects/{project_id}/decision-cases/{case_id}/replay-runs", {
