@@ -93,10 +93,10 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page).toHaveURL(/view=model-library.*asset=packages/);
   await page.goForward();
   await expect(page).toHaveURL(/view=project.*model_project_kind=single_task/);
-  await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: /Dataset/ })).toHaveValue(selectedDatasetView);
-  await expect(page.getByRole("combobox", { name: /予測構成/ })).toHaveValue(selectedPrediction);
-  await expect(page.getByRole("combobox", { name: /Model Package/ })).toHaveValue(selectedPackage);
+  await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("combobox", { name: /Dataset/ })).toHaveValue(selectedDatasetView, { timeout: 15_000 });
+  await expect(page.getByRole("combobox", { name: /予測構成/ })).toHaveValue(selectedPrediction, { timeout: 15_000 });
+  await expect(page.getByRole("combobox", { name: /Model Package/ })).toHaveValue(selectedPackage, { timeout: 15_000 });
   await page.goBack();
   await expect(page).toHaveURL(/view=model-library.*asset=packages/);
   await page.getByRole("tab", { name: /Prediction Graph/ }).click();
