@@ -105,6 +105,10 @@
 .dataset-card-summary { display: grid; min-width: 0; gap: 3px; }
 .dataset-card-summary > span { overflow: hidden; color: #354a62; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .dataset-card-summary > small { color: #718095; font-size: 10px; }
+.dataset-disposition-state { width: fit-content; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+.dataset-disposition-state.ready { background: #e7f5ee; color: #2f6e56; }
+.dataset-disposition-state.partial { background: #fff3dd; color: #8b6224; }
+.dataset-disposition-state.legacy { background: #eef1f4; color: #647383; }
 .dataset-project-links { display: flex; align-items: center; justify-content: end; gap: 7px; }
 .dataset-project-links > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .dataset-project-links span { border-radius: 999px; background: #eaf2ff; padding: 3px 7px; color: #245b9e; font-size: 11px; }
@@ -126,6 +130,21 @@
 .dataset-revision-lineage span { font-weight: 700; }
 .dataset-revision-lineage code { color: #2e6554; font-size: 10px; }
 .dataset-revision-lineage small { margin-left: auto; }
+.dataset-disposition-panel { display: grid; gap: 9px; border: 1px solid #d5e4e1; border-radius: 6px; background: #f7fbfa; padding: 10px 12px; color: #496a64; font-size: 11px; }
+.dataset-disposition-panel > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dataset-disposition-panel h4 { margin: 3px 0 0; color: #315f57; }
+.dataset-disposition-panel > header > strong { border-radius: 999px; padding: 3px 7px; font-size: 10px; }
+.dataset-disposition-panel > header > strong.ready { background: #e7f5ee; color: #2f6e56; }
+.dataset-disposition-panel > header > strong.partial { background: #fff3dd; color: #8b6224; }
+.dataset-disposition-panel > header > strong.legacy { background: #eef1f4; color: #647383; }
+.dataset-disposition-panel > p { margin: 0; color: #637c76; }
+.dataset-disposition-task { display: grid; gap: 5px; border-top: 1px solid #dcebe7; padding-top: 7px; }
+.dataset-disposition-task-heading { display: flex; justify-content: space-between; gap: 10px; }
+.dataset-disposition-task-heading span { color: #637c76; font-variant-numeric: tabular-nums; }
+.dataset-disposition-operation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.dataset-disposition-operation-grid > div { display: grid; gap: 2px; border: 1px solid #e0ebe8; border-radius: 3px; background: #fff; padding: 4px 5px; }
+.dataset-disposition-operation-grid small { color: #6a817c; font-size: 10px; }
+.dataset-disposition-reasons, .dataset-disposition-diff, .profile-disposition-diff { color: #637c76; font-size: 10px; }
 .model-package-empty { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e5eaf0; padding: 10px 2px 0; }
 .model-package-empty p { margin: 0; color: #5f6f82; font-size: 11px; }
 .model-update-guide { display: grid; gap: 10px; border-color: #72aa91; background: #f7fbfa; }
@@ -367,6 +386,7 @@
 .profile-inspection-summary > header strong { overflow-wrap: anywhere; color: #293e58; }
 .profile-inspection-summary > header code { color: #6c7b8d; font-size: 11px; }
 .profile-inspection-summary > header b, .profile-ready-badge { border-radius: 999px; background: #e4f5ef; color: #216a55; padding: 3px 7px; font-size: 11px; }
+.profile-ready-badge.unavailable { background: #fff0ef; color: #9a4d47; }
 .profile-validation-error { border-left: 3px solid #c34e56; background: #fff5f5; padding: 9px 11px; color: #713940; }
 .profile-validation-error p { margin: 4px 0; white-space: pre-wrap; font-size: 11px; }
 .profile-validation-error small { color: #8d5b61; }
@@ -385,6 +405,15 @@
 .profile-task-row b { border: 1px solid #b9d2cc; border-radius: 999px; background: #fff; padding: 3px 7px; color: #315f57; }
 .profile-rejection-details, .profile-preview-details { border-top: 1px solid #d5e4e1; padding-top: 8px; color: #496a64; font-size: 11px; }
 .profile-rejection-details span { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; }
+.profile-disposition-details { display: grid; gap: 8px; border: 1px solid #d5e4e1; border-radius: 5px; background: #fff; padding: 8px 10px; color: #496a64; font-size: 11px; }
+.profile-disposition-details summary { cursor: pointer; color: #315f57; font-weight: 700; }
+.profile-disposition-task { display: grid; gap: 5px; border-top: 1px solid #e3eeeb; padding-top: 7px; }
+.profile-disposition-task > div:first-child { display: flex; justify-content: space-between; gap: 8px; }
+.profile-disposition-task > div:first-child span { color: #637c76; font-variant-numeric: tabular-nums; }
+.profile-disposition-operations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.profile-disposition-operations span { display: grid; gap: 1px; border: 1px solid #e0ebe8; border-radius: 3px; background: #f8fcfb; padding: 4px 5px; }
+.profile-disposition-operations b { color: #6a817c; font-size: 10px; font-weight: 500; }
+.profile-disposition-task small, .profile-disposition-details > p { margin: 0; color: #637c76; font-size: 10px; }
 .profile-preview-details table { width: 100%; margin-top: 7px; border-collapse: collapse; background: #fff; }
 .profile-preview-details th, .profile-preview-details td { border: 1px solid #dce7e4; padding: 6px 8px; text-align: left; }
 .profile-registration-panel { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(220px, .65fr) auto; align-items: end; gap: 12px; }
@@ -421,6 +450,8 @@
   .data-onboarding-paths > header, .new-task-guide > header { align-items: stretch; flex-direction: column; }
   .data-onboarding-paths > div, .new-task-guide ol { grid-template-columns: 1fr; }
   .dataset-revision-lineage small { width: 100%; margin-left: 0; }
+  .dataset-disposition-task-heading { align-items: start; flex-direction: column; gap: 2px; }
+  .dataset-disposition-operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .comparison-set-list > div { grid-template-columns: 1fr auto; }
   .comparison-set-list span { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
 }

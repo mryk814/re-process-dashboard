@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ApiDataLibraryDataset,
+  type ApiDatasetDispositionDiff,
   type ApiModelPackageRef,
   type ApiProject,
 } from "../../shared/api/workbench-api";
@@ -35,6 +36,42 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP"
 const modelStorageLabel = (item: ApiModelPackageRef) => item.storage_scope === "personal"
   ? "自分のモデル"
   : "同梱モデル";
+const dispositionOperationLabels = [
+  ["lineage", "Lineage"],
+  ["observation_browse", "Observation browse"],
+  ["training", "Training"],
+  ["candidate_reference", "Candidate reference"],
+  ["similarity", "Similarity"],
+  ["prediction_input", "Prediction input"],
+] as const;
+const dispositionEligibilityLabel = (value: string) => ({
+  retained: "保持",
+  eligible: "利用可能",
+  excluded_without_required_series: "必要系列なしで対象外",
+  requires_user_supplied_series: "入力系列が必要",
+  not_applicable: "対象外",
+  unknown_legacy: "legacy unknown",
+}[value] ?? value);
+const dispositionDiffSummary = (diff: ApiDatasetDispositionDiff) => {
+  const identity = [
+    diff.source_changed ? "Source" : "",
+    diff.profile_changed ? "Profile" : "",
+    diff.canonicalization_contract_changed ? "canonicalization contract" : "",
+  ].filter(Boolean);
+  const taskChanges = [
+    ...(diff.added_task_ids ?? []).map((task) => `追加 ${task}`),
+    ...(diff.removed_task_ids ?? []).map((task) => `削除 ${task}`),
+    ...(diff.changed_task_ids ?? [])
+      .filter((task) => !(diff.added_task_ids ?? []).includes(task) && !(diff.removed_task_ids ?? []).includes(task))
+      .map((task) => `件数 ${task}`),
+  ];
+  const parts = [
+    identity.length ? `${identity.join(" / ")} identityが変化` : "",
+    taskChanges.length ? taskChanges.join(" · ") : "",
+  ].filter(Boolean);
+  if (!parts.length) return "前Revisionから扱いに変化なし";
+  return `${parts.join("。 ")}${diff.comparable ? "" : "（Profile/契約が異なるため件数比較は参考）"}`;
+};
 export function ResourceCatalogView({
   projects,
   onAddDataset,
@@ -303,6 +340,15 @@ export function ResourceCatalogView({
       (modelPackage) => trainingDataset(modelPackage, datasets)?.dataset_revision.id === item.dataset_revision.id,
     );
     const archived = Boolean(item.dataset_revision.archived_at);
+    const unresolvedDispositionCount = Object.values(item.disposition.task_dispositions ?? {}).reduce(
+      (total, disposition) => total + disposition.unresolved_heat_series_parent_count,
+      0,
+    );
+    const dispositionLabel = item.disposition.status === "unknown_legacy"
+      ? "legacy unknown"
+      : unresolvedDispositionCount > 0
+        ? "登録済み・一部操作対象外"
+        : "登録済み・利用可能";
     const startUnavailableReason = !projectCreationAvailabilityConfirmed
       ? "予測タスクとModel Packageの現在値を確認できません"
       : item.supported_task_ids.length === 0
@@ -325,6 +371,7 @@ export function ResourceCatalogView({
         <span className="dataset-card-main">
           <strong title={item.data_asset.original_filename}>{item.data_asset.original_filename}</strong>
           <span>{item.data_asset.locator_kind === "managed" ? "自分のデータ" : "同梱サンプル"} · {formatDate(item.dataset_revision.created_at)}</span>
+          <small className={`dataset-disposition-state ${item.disposition.status === "unknown_legacy" ? "legacy" : unresolvedDispositionCount > 0 ? "partial" : "ready"}`}>{dispositionLabel}</small>
           {archived && <small className="resource-state archived">利用停止中</small>}
         </span>
         <span className="dataset-card-summary">
@@ -447,6 +494,23 @@ export function ResourceCatalogView({
             <div><span>利用できるモデル</span><strong>{resourceStates.modelPackages.phase === "error" ? `前回: ${selectedDatasetPackages.filter((item) => !item.archived_at).length}件` : `${selectedDatasetPackages.filter((item) => !item.archived_at).length}件`}</strong></div>
             <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small title={selectedDataset.data_asset.sha256}>source SHA-256: {shortDigest(selectedDataset.data_asset.sha256)}</small></details>
           </div>
+          <section className="dataset-disposition-panel" aria-labelledby="dataset-disposition-heading">
+            <header><div><span className="overline">DATASET DISPOSITION</span><h4 id="dataset-disposition-heading">登録後の扱い</h4></div><strong className={selectedDataset.disposition.status === "unknown_legacy" ? "legacy" : Object.values(selectedDataset.disposition.task_dispositions ?? {}).some((item) => item.unresolved_heat_series_parent_count > 0) ? "partial" : "ready"}>{selectedDataset.disposition.status === "unknown_legacy" ? "legacy unknown" : Object.values(selectedDataset.disposition.task_dispositions ?? {}).some((item) => item.unresolved_heat_series_parent_count > 0) ? "登録済み・一部操作対象外" : "登録済み・利用可能"}</strong></header>
+            {selectedDataset.disposition.status === "unknown_legacy" ? <p>既存Datasetの過去状態は再推測していません。新しいDataset Revisionを登録すると、その時点の処理結果が保存されます。</p> : <>
+              {Object.entries(selectedDataset.disposition.task_dispositions ?? {}).map(([task, disposition]) => <div className="dataset-disposition-task" key={task}>
+                <div className="dataset-disposition-task-heading"><code>{task}</code><span>{disposition.usable_observation_count.toLocaleString("ja-JP")} / {disposition.observation_count.toLocaleString("ja-JP")} observations usable · {disposition.unresolved_heat_series_parent_count.toLocaleString("ja-JP")} unresolved parent</span></div>
+                <div className="dataset-disposition-operation-grid">{dispositionOperationLabels.map(([key, label]) => <div key={key}><small>{label}</small><span>{dispositionEligibilityLabel(disposition.operation_eligibility[key])}</span></div>)}</div>
+                {Object.keys(disposition.reason_counts ?? {}).length > 0 && <small className="dataset-disposition-reasons">理由: {Object.entries(disposition.reason_counts ?? {}).map(([reason, count]) => `${reason} ${count}`).join(" / ")}</small>}
+              </div>)}
+              {selectedDataset.disposition.improvement_hints?.length ? <p>改善候補: {selectedDataset.disposition.improvement_hints.join(" · ")}</p> : null}
+              {selectedDataset.disposition.previous_diff && <div className="dataset-disposition-diff">
+                <p>{selectedDataset.disposition.previous_diff.reason === "previous_legacy_unknown" ? "前Revisionはlegacy unknownのため比較できません" : dispositionDiffSummary(selectedDataset.disposition.previous_diff)}</p>
+                {(selectedDataset.disposition.previous_diff.previous_source_sha256 || selectedDataset.disposition.previous_diff.current_source_sha256) && <small>Source: <code>{shortDigest(selectedDataset.disposition.previous_diff.previous_source_sha256 ?? "")}</code> → <code>{shortDigest(selectedDataset.disposition.previous_diff.current_source_sha256 ?? "")}</code></small>}
+                {(selectedDataset.disposition.previous_diff.previous_profile_digest || selectedDataset.disposition.previous_diff.current_profile_digest) && <small>Profile: <code>{shortDigest(selectedDataset.disposition.previous_diff.previous_profile_digest ?? "")}</code> → <code>{shortDigest(selectedDataset.disposition.previous_diff.current_profile_digest ?? "")}</code></small>}
+              </div>}
+              {selectedDataset.disposition.digest && <code>disposition: {shortDigest(selectedDataset.disposition.digest)}</code>}
+            </>}
+          </section>
           {selectedLineage && <div className="dataset-revision-lineage" aria-label="Dataset revision lineage">
             <span>Source更新</span>
             <code title={String(selectedLineage.previous_source_sha256 ?? "")}>{shortDigest(String(selectedLineage.previous_source_sha256 ?? ""))}</code>
