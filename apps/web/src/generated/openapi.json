@@ -28717,8 +28717,8 @@
           "actual": {
             "$ref": "#/components/schemas/ActualMeasurement"
           },
-          "prediction_at_measurement": {
-            "$ref": "#/components/schemas/Prediction"
+          "candidate": {
+            "$ref": "#/components/schemas/DecisionCandidateReference"
           },
           "prediction_snapshot_created_at": {
             "format": "date-time",
@@ -28728,7 +28728,7 @@
         },
         "required": [
           "actual",
-          "prediction_at_measurement",
+          "candidate",
           "prediction_snapshot_created_at"
         ],
         "title": "RetrospectiveActualEvidence",

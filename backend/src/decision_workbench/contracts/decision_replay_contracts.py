@@ -112,7 +112,7 @@ class HistoricalCandidateEvidence(ContractModel):
 
 class RetrospectiveActualEvidence(ContractModel):
     actual: ActualMeasurement
-    prediction_at_measurement: Prediction
+    candidate: DecisionCandidateReference
     prediction_snapshot_created_at: datetime
 
 

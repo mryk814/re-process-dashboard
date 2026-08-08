@@ -172,6 +172,14 @@ def test_decision_case_and_replay_separate_historical_from_retrospective_evidenc
     assert [item["target"] for item in run["result"]["realized_outcomes"]] == [
         "TS"
     ]
+    historical_ts = next(
+        item for item in case["historical_evidence"]
+        if item["candidate"]["candidate_id"] == candidates[0]["id"]
+    )["predictions"]["TS"]["value"]
+    assert run["result"]["realized_outcomes"][0]["predicted_value"] == historical_ts
+    assert run["result"]["realized_outcomes"][0]["absolute_error"] == abs(
+        510.0 - historical_ts
+    )
     assert run["result"]["unobserved_targets"] == ["EL"]
     assert run["result"]["alternative_selection"] is not None
     assert len(run["result"]["current_package_reevaluation"]) == 2
@@ -226,3 +234,41 @@ def test_decision_case_rejects_hindsight_snapshot_and_predecision_actual(client)
     assert cutoff_after_snapshots <= after_actual
     assert invalid_actual.status_code == 422
     assert "判断時刻以前のActual" in invalid_actual.text
+
+
+def test_decision_case_rejects_actual_from_a_later_candidate_revision(client) -> None:
+    project_id = _project_with_objective(client, "Replay revision fixture")
+    candidates, snapshots = _prepare_historical_candidates(client, project_id)
+    cutoff = datetime.now(UTC).isoformat()
+    original = candidates[0]
+    updated_response = client.put(
+        f"/api/projects/{project_id}/candidates/{original['id']}",
+        json={
+            "name": f"{original['name']} updated",
+            "inputs": original["inputs"],
+            "provenance": original["provenance"],
+            "expected_revision": original["revision"],
+        },
+    )
+    assert updated_response.status_code == 200, updated_response.text
+    updated = updated_response.json()
+    assert updated["revision"] == original["revision"] + 1
+    later_actual_response = client.post(
+        f"/api/projects/{project_id}/candidates/{original['id']}/actuals",
+        params={"expected_revision": updated["revision"]},
+        json={"property": "TS", "mean": 520.0, "unit": "MPa"},
+    )
+    assert later_actual_response.status_code == 201, later_actual_response.text
+
+    response = client.post(
+        f"/api/projects/{project_id}/decision-cases",
+        json=_case_payload(
+            candidates,
+            snapshots,
+            cutoff,
+            actual_ids=(later_actual_response.json()["id"],),
+        ),
+        headers={"X-Workbench-Human-Actor": "local-researcher"},
+    )
+    assert response.status_code == 422
+    assert "固定Candidate revision" in response.text

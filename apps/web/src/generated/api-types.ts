@@ -14039,7 +14039,7 @@ export interface components {
         /** RetrospectiveActualEvidence */
         RetrospectiveActualEvidence: {
             actual: components["schemas"]["ActualMeasurement"];
-            prediction_at_measurement: components["schemas"]["Prediction"];
+            candidate: components["schemas"]["DecisionCandidateReference"];
             /**
              * Prediction Snapshot Created At
              * Format: date-time

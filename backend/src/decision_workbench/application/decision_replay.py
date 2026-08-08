@@ -205,18 +205,27 @@ class DecisionReplayService:
             raw_snapshot = self.store.get_snapshot(actual.snapshot_id)
             try:
                 actual_snapshot = SnapshotResponse.model_validate(raw_snapshot)
+                actual_candidate = Candidate.model_validate(
+                    raw_snapshot["payload"]["raw_candidate"]
+                )
                 actual_prediction = actual_snapshot.payload.prediction
-                if actual_prediction is None:
+                actual_key = (actual_candidate.id, actual_candidate.revision)
+                if (
+                    actual_prediction is None
+                    or actual_snapshot.candidate_id != actual.candidate_id
+                    or actual_candidate.project_id != project_id
+                    or actual_key not in candidate_by_key
+                    or actual.property not in actual_prediction.predictions
+                ):
                     raise ValueError
-                predicted = actual_prediction.predictions[actual.property]
             except (ValidationError, KeyError, TypeError, ValueError) as exc:
                 raise DecisionReplayValidationError(
-                    "Actualに対応するPrediction Snapshotを確認できません"
+                    "Actualは固定Candidate revisionのPrediction Snapshotを参照する必要があります"
                 ) from exc
             retrospective.append(
                 RetrospectiveActualEvidence(
                     actual=actual,
-                    prediction_at_measurement=predicted,
+                    candidate=key_to_reference(actual_key),
                     prediction_snapshot_created_at=actual_snapshot.created_at,
                 )
             )
@@ -359,6 +368,10 @@ class DecisionReplayService:
             for item in case.historical_evidence
         )
         alternative, reason = self._alternative_selection(case)
+        historical_by_candidate = {
+            (item.candidate.candidate_id, item.candidate.candidate_revision): item
+            for item in case.historical_evidence
+        }
         realized: list[RealizedOutcome] = []
         observed_targets: set[str] = set()
         for item in case.retrospective_actuals:
@@ -367,6 +380,9 @@ class DecisionReplayService:
                 raise DecisionReplayValidationError(
                     "normalized Actualに数値表現がありません"
                 )
+            fixed_prediction = historical_by_candidate[
+                (item.candidate.candidate_id, item.candidate.candidate_revision)
+            ].predictions[actual.property]
             observed_targets.add(actual.property)
             realized.append(
                 RealizedOutcome(
@@ -375,10 +391,8 @@ class DecisionReplayService:
                     actual_id=actual.id,
                     observed_value=actual.mean,
                     observed_label=actual.value_label,
-                    predicted_value=item.prediction_at_measurement.value,
-                    absolute_error=abs(
-                        actual.mean - item.prediction_at_measurement.value
-                    ),
+                    predicted_value=fixed_prediction.value,
+                    absolute_error=abs(actual.mean - fixed_prediction.value),
                     measured_at=actual.measured_at,
                 )
             )
