@@ -208,6 +208,25 @@ horseshoeの相関した特徴量に対するNUTSは、target acceptance `0.99`�
 Student-tを置き、slab capを`E[c^2] = slab_scale^2 * df / (df - 2)`として固定する
 安定化variantであり、canonical priorのInverse-Gamma slab auxiliaryをサンプリングしません。
 
+`ordered-logit.v1` はTaskの `OutputDefinition.ordinal.categories` を唯一の順序正本として、
+labelを整数categoryへ変換するexperimentalな標準builderです。
+辞書順や出現頻度からcategory順序を推論せず、未知label、replicate内の不一致、
+または学習foldから一つでもTask categoryが欠ける場合はbuild前に拒否します。
+係数と単調thresholdのNUTS drawは既存のsafeな
+`numpyro.dense_posterior.v1` / `bounded-npz`へ `w0`、`b0`、
+`ordinal_thresholds` として保存します。
+`ordinal_thresholds` はposterior draw数と一致する2次元有限配列で、各draw内が
+狭義単調増加でなければloaderが拒否します。
+既存ordinal Packageの `config.thresholds` 固定値は引き続き読めますが、新builderは
+threshold uncertaintyを固定値へ潰しません。
+category順序digest、実効inference identity、fold category診断、ordinal MAE、
+ranked probability score、log loss、category/cumulative calibration、extreme category recallを
+学習provenanceとdiagnosticsへ残します。
+NumPyro/JAX unavailable、sampling failure、R-hat／ESS／divergence gate failureで別modelへ
+fallbackせず、initial adoption statusは `experimental`、production claimはありません。
+同一cohortの実測とadoption判断は
+[Issue #791 evidence](../reports/issue-791-standard-ordinal-regression-evidence.md)に固定します。
+
 この2つのmapは任意のmetadata袋ではない。
 manifestのpredictor IDのうち`inference_identity`を持つものと、両mapのkey集合は
 完全一致し、map内のidentity本体・identity digest・diagnosticsは同じpredictorの

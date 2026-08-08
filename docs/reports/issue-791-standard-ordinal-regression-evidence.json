@@ -1,0 +1,34 @@
+{
+  "schema_version": "standard-ordinal-regression-evidence/v1",
+  "issue": 791,
+  "fixture": {
+    "authority": "backend/tests/test_standard_ordinal_regression.py::test_real_same_cohort_ordered_logit_beats_fold_local_frequency_baseline",
+    "seed": 791,
+    "rows": 48,
+    "categories": ["low", "medium", "high"],
+    "category_generation": "digitize(linspace(-2.5,2.5,48)+Normal(0,0.35),[-0.65,0.65])",
+    "cohort_digest": "sha256:f87793220af4d26546ea5f9d81bb541a3ab0d7a7ed2aae48b4b3e61bdce990f0",
+    "fold_digest": "sha256:013870017a7183e7ac4875b5cf47d96ab3129756dff275d216169d2ae97064e2",
+    "folds": 2
+  },
+  "comparison": {
+    "cohort_policy": "same rows, same Task category order, same fold assignment",
+    "baseline": {
+      "id": "fold-local-category-frequency",
+      "ordinal_mae": 0.751736111111111,
+      "ranked_probability_score": 0.4852430555555556
+    },
+    "current": {
+      "id": "ordered-logit.v1",
+      "ordinal_mae": 0.2800263114077611,
+      "ranked_probability_score": 0.13286473979256383,
+      "all_fold_inference_diagnostics": "passed"
+    }
+  },
+  "adoption_decision": {
+    "status": "experimental",
+    "production_claim": false,
+    "automatic_replacement": false,
+    "reason": "The fixed synthetic same-cohort check supports buildability and ordinal signal recovery, but one synthetic cohort is not production adoption evidence. Task-specific external validation remains required."
+  }
+}
