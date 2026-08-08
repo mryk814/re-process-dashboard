@@ -13,13 +13,119 @@ from decision_workbench.persistence.project_persistence_inventory import (
 )
 from decision_workbench.persistence.sqlite_connection import sqlite_connection
 
-from backend.tests.test_decision_replay import (
-    _case_payload,
-    _hindsight_project,
-    _prepare_historical_candidates,
-    _project_with_objective,
+ELEMENTS = (
+    "C",
+    "Si",
+    "Mn",
+    "P",
+    "S",
+    "Al",
+    "Cu",
+    "Ni",
+    "Cr",
+    "Mo",
+    "Ti",
+    "B",
+    "O",
+    "N",
 )
-from backend.tests.test_projects import _candidate, _project
+
+
+def _candidate(name: str) -> dict:
+    return {
+        "name": name,
+        "inputs": {
+            "composition": {
+                **{key: 0.0 for key in ELEMENTS},
+                "C": 0.08,
+                "Si": 0.3,
+                "Mn": 1.5,
+            },
+            "process": {"ls_mpm": 103.0},
+            "categorical": {},
+            "heat_pattern": [
+                {"time_s": 0, "temperature_c": 25},
+                {"time_s": 300, "temperature_c": 810},
+                {"time_s": 650, "temperature_c": 120},
+            ],
+        },
+    }
+
+
+def _project(client, name: str) -> dict:
+    reference = client.get("/api/projects/default").json()
+    return {
+        "name": name,
+        "description": "独立した検討",
+        "purpose": "プロジェクト分離の確認",
+        "task_id": reference["task_id"],
+        "target_values": {"TS": 500},
+        "notes": "",
+        "dataset_view_revision_id": reference["dataset_view_revision_id"],
+        "model_package_ref_id": reference["model_package_ref_id"],
+    }
+
+
+def _project_with_objective(client, name: str) -> str:
+    response = client.post("/api/projects", json=_project(client, name))
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def _prepare_historical_candidates(client, project_id: str):
+    source = client.get("/api/projects/default/candidates").json()[0]
+    candidates = []
+    snapshots = []
+    for name in ("判断候補A", "判断候補B"):
+        candidate_response = client.post(
+            f"/api/projects/{project_id}/candidates",
+            json={
+                "name": name,
+                "inputs": source["inputs"],
+                "provenance": {"source_kind": "direct", "source_ref": None},
+            },
+        )
+        assert candidate_response.status_code == 201, candidate_response.text
+        candidate = candidate_response.json()
+        snapshot_response = client.post(
+            f"/api/projects/{project_id}/candidates/{candidate['id']}/predict",
+            params={"expected_revision": candidate["revision"]},
+        )
+        assert snapshot_response.status_code == 200, snapshot_response.text
+        candidates.append(candidate)
+        snapshots.append(snapshot_response.json()["snapshot"])
+    return candidates, snapshots
+
+
+def _case_payload(candidates, snapshots, cutoff: str) -> dict:
+    return {
+        "schema_version": "decision-case-create/v1",
+        "decision_timestamp": cutoff,
+        "candidates": [
+            {
+                "candidate_id": candidate["id"],
+                "candidate_revision": candidate["revision"],
+            }
+            for candidate in candidates
+        ],
+        "snapshot_ids": [snapshot["id"] for snapshot in snapshots],
+        "selection": {
+            "status": "selected",
+            "candidate": {
+                "candidate_id": candidates[0]["id"],
+                "candidate_revision": candidates[0]["revision"],
+            },
+        },
+        "rationale": {
+            "disposition": "selected",
+            "rationale": "当時の支持範囲と目的値を確認した記録",
+        },
+        "outcome_policy": {
+            "schema_version": "decision-outcome-policy/v1",
+            "target_keys": ["TS", "EL"],
+            "missing_actual_policy": "retain_partial",
+        },
+    }
 
 
 def test_project_persistence_inventory_covers_schema_and_archive_guards(
@@ -98,7 +204,7 @@ def test_decision_case_attachment_follows_project_archive_and_purge(client) -> N
     )
     assert attachment_response.status_code == 201, attachment_response.text
     attachment_id = attachment_response.json()["id"]
-    hindsight_project_id = _hindsight_project(
+    hindsight_project_id = _project_with_objective(
         client, "Decision Case lifecycle hindsight"
     )
     run_response = client.post(
