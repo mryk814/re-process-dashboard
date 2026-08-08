@@ -70,6 +70,9 @@ from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.training.package_assembler import (
     build_standard_model_package,
 )
+from decision_workbench.modeling.training.capacity import (
+    capacity_context_from_training_set,
+)
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
@@ -662,6 +665,10 @@ class ModelPlaygroundUseCases:
                 ModelExplorationTargetContext(
                     target_key=target_key,
                     row_count=len(cohort.row_keys),
+                    raw_observation_count=compiled.raw_observation_count,
+                    effective_replicate_context_count=(
+                        compiled.effective_replicate_context_count
+                    ),
                     training_snapshot_cohort_digest=cohort.cohort_digest,
                     cohort_digest=compiled.cohort_digest,
                     split_digest=cohort.split_digest,
@@ -720,6 +727,12 @@ class ModelPlaygroundUseCases:
                             set(compiled_targets[target_key].validation_groups)
                         ),
                         feature_count=feature_count,
+                        raw_observation_count=compiled_targets[
+                            target_key
+                        ].raw_observation_count,
+                        effective_replicate_context_count=(
+                            compiled_targets[target_key].effective_replicate_context_count
+                        ),
                     )
                     for target_key, _target_context in zip(
                         targets_by_key,
@@ -758,6 +771,12 @@ class ModelPlaygroundUseCases:
                             set(compiled_targets[target_key].validation_groups)
                         ),
                         feature_count=feature_count,
+                        raw_observation_count=compiled_targets[
+                            target_key
+                        ].raw_observation_count,
+                        effective_replicate_context_count=(
+                            compiled_targets[target_key].effective_replicate_context_count
+                        ),
                     )
                     for target_key, _target_context in zip(
                         targets_by_key,
@@ -772,6 +791,11 @@ class ModelPlaygroundUseCases:
                     strict=True,
                 ):
                     compiled = compiled_targets[target_key]
+                    capacity_context = (
+                        capacity_context_from_training_set(compiled, recipe)
+                        if entry.estimator_id == "exact-gp-rbf.v1"
+                        else None
+                    )
                     resolution = resolve_estimator_contract_readiness(
                         estimator_id=entry.estimator_id,
                         output=outputs[target_key],
@@ -809,25 +833,31 @@ class ModelPlaygroundUseCases:
                         observed_targets_are_integers=bool(
                             (compiled.y == compiled.y.astype(int)).all()
                         ),
+                        capacity=capacity_context,
                     )
-                    statuses.append(resolution.status)
                     reasons.extend(resolution.reasons)
                     target_status = resolution.status
-                    if (
-                        target_status == "out_of_scope"
-                        and any(
-                            "maximum" in reason
-                            or "minimum" in reason
-                            or "capacity" in reason
-                            for reason in resolution.reasons
-                        )
-                    ):
-                        target_status = "capacity_exceeded"
                     if (
                         target_status == "ready"
                         and entry.training_cost == "high"
                     ):
                         target_status = "ready_expensive"
+                    statuses.append(target_status)
+                    capacity_resolution = resolution.capacity
+                    planned_quality_fit_count = (
+                        capacity_resolution.context.planned_quality_fit_count
+                        if capacity_resolution is not None
+                        else (
+                            1
+                            if compiled.is_temporal_validation
+                            else compiled.folds
+                        )
+                    )
+                    final_fit_count = (
+                        capacity_resolution.context.final_fit_count
+                        if capacity_resolution is not None
+                        else 1
+                    )
                     target_readiness.append(
                         ModelExplorationTargetReadiness(
                             target_key=target_key,
@@ -843,21 +873,43 @@ class ModelPlaygroundUseCases:
                                 )
                             ),
                             feature_count=feature_count,
+                            raw_observation_count=compiled.raw_observation_count,
+                            effective_replicate_context_count=(
+                                compiled.effective_replicate_context_count
+                            ),
+                            planned_quality_fit_count=planned_quality_fit_count,
+                            final_fit_count=final_fit_count,
+                            total_fit_count=(
+                                planned_quality_fit_count + final_fit_count
+                            ),
+                            capacity_decision=(
+                                capacity_resolution.decision
+                                if capacity_resolution is not None
+                                else None
+                            ),
+                            capacity_recommendation=(
+                                capacity_resolution.recommended_path
+                                if capacity_resolution is not None
+                                else None
+                            ),
+                            capacity_resolution=capacity_resolution,
                         )
                     )
-            status = (
-                "ready"
-                if statuses and all(item == "ready" for item in statuses)
-                else (
-                    "specialized_only"
-                    if "external_verified_package_only" in statuses
-                    else statuses[0]
+            executable_statuses = {"ready", "ready_expensive"}
+            if statuses and all(item in executable_statuses for item in statuses):
+                status = (
+                    "ready_expensive"
+                    if "ready_expensive" in statuses
+                    else "ready"
                 )
-            )
+            elif "capacity_exceeded" in statuses:
+                status = "capacity_exceeded"
+            elif "external_verified_package_only" in statuses:
+                status = "specialized_only"
+            else:
+                status = statuses[0]
             availability = (
-                "ready_expensive"
-                if status == "ready" and entry.training_cost == "high"
-                else status
+                "ready_expensive" if status == "ready_expensive" else status
             )
             card = _card_for_recipe(entry.estimator_id)
             hypothesis = (

@@ -4185,6 +4185,52 @@
         "title": "CapabilityRequirement",
         "type": "object"
       },
+      "CapacityPathRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "production",
+              "experimental_no_adopt",
+              "not_compatible"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "path_id": {
+            "minLength": 1,
+            "title": "Path Id",
+            "type": "string"
+          },
+          "path_kind": {
+            "enum": [
+              "exact",
+              "approximate",
+              "alternative"
+            ],
+            "title": "Path Kind",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "recommended": {
+            "title": "Recommended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path_id",
+          "path_kind",
+          "availability",
+          "recommended",
+          "reason"
+        ],
+        "title": "CapacityPathRecommendation",
+        "type": "object"
+      },
       "CatalogEntry": {
         "properties": {
           "profile_families": {
@@ -11116,6 +11162,16 @@
       "EstimatorReadinessContext": {
         "additionalProperties": false,
         "properties": {
+          "capacity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactGpCapacityContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "estimator_id": {
             "minLength": 1,
             "title": "Estimator Id",
@@ -11329,6 +11385,16 @@
             ],
             "title": "Builder Status"
           },
+          "capacity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactGpCapacityResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "estimator_id": {
             "title": "Estimator Id",
             "type": "string"
@@ -11394,12 +11460,14 @@
           "status": {
             "enum": [
               "ready",
+              "ready_expensive",
               "unavailable_missing_dependency",
               "needs_feature_recipe",
               "needs_validation_plan",
               "needs_target_contract",
               "external_verified_package_only",
-              "out_of_scope"
+              "out_of_scope",
+              "capacity_exceeded"
             ],
             "title": "Status",
             "type": "string"
@@ -11459,6 +11527,429 @@
           "available"
         ],
         "title": "EvidenceImageRef",
+        "type": "object"
+      },
+      "ExactGpCapacityContext": {
+        "additionalProperties": false,
+        "description": "The immutable load presented to the capacity resolver before a build.",
+        "properties": {
+          "cohort_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohort Digest"
+          },
+          "effective_replicate_context_count": {
+            "minimum": 0.0,
+            "title": "Effective Replicate Context Count",
+            "type": "integer"
+          },
+          "effective_training_rows": {
+            "minimum": 0.0,
+            "title": "Effective Training Rows",
+            "type": "integer"
+          },
+          "estimator_id": {
+            "const": "exact-gp-rbf.v1",
+            "default": "exact-gp-rbf.v1",
+            "title": "Estimator Id",
+            "type": "string"
+          },
+          "feature_count": {
+            "minimum": 0.0,
+            "title": "Feature Count",
+            "type": "integer"
+          },
+          "final_fit_count": {
+            "minimum": 1.0,
+            "title": "Final Fit Count",
+            "type": "integer"
+          },
+          "fold_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fold Digest"
+          },
+          "independent_validation_group_count": {
+            "minimum": 0.0,
+            "title": "Independent Validation Group Count",
+            "type": "integer"
+          },
+          "optimizer_max_iterations": {
+            "default": 90,
+            "minimum": 1.0,
+            "title": "Optimizer Max Iterations",
+            "type": "integer"
+          },
+          "optimizer_restarts": {
+            "minimum": 1.0,
+            "title": "Optimizer Restarts",
+            "type": "integer"
+          },
+          "planned_quality_fit_count": {
+            "minimum": 1.0,
+            "title": "Planned Quality Fit Count",
+            "type": "integer"
+          },
+          "raw_observation_count": {
+            "minimum": 0.0,
+            "title": "Raw Observation Count",
+            "type": "integer"
+          },
+          "recipe_max_rows": {
+            "minimum": 1.0,
+            "title": "Recipe Max Rows",
+            "type": "integer"
+          },
+          "requested_folds": {
+            "minimum": 1.0,
+            "title": "Requested Folds",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "exact-gp-capacity-context/v1",
+            "default": "exact-gp-capacity-context/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "total_fit_count": {
+            "minimum": 1.0,
+            "title": "Total Fit Count",
+            "type": "integer"
+          },
+          "validation_plan_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Plan Digest"
+          },
+          "validation_strategy": {
+            "enum": [
+              "kfold",
+              "grouped_kfold",
+              "stratified_kfold",
+              "stratified_grouped_kfold",
+              "temporal_holdout",
+              "grouped_temporal"
+            ],
+            "title": "Validation Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "raw_observation_count",
+          "effective_replicate_context_count",
+          "effective_training_rows",
+          "independent_validation_group_count",
+          "feature_count",
+          "validation_strategy",
+          "requested_folds",
+          "planned_quality_fit_count",
+          "final_fit_count",
+          "total_fit_count",
+          "optimizer_restarts",
+          "recipe_max_rows",
+          "seed"
+        ],
+        "title": "ExactGpCapacityContext",
+        "type": "object"
+      },
+      "ExactGpCapacityEstimate": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_artifact_bytes": {
+            "minimum": 0.0,
+            "title": "Estimated Artifact Bytes",
+            "type": "integer"
+          },
+          "estimated_peak_memory_bytes": {
+            "minimum": 0.0,
+            "title": "Estimated Peak Memory Bytes",
+            "type": "integer"
+          },
+          "estimated_prediction_latency_ms": {
+            "minimum": 0.0,
+            "title": "Estimated Prediction Latency Ms",
+            "type": "number"
+          },
+          "estimated_wall_seconds": {
+            "minimum": 0.0,
+            "title": "Estimated Wall Seconds",
+            "type": "number"
+          },
+          "matrix_elements": {
+            "minimum": 0.0,
+            "title": "Matrix Elements",
+            "type": "integer"
+          },
+          "optimizer_work_units": {
+            "minimum": 0.0,
+            "title": "Optimizer Work Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "estimated_wall_seconds",
+          "estimated_peak_memory_bytes",
+          "estimated_artifact_bytes",
+          "estimated_prediction_latency_ms",
+          "matrix_elements",
+          "optimizer_work_units"
+        ],
+        "title": "ExactGpCapacityEstimate",
+        "type": "object"
+      },
+      "ExactGpCapacityPolicy": {
+        "additionalProperties": false,
+        "description": "Versioned, machine-readable basis for the current default boundary.",
+        "properties": {
+          "approximate_adoption": {
+            "const": "no_adopt",
+            "default": "no_adopt",
+            "title": "Approximate Adoption",
+            "type": "string"
+          },
+          "artifact_bytes_limit": {
+            "default": 268435456,
+            "exclusiveMinimum": 0.0,
+            "title": "Artifact Bytes Limit",
+            "type": "integer"
+          },
+          "benchmark_effective_rows": {
+            "default": [
+              100,
+              250,
+              500,
+              750,
+              1000
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Benchmark Effective Rows",
+            "type": "array"
+          },
+          "benchmark_features": {
+            "default": [
+              8,
+              32,
+              64
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Benchmark Features",
+            "type": "array"
+          },
+          "benchmark_folds": {
+            "default": [
+              3,
+              5
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Benchmark Folds",
+            "type": "array"
+          },
+          "benchmark_restarts": {
+            "default": [
+              1,
+              3
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Benchmark Restarts",
+            "type": "array"
+          },
+          "default_effective_row_limit": {
+            "default": 500,
+            "minimum": 1.0,
+            "title": "Default Effective Row Limit",
+            "type": "integer"
+          },
+          "default_feature_limit": {
+            "default": 64,
+            "minimum": 1.0,
+            "title": "Default Feature Limit",
+            "type": "integer"
+          },
+          "hard_peak_memory_bytes": {
+            "default": 536870912,
+            "exclusiveMinimum": 0.0,
+            "title": "Hard Peak Memory Bytes",
+            "type": "integer"
+          },
+          "hard_wall_seconds": {
+            "default": 300.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Hard Wall Seconds",
+            "type": "number"
+          },
+          "max_exact_total_fit_count": {
+            "default": 12,
+            "minimum": 1.0,
+            "title": "Max Exact Total Fit Count",
+            "type": "integer"
+          },
+          "no_silent_fold_reduction": {
+            "const": true,
+            "default": true,
+            "title": "No Silent Fold Reduction",
+            "type": "boolean"
+          },
+          "no_silent_row_reduction": {
+            "const": true,
+            "default": true,
+            "title": "No Silent Row Reduction",
+            "type": "boolean"
+          },
+          "policy_id": {
+            "const": "exact-gp-capacity",
+            "default": "exact-gp-capacity",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "exact-gp-capacity/v1",
+            "default": "exact-gp-capacity/v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "exact-gp-capacity-policy/v1",
+            "default": "exact-gp-capacity-policy/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "warning_peak_memory_bytes": {
+            "default": 402653184,
+            "exclusiveMinimum": 0.0,
+            "title": "Warning Peak Memory Bytes",
+            "type": "integer"
+          },
+          "warning_wall_seconds": {
+            "default": 120.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Warning Wall Seconds",
+            "type": "number"
+          }
+        },
+        "title": "ExactGpCapacityPolicy",
+        "type": "object"
+      },
+      "ExactGpCapacityResolution": {
+        "additionalProperties": false,
+        "description": "Explicit result; no field permits an implicit estimator switch.",
+        "properties": {
+          "automatic_switch": {
+            "const": false,
+            "default": false,
+            "title": "Automatic Switch",
+            "type": "boolean"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ExactGpCapacityContext"
+          },
+          "decision": {
+            "enum": [
+              "exact",
+              "exact_expensive",
+              "approximate_required"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "estimate": {
+            "$ref": "#/components/schemas/ExactGpCapacityEstimate"
+          },
+          "fold_reduction": {
+            "const": "forbidden",
+            "default": "forbidden",
+            "title": "Fold Reduction",
+            "type": "string"
+          },
+          "paths": {
+            "items": {
+              "$ref": "#/components/schemas/CapacityPathRecommendation"
+            },
+            "minItems": 1,
+            "title": "Paths",
+            "type": "array"
+          },
+          "policy_id": {
+            "const": "exact-gp-capacity",
+            "default": "exact-gp-capacity",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "exact-gp-capacity/v1",
+            "default": "exact-gp-capacity/v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "recommended_path": {
+            "enum": [
+              "exact_gp",
+              "approximate_gp",
+              "alternative_estimator",
+              "manual_review"
+            ],
+            "title": "Recommended Path",
+            "type": "string"
+          },
+          "row_reduction": {
+            "const": "forbidden",
+            "default": "forbidden",
+            "title": "Row Reduction",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "exact-gp-capacity-resolution/v1",
+            "default": "exact-gp-capacity-resolution/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "recommended_path",
+          "reasons",
+          "context",
+          "estimate",
+          "paths"
+        ],
+        "title": "ExactGpCapacityResolution",
         "type": "object"
       },
       "ExternalBindingSource": {
@@ -15608,10 +16099,22 @@
             "title": "Cohort Digest",
             "type": "string"
           },
+          "effective_replicate_context_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Effective Replicate Context Count",
+            "type": "integer"
+          },
           "fold_digest": {
             "pattern": "^sha256:[0-9a-f]{64}$",
             "title": "Fold Digest",
             "type": "string"
+          },
+          "raw_observation_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Raw Observation Count",
+            "type": "integer"
           },
           "row_count": {
             "minimum": 1.0,
@@ -15658,14 +16161,81 @@
       "ModelExplorationTargetReadiness": {
         "additionalProperties": false,
         "properties": {
+          "capacity_decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "exact_expensive",
+                  "approximate_required"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Decision"
+          },
+          "capacity_recommendation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact_gp",
+                  "approximate_gp",
+                  "alternative_estimator",
+                  "manual_review"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Recommendation"
+          },
+          "capacity_resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactGpCapacityResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effective_replicate_context_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Effective Replicate Context Count",
+            "type": "integer"
+          },
           "feature_count": {
             "minimum": 0.0,
             "title": "Feature Count",
             "type": "integer"
           },
+          "final_fit_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Final Fit Count",
+            "type": "integer"
+          },
           "independent_group_count": {
             "minimum": 0.0,
             "title": "Independent Group Count",
+            "type": "integer"
+          },
+          "planned_quality_fit_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Planned Quality Fit Count",
+            "type": "integer"
+          },
+          "raw_observation_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Raw Observation Count",
             "type": "integer"
           },
           "reasons": {
@@ -15705,6 +16275,12 @@
             "minLength": 1,
             "title": "Target Kind",
             "type": "string"
+          },
+          "total_fit_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total Fit Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -30740,6 +31316,16 @@
             ],
             "title": "Builder Status",
             "type": "string"
+          },
+          "capacity_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactGpCapacityPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "categorical_support": {
             "enum": [

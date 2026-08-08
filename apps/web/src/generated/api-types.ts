@@ -4568,6 +4568,25 @@ export interface components {
              */
             capability: "mean_point" | "median_point" | "quantiles" | "standard_deviation" | "predictive_samples" | "joint_samples" | "parametric_distribution" | "goal_probability" | "support" | "explanation" | "normal_mean_std" | "conformal_interval";
         };
+        /** CapacityPathRecommendation */
+        CapacityPathRecommendation: {
+            /**
+             * Availability
+             * @enum {string}
+             */
+            availability: "production" | "experimental_no_adopt" | "not_compatible";
+            /** Path Id */
+            path_id: string;
+            /**
+             * Path Kind
+             * @enum {string}
+             */
+            path_kind: "exact" | "approximate" | "alternative";
+            /** Reason */
+            reason: string;
+            /** Recommended */
+            recommended: boolean;
+        };
         /** CatalogEntry */
         CatalogEntry: {
             /** Profile Families */
@@ -7164,6 +7183,7 @@ export interface components {
         };
         /** EstimatorReadinessContext */
         EstimatorReadinessContext: {
+            capacity?: components["schemas"]["ExactGpCapacityContext"] | null;
             /** Estimator Id */
             estimator_id: string;
             /** Feature Count */
@@ -7237,6 +7257,7 @@ export interface components {
             artifact_format: string | null;
             /** Builder Status */
             builder_status: ("standard_builder" | "external_verified_package_only" | "not_available") | null;
+            capacity?: components["schemas"]["ExactGpCapacityResolution"] | null;
             /** Estimator Id */
             estimator_id: string;
             limits: components["schemas"]["EstimatorLimits"] | null;
@@ -7268,7 +7289,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "ready" | "unavailable_missing_dependency" | "needs_feature_recipe" | "needs_validation_plan" | "needs_target_contract" | "external_verified_package_only" | "out_of_scope";
+            status: "ready" | "ready_expensive" | "unavailable_missing_dependency" | "needs_feature_recipe" | "needs_validation_plan" | "needs_target_contract" | "external_verified_package_only" | "out_of_scope" | "capacity_exceeded";
             /**
              * Target Kind
              * @enum {string}
@@ -7289,6 +7310,255 @@ export interface components {
             declared_path: string;
             /** Reason */
             reason?: string | null;
+        };
+        /**
+         * ExactGpCapacityContext
+         * @description The immutable load presented to the capacity resolver before a build.
+         */
+        ExactGpCapacityContext: {
+            /** Cohort Digest */
+            cohort_digest?: string | null;
+            /** Effective Replicate Context Count */
+            effective_replicate_context_count: number;
+            /** Effective Training Rows */
+            effective_training_rows: number;
+            /**
+             * Estimator Id
+             * @default exact-gp-rbf.v1
+             * @constant
+             */
+            estimator_id: "exact-gp-rbf.v1";
+            /** Feature Count */
+            feature_count: number;
+            /** Final Fit Count */
+            final_fit_count: number;
+            /** Fold Digest */
+            fold_digest?: string | null;
+            /** Independent Validation Group Count */
+            independent_validation_group_count: number;
+            /**
+             * Optimizer Max Iterations
+             * @default 90
+             */
+            optimizer_max_iterations: number;
+            /** Optimizer Restarts */
+            optimizer_restarts: number;
+            /** Planned Quality Fit Count */
+            planned_quality_fit_count: number;
+            /** Raw Observation Count */
+            raw_observation_count: number;
+            /** Recipe Max Rows */
+            recipe_max_rows: number;
+            /** Requested Folds */
+            requested_folds: number;
+            /**
+             * Schema Version
+             * @default exact-gp-capacity-context/v1
+             * @constant
+             */
+            schema_version: "exact-gp-capacity-context/v1";
+            /** Seed */
+            seed: number;
+            /** Total Fit Count */
+            total_fit_count: number;
+            /** Validation Plan Digest */
+            validation_plan_digest?: string | null;
+            /**
+             * Validation Strategy
+             * @enum {string}
+             */
+            validation_strategy: "kfold" | "grouped_kfold" | "stratified_kfold" | "stratified_grouped_kfold" | "temporal_holdout" | "grouped_temporal";
+        };
+        /** ExactGpCapacityEstimate */
+        ExactGpCapacityEstimate: {
+            /** Estimated Artifact Bytes */
+            estimated_artifact_bytes: number;
+            /** Estimated Peak Memory Bytes */
+            estimated_peak_memory_bytes: number;
+            /** Estimated Prediction Latency Ms */
+            estimated_prediction_latency_ms: number;
+            /** Estimated Wall Seconds */
+            estimated_wall_seconds: number;
+            /** Matrix Elements */
+            matrix_elements: number;
+            /** Optimizer Work Units */
+            optimizer_work_units: number;
+        };
+        /**
+         * ExactGpCapacityPolicy
+         * @description Versioned, machine-readable basis for the current default boundary.
+         */
+        ExactGpCapacityPolicy: {
+            /**
+             * Approximate Adoption
+             * @default no_adopt
+             * @constant
+             */
+            approximate_adoption: "no_adopt";
+            /**
+             * Artifact Bytes Limit
+             * @default 268435456
+             */
+            artifact_bytes_limit: number;
+            /**
+             * Benchmark Effective Rows
+             * @default [
+             *       100,
+             *       250,
+             *       500,
+             *       750,
+             *       1000
+             *     ]
+             */
+            benchmark_effective_rows: number[];
+            /**
+             * Benchmark Features
+             * @default [
+             *       8,
+             *       32,
+             *       64
+             *     ]
+             */
+            benchmark_features: number[];
+            /**
+             * Benchmark Folds
+             * @default [
+             *       3,
+             *       5
+             *     ]
+             */
+            benchmark_folds: number[];
+            /**
+             * Benchmark Restarts
+             * @default [
+             *       1,
+             *       3
+             *     ]
+             */
+            benchmark_restarts: number[];
+            /**
+             * Default Effective Row Limit
+             * @default 500
+             */
+            default_effective_row_limit: number;
+            /**
+             * Default Feature Limit
+             * @default 64
+             */
+            default_feature_limit: number;
+            /**
+             * Hard Peak Memory Bytes
+             * @default 536870912
+             */
+            hard_peak_memory_bytes: number;
+            /**
+             * Hard Wall Seconds
+             * @default 300
+             */
+            hard_wall_seconds: number;
+            /**
+             * Max Exact Total Fit Count
+             * @default 12
+             */
+            max_exact_total_fit_count: number;
+            /**
+             * No Silent Fold Reduction
+             * @default true
+             * @constant
+             */
+            no_silent_fold_reduction: true;
+            /**
+             * No Silent Row Reduction
+             * @default true
+             * @constant
+             */
+            no_silent_row_reduction: true;
+            /**
+             * Policy Id
+             * @default exact-gp-capacity
+             * @constant
+             */
+            policy_id: "exact-gp-capacity";
+            /**
+             * Policy Version
+             * @default exact-gp-capacity/v1
+             * @constant
+             */
+            policy_version: "exact-gp-capacity/v1";
+            /**
+             * Schema Version
+             * @default exact-gp-capacity-policy/v1
+             * @constant
+             */
+            schema_version: "exact-gp-capacity-policy/v1";
+            /**
+             * Warning Peak Memory Bytes
+             * @default 402653184
+             */
+            warning_peak_memory_bytes: number;
+            /**
+             * Warning Wall Seconds
+             * @default 120
+             */
+            warning_wall_seconds: number;
+        };
+        /**
+         * ExactGpCapacityResolution
+         * @description Explicit result; no field permits an implicit estimator switch.
+         */
+        ExactGpCapacityResolution: {
+            /**
+             * Automatic Switch
+             * @default false
+             * @constant
+             */
+            automatic_switch: false;
+            context: components["schemas"]["ExactGpCapacityContext"];
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "exact" | "exact_expensive" | "approximate_required";
+            estimate: components["schemas"]["ExactGpCapacityEstimate"];
+            /**
+             * Fold Reduction
+             * @default forbidden
+             * @constant
+             */
+            fold_reduction: "forbidden";
+            /** Paths */
+            paths: components["schemas"]["CapacityPathRecommendation"][];
+            /**
+             * Policy Id
+             * @default exact-gp-capacity
+             * @constant
+             */
+            policy_id: "exact-gp-capacity";
+            /**
+             * Policy Version
+             * @default exact-gp-capacity/v1
+             * @constant
+             */
+            policy_version: "exact-gp-capacity/v1";
+            /** Reasons */
+            reasons: string[];
+            /**
+             * Recommended Path
+             * @enum {string}
+             */
+            recommended_path: "exact_gp" | "approximate_gp" | "alternative_estimator" | "manual_review";
+            /**
+             * Row Reduction
+             * @default forbidden
+             * @constant
+             */
+            row_reduction: "forbidden";
+            /**
+             * Schema Version
+             * @default exact-gp-capacity-resolution/v1
+             * @constant
+             */
+            schema_version: "exact-gp-capacity-resolution/v1";
         };
         /** ExternalBindingSource */
         ExternalBindingSource: {
@@ -8844,8 +9114,18 @@ export interface components {
         ModelExplorationTargetContext: {
             /** Cohort Digest */
             cohort_digest: string;
+            /**
+             * Effective Replicate Context Count
+             * @default 0
+             */
+            effective_replicate_context_count: number;
             /** Fold Digest */
             fold_digest: string;
+            /**
+             * Raw Observation Count
+             * @default 0
+             */
+            raw_observation_count: number;
             /** Row Count */
             row_count: number;
             /** Split Digest */
@@ -8860,10 +9140,35 @@ export interface components {
         };
         /** ModelExplorationTargetReadiness */
         ModelExplorationTargetReadiness: {
+            /** Capacity Decision */
+            capacity_decision?: ("exact" | "exact_expensive" | "approximate_required") | null;
+            /** Capacity Recommendation */
+            capacity_recommendation?: ("exact_gp" | "approximate_gp" | "alternative_estimator" | "manual_review") | null;
+            capacity_resolution?: components["schemas"]["ExactGpCapacityResolution"] | null;
+            /**
+             * Effective Replicate Context Count
+             * @default 0
+             */
+            effective_replicate_context_count: number;
             /** Feature Count */
             feature_count: number;
+            /**
+             * Final Fit Count
+             * @default 0
+             */
+            final_fit_count: number;
             /** Independent Group Count */
             independent_group_count: number;
+            /**
+             * Planned Quality Fit Count
+             * @default 0
+             */
+            planned_quality_fit_count: number;
+            /**
+             * Raw Observation Count
+             * @default 0
+             */
+            raw_observation_count: number;
             /** Reasons */
             reasons: string[];
             /** Row Count */
@@ -8877,6 +9182,11 @@ export interface components {
             target_key: string;
             /** Target Kind */
             target_kind: string;
+            /**
+             * Total Fit Count
+             * @default 0
+             */
+            total_fit_count: number;
         };
         /** ModelExplorationTargetResult */
         ModelExplorationTargetResult: {
@@ -14598,6 +14908,7 @@ export interface components {
              * @enum {string}
              */
             builder_status: "standard_builder" | "external_verified_package_only" | "not_available";
+            capacity_policy?: components["schemas"]["ExactGpCapacityPolicy"] | null;
             /**
              * Categorical Support
              * @enum {string}

@@ -47,6 +47,7 @@ Migrationは任意実行する薄いCLIではなく、Workspace読込やshared-l
 | `operations/seed_review_workspace.py` | Review fixtures | branch既定Workspaceを固定seedへ戻す | `npm run workspace:seed` | `operations/` |
 | `operations/export_openapi.py` | API contracts | OpenAPI正本・Web型の生成／drift検出 | `npm run api:generate`, `npm run api:check` | `operations/` |
 | `operations/sample_gallery.py` | Sample projects | branch Workspace内の同梱sampleを管理 | `npm run samples` | `operations/` |
+| `operations/exact_gp_capacity_benchmark.py` | Model capacity | Issue #780のbounded exact-GP capacity matrix、preflight、同一cohort比較を再生成 | `docs/contracts/exact-gp-capacity.md`, `docs/benchmarks/exact-gp-capacity-v1.json`, `backend/tests/test_exact_gp_capacity_benchmark.py` | `operations/` |
 
 Profile inheritanceの展開は `operations/profile_workbench.py materialize`、source検証は
 同じCLIの `validate` に統合しています。`validate` は `--profile` を省略するとProfileを

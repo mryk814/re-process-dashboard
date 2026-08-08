@@ -14,6 +14,13 @@ from pydantic import Field, model_validator
 from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.contracts.task_contracts import ContractModel, OutputDefinition
 from decision_workbench.modeling.training.estimators import estimator_implementation
+from decision_workbench.modeling.training.capacity import (
+    ExactGpCapacityContext,
+    ExactGpCapacityPolicy,
+    ExactGpCapacityResolution,
+    exact_gp_capacity_policy,
+    resolve_exact_gp_capacity,
+)
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.validation_plan import (
     ValidationPlan,
@@ -33,12 +40,14 @@ TargetKind = Literal[
 ]
 ReadinessStatus = Literal[
     "ready",
+    "ready_expensive",
     "unavailable_missing_dependency",
     "needs_feature_recipe",
     "needs_validation_plan",
     "needs_target_contract",
     "external_verified_package_only",
     "out_of_scope",
+    "capacity_exceeded",
 ]
 ContractStatus = Literal["ready", "missing", "invalid"]
 SupportLevel = Literal[
@@ -124,6 +133,7 @@ class StandardEstimatorEntry(ContractModel):
     ]
     training_cost: Literal["light", "moderate", "high"] | None = None
     known_limitations: tuple[str, ...] = ()
+    capacity_policy: ExactGpCapacityPolicy | None = None
 
     @model_validator(mode="after")
     def builder_and_runtime_are_consistent(self) -> "StandardEstimatorEntry":
@@ -173,6 +183,7 @@ class EstimatorReadinessContext(ContractModel):
     validation_strategy: ValidationStrategy | None = None
     feature_recipe: ContractStatus
     missing_policy: ContractStatus = "ready"
+    capacity: ExactGpCapacityContext | None = None
 
     @model_validator(mode="after")
     def ready_validation_has_a_strategy(self) -> "EstimatorReadinessContext":
@@ -196,6 +207,7 @@ class EstimatorReadinessResolution(ContractModel):
     artifact_format: str | None
     builder_status: BuilderStatus | None
     limits: EstimatorLimits | None
+    capacity: ExactGpCapacityResolution | None = None
     alternative_baseline_ids: tuple[str, ...] = ()
     starts_build: Literal[False] = False
     promotes_package: Literal[False] = False
@@ -308,6 +320,7 @@ _CATALOG = StandardEstimatorCatalog(
             ),
             quality_metrics=("mae", "rmse", "interval_coverage_90"),
             fixed_parameters=_fixed_parameters("exact-gp-rbf.v1"),
+            capacity_policy=exact_gp_capacity_policy(),
         ),
         StandardEstimatorEntry(
             estimator_id="bayesian-additive-spline.v1",
@@ -723,6 +736,8 @@ def _resolution(
     entry: StandardEstimatorEntry | None,
     status: ReadinessStatus,
     reasons: list[str],
+    *,
+    capacity: ExactGpCapacityResolution | None = None,
 ) -> EstimatorReadinessResolution:
     alternatives = tuple(
         item.estimator_id
@@ -754,6 +769,7 @@ def _resolution(
         artifact_format=entry.artifact_format if entry else None,
         builder_status=entry.builder_status if entry else None,
         limits=entry.limits if entry else None,
+        capacity=capacity,
         alternative_baseline_ids=alternatives,
     )
 
@@ -881,8 +897,13 @@ def resolve_estimator_readiness(
             ["the estimator has no reviewed missing-feature path"],
         )
     limits = entry.limits
+    capacity_resolution = (
+        resolve_exact_gp_capacity(context.capacity)
+        if entry.estimator_id == "exact-gp-rbf.v1" and context.capacity is not None
+        else None
+    )
     limit_reasons: list[str] = []
-    if not limits.min_rows <= context.row_count <= limits.max_rows:
+    if capacity_resolution is None and not limits.min_rows <= context.row_count <= limits.max_rows:
         limit_reasons.append(
             f"row count {context.row_count} is outside "
             f"{limits.min_rows}..{limits.max_rows}"
@@ -892,7 +913,7 @@ def resolve_estimator_readiness(
             f"independent groups {context.independent_group_count} are below "
             f"{limits.min_independent_groups}"
         )
-    if context.feature_count > limits.max_features:
+    if capacity_resolution is None and context.feature_count > limits.max_features:
         limit_reasons.append(
             f"feature count {context.feature_count} exceeds {limits.max_features}"
         )
@@ -930,6 +951,7 @@ def resolve_estimator_readiness(
             entry,
             "out_of_scope",
             limit_reasons,
+            capacity=capacity_resolution,
         )
     if entry.builder_status == "external_verified_package_only":
         return _resolution(
@@ -958,6 +980,30 @@ def resolve_estimator_readiness(
                 "no alternative estimator was selected"
             ],
         )
+    if capacity_resolution is not None:
+        if capacity_resolution.decision == "approximate_required":
+            return _resolution(
+                context,
+                entry,
+                "capacity_exceeded",
+                list(capacity_resolution.reasons),
+                capacity=capacity_resolution,
+            )
+        if capacity_resolution.decision == "exact_expensive":
+            return _resolution(
+                context,
+                entry,
+                "ready_expensive",
+                list(capacity_resolution.reasons),
+                capacity=capacity_resolution,
+            )
+        return _resolution(
+            context,
+            entry,
+            "ready",
+            list(capacity_resolution.reasons),
+            capacity=capacity_resolution,
+        )
     return _resolution(
         context,
         entry,
@@ -983,6 +1029,7 @@ def resolve_estimator_contract_readiness(
     missing_policy: ContractStatus = "ready",
     observed_target_min: float | None = None,
     observed_targets_are_integers: bool | None = None,
+    capacity: ExactGpCapacityContext | None = None,
     available_dependencies: frozenset[str] | None = None,
 ) -> EstimatorReadinessResolution:
     """Resolve from the typed contracts used by the real standard builder."""
@@ -1033,6 +1080,7 @@ def resolve_estimator_contract_readiness(
                 else "missing"
             ),
             missing_policy=missing_policy,
+            capacity=capacity,
         ),
         available_dependencies=available_dependencies,
     )

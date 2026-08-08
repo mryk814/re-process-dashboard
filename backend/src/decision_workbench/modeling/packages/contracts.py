@@ -357,6 +357,7 @@ class ProvenanceSpec(PackageModel):
     )
     training_code_revision: str
     dataset_profile_id: str | None = None
+    capacity: dict[str, Any] | None = None
     source_lifecycle: SourceLifecycleProvenance | None = None
 
     @model_validator(mode="after")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import decision_workbench.application.model_playground as model_playground_module
 from decision_workbench.application.data_lifecycle import DataLifecycleService
 from decision_workbench.application.model_playground import ModelPlaygroundUseCases
 from decision_workbench.contracts.data_library_contracts import (
@@ -223,7 +224,26 @@ def _prepare_run_context(client, tmp_path):
 def test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity(
     client,
     tmp_path,
+    monkeypatch,
 ) -> None:
+    resolve_readiness = model_playground_module.resolve_estimator_contract_readiness
+
+    def resolve_with_available_student_t(*args, **kwargs):
+        resolution = resolve_readiness(*args, **kwargs)
+        if kwargs.get("estimator_id") == "student-t-linear-regression.v1":
+            return resolution.model_copy(
+                update={
+                    "status": "ready",
+                    "reasons": ("test fixture provides the optional trainer",),
+                }
+            )
+        return resolution
+
+    monkeypatch.setattr(
+        model_playground_module,
+        "resolve_estimator_contract_readiness",
+        resolve_with_available_student_t,
+    )
     service, revision, snapshot = _prepare_run_context(client, tmp_path)
     preview = service.preview(
         task_id="mpea-room-tensile-v1",
@@ -234,6 +254,23 @@ def test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity(
     recipes = {item.recipe_id: item for item in preview.recipes}
     assert recipes["ridge.v1"].availability == "ready"
     assert recipes["bayesian-additive-spline.v1"].availability == "ready"
+    assert recipes["student-t-linear-regression.v1"].availability == (
+        "ready_expensive"
+    )
+    assert {
+        target.status
+        for target in recipes["student-t-linear-regression.v1"].target_readiness
+    } == {"ready_expensive"}
+    exact = recipes["exact-gp-rbf.v1"]
+    exact_target_statuses = {
+        target.status for target in exact.target_readiness
+    }
+    assert exact_target_statuses <= {"ready", "ready_expensive"}
+    assert exact.availability == (
+        "ready_expensive"
+        if "ready_expensive" in exact_target_statuses
+        else "ready"
+    )
 
     run = service.create_run(
         ModelExplorationRunCreateRequest(

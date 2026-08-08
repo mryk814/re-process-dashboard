@@ -16,6 +16,11 @@ from decision_workbench.contracts.task_contracts import ContractModel
 from decision_workbench.modeling.packages.contracts import (
     SourceLifecycleProvenance,
 )
+from decision_workbench.modeling.training.capacity import (
+    CapacityDecision,
+    CapacityRecommendation,
+    ExactGpCapacityResolution,
+)
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 
@@ -65,6 +70,8 @@ class ModelExplorationTargetContext(ModelPlaygroundContract):
     fold_digest: Digest
     validation_plan: ValidationPlan
     validation_plan_digest: Digest
+    raw_observation_count: Annotated[int, Field(ge=0)] = 0
+    effective_replicate_context_count: Annotated[int, Field(ge=0)] = 0
 
     @model_validator(mode="after")
     def validation_digest_matches(self) -> "ModelExplorationTargetContext":
@@ -114,6 +121,14 @@ class ModelExplorationTargetReadiness(ModelPlaygroundContract):
     row_count: Annotated[int, Field(ge=0)]
     independent_group_count: Annotated[int, Field(ge=0)]
     feature_count: Annotated[int, Field(ge=0)]
+    raw_observation_count: Annotated[int, Field(ge=0)] = 0
+    effective_replicate_context_count: Annotated[int, Field(ge=0)] = 0
+    planned_quality_fit_count: Annotated[int, Field(ge=0)] = 0
+    final_fit_count: Annotated[int, Field(ge=0)] = 0
+    total_fit_count: Annotated[int, Field(ge=0)] = 0
+    capacity_decision: CapacityDecision | None = None
+    capacity_recommendation: CapacityRecommendation | None = None
+    capacity_resolution: ExactGpCapacityResolution | None = None
 
 
 class ModelExplorationRecipeSelection(ModelPlaygroundContract):

@@ -48,6 +48,7 @@ class StandardModelAuthoring:
     )
     required_estimator_options: tuple[tuple[str, Any], ...] = ()
     specialization_reason: str | None = None
+    default_validation_folds: int = 5
 
     def default_options(self) -> dict[str, Any]:
         return dict(self.default_estimator_options)

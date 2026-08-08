@@ -29,6 +29,7 @@ common Model Package assembler + production smoke
 
 - Task固有の対象行、Feature Pipeline、target対応を保持する。
 - `condition_context_id`がある観測だけを反復単位として平均し、なければsource rowを保持する。
+- raw observation 数と、replicate 集約後にEstimatorへ渡すeffective context数を別々に保存する。
 - CVの依存groupには別途`parent_key`を使い、同じ論文・母材をfold間へ分割しない。
 - 同一反復単位を平均する前に、特徴量とvalidation groupが一致することを検証する。
 - source/profile/feature dataset digestをEstimator間で変えない。
@@ -73,7 +74,8 @@ common Model Package assembler + production smoke
 
 - Packageはdata-only。pickle、joblib、trainer import path、任意Python pluginは禁止。
 - EstimatorはTaskの入力、出力、単位、Feature Pipeline、Runtime Capabilityを変更できない。
-- Exact GPは`max_rows`を超えたら停止し、暗黙sampling/truncationをしない。
+- Exact GPはeffective replicate context数の`max_rows=500`をcapacity resolverで事前判定し、超えたら停止する。暗黙sampling/truncation、fold縮退、approximate pathへの自動切替はしない。
+- `exact`、`exact_expensive`、`approximate_required` と production baseline recommendation は、fold/restart、fit count、memory、wall、artifact見積りとともに `exact-gp-capacity/v1` として記録する。
 - `build`は候補Packageを作るだけで、available/active/Project/Snapshotを暗黙更新しない。
 - AutoML的な自動winner採用は行わない。同じsplitで比較する仕組みを整えてから、
   人がqualityと科学的妥当性を確認して採用する。

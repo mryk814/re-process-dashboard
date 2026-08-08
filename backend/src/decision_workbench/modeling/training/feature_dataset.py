@@ -54,6 +54,18 @@ class TargetTrainingSet:
     recipe_rows: tuple[Mapping[str, Any], ...] = ()
 
     @property
+    def raw_observation_count(self) -> int:
+        """Number of source observations before replicate aggregation."""
+
+        return sum(self.repeat_counts)
+
+    @property
+    def effective_replicate_context_count(self) -> int:
+        """Number of rows actually presented to the estimator."""
+
+        return len(self.y)
+
+    @property
     def is_temporal_validation(self) -> bool:
         return self.validation_plan.strategy in {
             "temporal_holdout",
@@ -119,7 +131,13 @@ def _evaluation_identity(
         set(validation_groups),
         key=lambda group: (_fold_order(group, seed=seed), group),
     )
-    folds = min(requested_folds, len(unique_groups))
+    if requested_folds > len(unique_groups):
+        raise ValueError(
+            f"{target}: requested {requested_folds} folds but only "
+            f"{len(unique_groups)} independent validation groups are available; "
+            "fold count is never reduced implicitly"
+        )
+    folds = requested_folds
     if folds < 2:
         raise ValueError(
             f"{target}: at least two independent validation groups are required"
@@ -168,7 +186,7 @@ def compile_target_training_set(
     target: str,
     unit: str,
     target_kind: str = "continuous",
-    folds: int = 5,
+    folds: int | None = None,
     seed: int = 20260730,
     validation_plan: ValidationPlan | None = None,
     feature_recipe: FeatureRecipe | None = None,
@@ -301,7 +319,25 @@ def compile_target_training_set(
         if within_df
         else fallback
     )
-    plan = validation_plan or grouped_kfold_plan(folds=folds, seed=seed)
+    declared_folds = 5
+    task_id = canonical_dataset.get("task_id")
+    if isinstance(task_id, str):
+        try:
+            from decision_workbench.task_composition.catalog import task_module
+
+            authoring = task_module(task_id).standard_model_authoring
+        except ValueError:
+            authoring = None
+        if authoring is not None:
+            declared_folds = int(getattr(authoring, "default_validation_folds", 5))
+    effective_folds = (
+        folds
+        if folds is not None else declared_folds
+    )
+    plan = validation_plan or grouped_kfold_plan(
+        folds=effective_folds,
+        seed=seed,
+    )
     cohort_digest = _semantic_digest({
         "target": target,
         "rows": [
@@ -330,7 +366,7 @@ def compile_target_training_set(
             replicate_contexts=replicate_contexts,
             validation_groups=validation_groups,
             observation_ids=observation_ids,
-            requested_folds=folds,
+            requested_folds=effective_folds,
             seed=seed,
         )
         plan = grouped_kfold_plan(folds=resolved_folds, seed=seed)

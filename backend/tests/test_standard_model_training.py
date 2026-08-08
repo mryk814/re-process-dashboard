@@ -651,6 +651,27 @@ def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
         "seed": 11,
         "max_rows": 500,
     }
+    capacity = manifest["provenance"]["capacity"]
+    assert capacity["policy_version"] == "exact-gp-capacity/v1"
+    assert capacity["resolutions"]["TS"]["decision"] in {
+        "exact",
+        "exact_expensive",
+    }
+    assert recipe["rows"]["raw_observation"]
+    assert recipe["rows"]["effective_training_row"]
+    assert (
+        manifest["predictors"][0]["config"]["training"]["capacity"][
+            "context"
+        ]["effective_training_rows"]
+        == recipe["evaluation"]["TS"]["effective_replicate_context_count"]
+    )
+    stats = json.loads(
+        (package / "reference/training_stats.json").read_text(encoding="utf-8")
+    )
+    assert stats["raw_observations"]["TS"] >= stats["training_contexts"]["TS"]
+    assert stats["effective_replicate_contexts"]["TS"] == stats[
+        "training_contexts"
+    ]["TS"]
     assert result["package"]["quality_report"]["targets"][0][
         "parent_conditions"
     ] == 6
