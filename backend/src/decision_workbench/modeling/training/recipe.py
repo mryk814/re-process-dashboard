@@ -94,6 +94,57 @@ class StudentTLinearRegressionEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class BayesianLinearInferenceRecipe(ContractModel):
+    """Fixed inference policy shared by the reviewed shrinkage recipes.
+
+    The two concrete recipes intentionally remain separate discriminated
+    identities below.  Keeping the sampler and diagnostics thresholds in the
+    recipe makes a Package reproducible without turning the runtime into a
+    free-form Bayesian model executor.
+    """
+
+    inference_preset: Literal["standard-evidence"] = "standard-evidence"
+    sampler: Literal["nuts"] = "nuts"
+    chains: Literal[2] = 2
+    warmup: Literal[256] = 256
+    draws: Literal[256] = 256
+    target_accept_probability: Literal[0.9] = 0.9
+    max_r_hat: Literal[1.05] = 1.05
+    min_effective_sample_size: Literal[50.0] = 50.0
+    max_divergences: Literal[0] = 0
+    rope_half_width: Annotated[float, Field(gt=0, le=1_000_000)] = 0.1
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**31 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
+class BayesianRidgeEstimatorRecipe(BayesianLinearInferenceRecipe):
+    estimator_id: Literal["bayesian-ridge.v1"] = "bayesian-ridge.v1"
+    coefficient_prior_scale: Literal[1.0] = 1.0
+    intercept_prior_scale: Literal[2.0] = 2.0
+    observation_scale_prior: Literal["half-normal-1"] = "half-normal-1"
+    parameterization: Literal["standardized-linear-gaussian/v1"] = (
+        "standardized-linear-gaussian/v1"
+    )
+
+
+class HorseshoeLinearEstimatorRecipe(BayesianLinearInferenceRecipe):
+    estimator_id: Literal["horseshoe-linear.v1"] = "horseshoe-linear.v1"
+    intercept_prior_scale: Literal[2.0] = 2.0
+    observation_scale_prior: Literal["half-normal-1"] = "half-normal-1"
+    global_scale_prior: Literal["half-normal-1"] = "half-normal-1"
+    local_scale_prior: Literal["half-cauchy-1"] = "half-cauchy-1"
+    slab_scale: Literal[2.0] = 2.0
+    slab_degrees_of_freedom: Literal[4.0] = 4.0
+    regularization_policy: Literal["regularized-horseshoe/v1"] = (
+        "regularized-horseshoe/v1"
+    )
+    parameterization: Literal["standardized-regularized-horseshoe/v1"] = (
+        "standardized-regularized-horseshoe/v1"
+    )
+
+
 class LightGBMRegressionEstimatorRecipe(ContractModel):
     estimator_id: Literal["lightgbm-regression.v1"] = "lightgbm-regression.v1"
     num_boost_round: Annotated[int, Field(ge=1, le=5_000)] = 200
@@ -143,6 +194,8 @@ ConcreteEstimatorRecipe = (
     | BayesianAdditiveSplineEstimatorRecipe
     | QuantileLinearRegressionEstimatorRecipe
     | StudentTLinearRegressionEstimatorRecipe
+    | BayesianRidgeEstimatorRecipe
+    | HorseshoeLinearEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -159,6 +212,8 @@ ESTIMATOR_IDS = (
     "bayesian-additive-spline.v1",
     "quantile-linear-regression.v1",
     "student-t-linear-regression.v1",
+    "bayesian-ridge.v1",
+    "horseshoe-linear.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -400,6 +455,40 @@ def validate_recipe_capability(
             if target.goal_probability != "unavailable":
                 errors.append(
                     f"{target.target}: Student-t linear goal probability is not implemented"
+                )
+            continue
+        if recipe.estimator_id in {
+            "bayesian-ridge.v1",
+            "horseshoe-linear.v1",
+        }:
+            label = (
+                "Bayesian ridge"
+                if recipe.estimator_id == "bayesian-ridge.v1"
+                else "horseshoe linear"
+            )
+            if not target.standard_deviation:
+                errors.append(
+                    f"{target.target}: {label} exposes predictive standard deviation"
+                )
+            if not target.quantiles:
+                errors.append(
+                    f"{target.target}: {label} exposes predictive quantiles"
+                )
+            if target.samples:
+                errors.append(
+                    f"{target.target}: {label} does not expose raw posterior samples"
+                )
+            if not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: {label} exposes a normal distribution"
+                )
+            if not target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: {label} exposes epistemic and aleatoric components"
+                )
+            if target.goal_probability != "distribution":
+                errors.append(
+                    f"{target.target}: {label} requires distribution goal probability"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):

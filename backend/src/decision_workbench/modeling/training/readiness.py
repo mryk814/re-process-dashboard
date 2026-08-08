@@ -234,6 +234,26 @@ def compatible_standard_estimator_ids(
     )
 
 
+def buildable_standard_estimator_ids(
+    outputs: tuple[OutputDefinition, ...],
+) -> tuple[str, ...]:
+    """Return explicit-build candidates, including reviewed experiments.
+
+    The production resolver above intentionally remains production-only.  An
+    experimental recipe may be built for a comparison report, but it must not
+    become a UI or resolver default merely because a trainer exists.
+    """
+
+    target_kinds = {output.target_kind for output in outputs}
+    return tuple(
+        entry.estimator_id
+        for entry in _CATALOG.entries
+        if entry.builder_status == "standard_builder"
+        and entry.adoption_status in {"production", "experimental"}
+        and target_kinds.issubset(set(entry.target_kinds))
+    )
+
+
 def _implementation_fields(estimator_id: str) -> dict[str, str]:
     implementation = estimator_implementation(estimator_id)
     return {
@@ -493,6 +513,131 @@ _CATALOG = StandardEstimatorCatalog(
                 "samples and decomposed uncertainty components are not exposed.",
                 "Production adoption means explicit availability as a distribution "
                 "candidate; it is not an automatic winner over Ridge.",
+            ),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="bayesian-ridge.v1",
+            label="Bayesian ridge shrinkage",
+            target_kinds=("continuous",),
+            role="distribution_candidate",
+            adoption_status="experimental",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("bayesian-ridge.v1")[
+                "runtime_type"
+            ],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("bayesian-ridge.v1")[
+                "artifact_format"
+            ],
+            required_dependency="numpyro",
+            limits=EstimatorLimits(
+                min_rows=6,
+                max_rows=5_000,
+                min_independent_groups=4,
+                max_features=64,
+            ),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=(
+                "kfold",
+                "grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal",
+            ),
+            predictive_capabilities=(
+                "point",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution",
+            ),
+            quality_metrics=(
+                "mae",
+                "rmse",
+                "mean_log_predictive_density",
+                "interval_coverage_90",
+                "mean_interval_width",
+                "posterior_convergence",
+                "coefficient_sign_and_rope",
+            ),
+            fixed_parameters=_fixed_parameters("bayesian-ridge.v1"),
+            training_cost="high",
+            known_limitations=(
+                "Bayesian ridge is an experimental shrinkage candidate and is "
+                "never an automatic replacement for Ridge.",
+                "Coefficient sign and ROPE evidence is associational and can be "
+                "unstable under correlated inputs; do not read it as an intervention "
+                "claim or a ranking of explanatory value.",
+                "No feature is deleted from the recipe because a posterior "
+                "coefficient is near zero.",
+                "Prediction uncertainty is posterior-predictive uncertainty and "
+                "must not be read as coefficient credible intervals.",
+                "NUTS dependency, sampling failures, divergence, and insufficient "
+                "ESS produce typed unavailable or quality findings with no Ridge "
+                "fallback.",
+            ),
+        ),
+        StandardEstimatorEntry(
+            estimator_id="horseshoe-linear.v1",
+            label="Regularized horseshoe linear shrinkage",
+            target_kinds=("continuous",),
+            role="distribution_candidate",
+            adoption_status="experimental",
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("horseshoe-linear.v1")[
+                "runtime_type"
+            ],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("horseshoe-linear.v1")[
+                "artifact_format"
+            ],
+            required_dependency="numpyro",
+            limits=EstimatorLimits(
+                min_rows=6,
+                max_rows=5_000,
+                min_independent_groups=4,
+                max_features=64,
+            ),
+            categorical_support="feature_recipe",
+            missing_support="feature_recipe",
+            validation_strategies=(
+                "kfold",
+                "grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal",
+            ),
+            predictive_capabilities=(
+                "point",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution",
+            ),
+            quality_metrics=(
+                "mae",
+                "rmse",
+                "mean_log_predictive_density",
+                "interval_coverage_90",
+                "mean_interval_width",
+                "posterior_convergence",
+                "coefficient_sign_and_rope",
+                "local_scale_summary",
+            ),
+            fixed_parameters=_fixed_parameters("horseshoe-linear.v1"),
+            training_cost="high",
+            known_limitations=(
+                "Regularized horseshoe is an experimental shrinkage candidate and "
+                "is never an automatic replacement for Ridge.",
+                "Global and local shrinkage remains associational evidence; correlated "
+                "inputs can share or trade off posterior mass, so it is not an "
+                "intervention claim or a ranking of explanatory value.",
+                "No feature is deleted from the recipe because a posterior "
+                "coefficient is near zero.",
+                "Prediction uncertainty is posterior-predictive uncertainty and "
+                "must not be read as coefficient credible intervals.",
+                "NUTS dependency, sampling failures, divergence, and insufficient "
+                "ESS produce typed unavailable or quality findings with no Ridge "
+                "fallback.",
             ),
         ),
         StandardEstimatorEntry(

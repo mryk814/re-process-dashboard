@@ -46,6 +46,8 @@ def standard_predictor_capability(
         predictive = (("median",), False, True, False, False, "unavailable")
     elif estimator_id == "student-t-linear-regression.v1":
         predictive = (("mean",), True, True, True, False, "unavailable")
+    elif estimator_id in {"bayesian-ridge.v1", "horseshoe-linear.v1"}:
+        predictive = (("mean",), True, True, True, True, "distribution")
     elif estimator_id == "lightgbm-regression.v1" and predictor.predictive_family == "normal":
         predictive = (("mean",), True, True, True, True, "unavailable")
     elif estimator_id in {"ridge.v1", "lightgbm-regression.v1"}:
