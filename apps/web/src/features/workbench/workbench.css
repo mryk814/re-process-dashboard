@@ -1818,6 +1818,7 @@
 .decision-replay-panel { display: grid; gap: 12px; margin: 14px 0; border: 1px solid #b8c7d9; border-radius: 8px; background: #fff; padding: 0 16px 16px; overflow: hidden; container: replay-panel / inline-size; }
 .decision-replay-panel > header { margin: 0 -16px; padding: 14px 16px 12px; border-bottom: 1px solid #d8e0ea; background: #f7f9fc; }
 .decision-replay-panel h2 { max-width: 900px; margin: 3px 0 0; color: #20344b; font-size: 18px; line-height: 1.45; }
+.decision-replay-panel small { font-size: 11px; }
 .decision-replay-create { border: 1px solid #d8e0ea; border-radius: 6px; background: #fbfcfe; }
 .decision-replay-create > summary { cursor: pointer; padding: 10px 12px; color: #29415d; font-size: 12px; font-weight: 700; }
 .decision-replay-create-body { display: grid; grid-template-columns: minmax(170px, .7fr) minmax(220px, 1fr) auto; gap: 10px; align-items: end; border-top: 1px solid #d8e0ea; padding: 12px; }

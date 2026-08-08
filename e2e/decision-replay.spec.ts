@@ -33,12 +33,11 @@ test("a completed decision replays historical evidence separately from later act
     expect(snapshotResponse.status(), await snapshotResponse.text()).toBe(201);
     snapshots.push(await snapshotResponse.json() as { id: string; created_at: string });
   }
-
-  const cutoff = new Date().toISOString();
-  const cutoffDate = new Date(cutoff);
+  const cutoffDate = new Date(snapshots.at(-1)!.created_at);
   const cutoffLocal = new Date(
-    cutoffDate.getTime() - cutoffDate.getTimezoneOffset() * 60_000,
+    cutoffDate.getTime() + 1 - cutoffDate.getTimezoneOffset() * 60_000,
   ).toISOString().slice(0, 23);
+
   const actualResponse = await request.post(
     `${apiBaseUrl}/api/projects/${project.id}/candidates/${candidates[0].id}/actuals`,
     {
@@ -59,7 +58,17 @@ test("a completed decision replays historical evidence separately from later act
   const panel = page.locator(".decision-replay-panel");
   await expect(panel).toBeVisible();
   await panel.locator(".decision-replay-create > summary").click();
-  await panel.getByLabel("判断時刻").fill(cutoffLocal);
+  await panel.getByLabel("判断時刻").evaluate((element, value) => {
+    const input = element as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!setter) throw new Error("datetime-local value setter is unavailable");
+    setter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, cutoffLocal);
   await expect(panel.locator(".decision-replay-fixed-evidence")).toContainText("当時案 A");
   await expect(panel.locator(".decision-replay-fixed-evidence")).toContainText("当時案 B");
   await expect(panel.locator(".decision-replay-fixed-evidence")).toContainText("後から得たActual: 1件");
