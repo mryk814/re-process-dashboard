@@ -185,6 +185,65 @@ def test_posterior_log_score_uses_nb_and_zip_draw_masses() -> None:
     assert np.exp(zip_score[0]) == pytest.approx(0.5 + 0.5 * math.exp(-1.0))
 
 
+def test_zip_prediction_keeps_structural_gate_and_total_zero_mixture_distinct() -> None:
+    fit = advanced_count._Fit(
+        np.zeros((2, 1)),
+        np.log(np.asarray([0.1, 10.0])),
+        None,
+        np.zeros((2, 1)),
+        np.asarray([math.log(9.0), -math.log(9.0)]),
+        SimpleNamespace(),
+    )
+    expected, _, _, structural_gate, total_zero = advanced_count._predict(
+        fit,
+        np.asarray([[0.0]]),
+        None,
+        estimator_recipe("zero-inflated-poisson-regression.v1"),
+        seed=792,
+    )
+    correct_total = np.mean([0.9 + 0.1 * math.exp(-0.1), 0.1 + 0.9 * math.exp(-10.0)])
+    assert expected[0] == pytest.approx(4.505)
+    assert structural_gate is not None
+    assert structural_gate[0] == pytest.approx(0.5)
+    assert total_zero[0] == pytest.approx(correct_total)
+    assert total_zero[0] == pytest.approx(0.545262294)
+
+
+def test_zip_quality_aggregates_total_zero_mass_across_oof_rows(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    data = compile_target_training_set(
+        _canonical((0, 1, 0, 2), (1, 1, 1, 1)),
+        target="events",
+        unit="events",
+        target_kind="count",
+        folds=2,
+        seed=792,
+    )
+    identity = SimpleNamespace(model_dump=lambda **_: {"diagnostics": {"status": "passed"}})
+
+    def heterogeneous_zip_fit(values, target, exposures, recipe, *, seed):
+        return advanced_count._Fit(
+            np.zeros((2, values.shape[1])),
+            np.log(np.asarray([0.1, 10.0])),
+            None,
+            np.zeros((2, values.shape[1])),
+            np.asarray([math.log(9.0), -math.log(9.0)]),
+            identity,
+        )
+
+    monkeypatch.setattr(advanced_count, "_fit", heterogeneous_zip_fit)
+    trained = advanced_count.train(
+        data,
+        estimator_recipe("zero-inflated-poisson-regression.v1"),
+        tmp_path / "heterogeneous-zip.npz",
+    )
+    quality = trained.diagnostics["count_quality"]
+    assert quality["structural_zero_gate_rate"] == pytest.approx(0.5)
+    assert quality["zero_predicted_rate"] == pytest.approx(0.545262294)
+
+
 @pytest.mark.parametrize(
     ("fixture", "estimator_id", "strategy", "with_exposure"),
     [
