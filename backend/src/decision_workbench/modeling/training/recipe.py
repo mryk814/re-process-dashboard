@@ -349,8 +349,17 @@ def estimator_recipe(
     estimator_id: str,
     parameters: dict[str, Any] | None = None,
 ) -> ConcreteEstimatorRecipe:
+    supplied_parameters = dict(parameters or {})
+    supplied_estimator_id = supplied_parameters.get("estimator_id")
+    if (
+        supplied_estimator_id is not None
+        and supplied_estimator_id != estimator_id
+    ):
+        raise ValueError(
+            "recipe parameters estimator_id must match the outer estimator_id"
+        )
     return _RECIPE_ADAPTER.validate_python(
-        {"estimator_id": estimator_id, **(parameters or {})}
+        {"estimator_id": estimator_id, **supplied_parameters}
     )
 
 

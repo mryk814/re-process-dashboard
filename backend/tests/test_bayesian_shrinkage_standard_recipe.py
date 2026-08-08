@@ -60,7 +60,13 @@ def _continuous_context(estimator_id: str) -> EstimatorReadinessContext:
     )
 
 
-def _inference_identity() -> InferenceIdentity:
+def _inference_identity(
+    *,
+    parameterization: str = "test-standardized-linear/v1",
+    chains: int = 2,
+    warmup: int = 8,
+    draws: int = 4,
+) -> InferenceIdentity:
     diagnostics = InferenceDiagnostics(
         status="passed",
         max_r_hat=1.01,
@@ -69,12 +75,12 @@ def _inference_identity() -> InferenceIdentity:
     )
     return InferenceIdentity.create(
         policy=inference_policy("nuts"),
-        parameterization="test-standardized-linear/v1",
+        parameterization=parameterization,
         diagnostics=diagnostics,
         seed=20260730,
-        chains=2,
-        warmup=8,
-        draws=4,
+        chains=chains,
+        warmup=warmup,
+        draws=draws,
         resource_limits={"chain_method": "sequential"},
         convergence_criteria={
             "max_r_hat": 1.05,
@@ -130,7 +136,29 @@ def _training_set() -> TargetTrainingSet:
 
 
 def _manifest_with_inference_provenance() -> dict[str, object]:
-    identity = _inference_identity()
+    identity = _inference_identity(
+        parameterization="standardized-linear-gaussian/v1",
+        warmup=256,
+        draws=256,
+    )
+    recipe = estimator_recipe("bayesian-ridge.v1")
+    recipe_parameters = recipe.model_dump(
+        mode="json",
+        exclude={
+            "validation_plan",
+            "validation_plans_by_target",
+        },
+        exclude_none=True,
+    )
+    training_parameters = recipe.model_dump(
+        mode="json",
+        exclude={
+            "estimator_id",
+            "validation_plan",
+            "validation_plans_by_target",
+        },
+        exclude_none=True,
+    )
     predictor_id = "response-bayesian-ridge"
     return {
         "schema_version": "model-package/v1",
@@ -158,6 +186,12 @@ def _manifest_with_inference_provenance() -> dict[str, object]:
                 "predictive_family": "normal",
                 "feature_names": ["x"],
                 "inference_identity": identity.model_dump(mode="json"),
+                "config": {
+                    "training": {
+                        "estimator_id": "bayesian-ridge.v1",
+                        "parameters": training_parameters,
+                    }
+                },
             }
         ],
         "provenance": {
@@ -170,10 +204,7 @@ def _manifest_with_inference_provenance() -> dict[str, object]:
             "inference_provenance": {
                 predictor_id: {
                     "recipe_id": "bayesian-ridge.v1",
-                    "recipe_parameters": {
-                        "estimator_id": "bayesian-ridge.v1",
-                        "coefficient_prior_scale": 1.0,
-                    },
+                    "recipe_parameters": recipe_parameters,
                     "inference_identity_digest": identity.identity_digest,
                     "diagnostics": identity.diagnostics.model_dump(mode="json"),
                 },
@@ -192,6 +223,56 @@ def _manifest_with_inference_provenance() -> dict[str, object]:
             },
         ],
     }
+
+
+def _horseshoe_manifest_with_inference_provenance() -> dict[str, object]:
+    payload = _manifest_with_inference_provenance()
+    identity = _inference_identity(
+        parameterization=(
+            "standardized-fixed-student-t-capped-horseshoe/v1"
+        ),
+        warmup=256,
+        draws=256,
+    )
+    recipe = estimator_recipe("horseshoe-linear.v1")
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    predictor["inference_identity"] = identity.model_dump(mode="json")
+    config = predictor["config"]
+    assert isinstance(config, dict)
+    config["training"] = {
+        "estimator_id": recipe.estimator_id,
+        "parameters": recipe.model_dump(
+            mode="json",
+            exclude={
+                "estimator_id",
+                "validation_plan",
+                "validation_plans_by_target",
+            },
+            exclude_none=True,
+        ),
+    }
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    predictor_id = predictor["id"]
+    provenance["inference_identities"] = {
+        predictor_id: identity.model_dump(mode="json"),
+    }
+    provenance["inference_provenance"] = {
+        predictor_id: {
+            "recipe_id": recipe.estimator_id,
+            "recipe_parameters": recipe.model_dump(
+                mode="json",
+                exclude={"validation_plan", "validation_plans_by_target"},
+                exclude_none=True,
+            ),
+            "inference_identity_digest": identity.identity_digest,
+            "diagnostics": identity.diagnostics.model_dump(mode="json"),
+        }
+    }
+    return payload
+
+
 def _fake_fit(
     recipe: BayesianRidgeEstimatorRecipe | HorseshoeLinearEstimatorRecipe,
     *,
@@ -240,6 +321,14 @@ def test_shrinkage_recipe_ids_and_fixed_inference_policy_are_distinct() -> None:
     assert "coefficient_prior_scale" not in horseshoe.model_dump()
     assert "local_scale_prior" not in ridge.model_dump()
     assert set((ridge.estimator_id, horseshoe.estimator_id)) <= set(ESTIMATOR_IDS)
+
+
+def test_estimator_recipe_rejects_discriminator_override() -> None:
+    with pytest.raises(ValueError, match="outer estimator_id"):
+        estimator_recipe(
+            "bayesian-ridge.v1",
+            {"estimator_id": "horseshoe-linear.v1"},
+        )
 
 
 def test_horseshoe_recipe_rejects_canonical_regularized_horseshoe_identity() -> None:
@@ -609,6 +698,149 @@ def test_manifest_rejects_inference_provenance_recipe_id_mismatch() -> None:
         ModelPackageManifest.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("regularization_policy", "regularized-horseshoe/v1"),
+        ("parameterization", "standardized-regularized-horseshoe/v1"),
+        ("slab_degrees_of_freedom", "not-a-number"),
+    ),
+)
+def test_manifest_rejects_legacy_or_untyped_recipe_parameters(
+    field: str,
+    value: object,
+) -> None:
+    payload = _manifest_with_inference_provenance()
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    entry = provenance["inference_provenance"]["response-bayesian-ridge"]
+    assert isinstance(entry, dict)
+    recipe_parameters = entry["recipe_parameters"]
+    assert isinstance(recipe_parameters, dict)
+    recipe_parameters[field] = value
+
+    with pytest.raises(ValidationError):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_recipe_different_from_predictor_training_estimator() -> None:
+    payload = _manifest_with_inference_provenance()
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    config = predictor["config"]
+    assert isinstance(config, dict)
+    training = config["training"]
+    assert isinstance(training, dict)
+    training["estimator_id"] = "horseshoe-linear.v1"
+
+    with pytest.raises(
+        ValidationError,
+        match="config.training.estimator_id",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_parameterization_different_from_predictor_identity() -> None:
+    payload = _manifest_with_inference_provenance()
+    identity = _inference_identity(
+        parameterization="standardized-regularized-horseshoe/v1",
+    )
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    predictor["inference_identity"] = identity.model_dump(mode="json")
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["inference_identities"][predictor["id"]] = identity.model_dump(
+        mode="json"
+    )
+    entry = provenance["inference_provenance"][predictor["id"]]
+    assert isinstance(entry, dict)
+    entry["inference_identity_digest"] = identity.identity_digest
+    entry["diagnostics"] = identity.diagnostics.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="parameterization does not match",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_effective_horseshoe_policy_mismatch() -> None:
+    payload = _horseshoe_manifest_with_inference_provenance()
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    config = predictor["config"]
+    assert isinstance(config, dict)
+    training = config["training"]
+    assert isinstance(training, dict)
+    parameters = training["parameters"]
+    assert isinstance(parameters, dict)
+    parameters["regularization_policy"] = "regularized-horseshoe/v1"
+
+    with pytest.raises(
+        ValidationError,
+        match="effective regularization policy",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_inference_sampling_setting_mismatch() -> None:
+    payload = _manifest_with_inference_provenance()
+    identity = _inference_identity(
+        parameterization="standardized-linear-gaussian/v1",
+        warmup=256,
+        draws=128,
+    )
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    predictor["inference_identity"] = identity.model_dump(mode="json")
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["inference_identities"][predictor["id"]] = identity.model_dump(
+        mode="json"
+    )
+    entry = provenance["inference_provenance"][predictor["id"]]
+    assert isinstance(entry, dict)
+    entry["inference_identity_digest"] = identity.identity_digest
+    entry["diagnostics"] = identity.diagnostics.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="inference identity draws",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("coefficient_prior_scale", 2.0),
+        ("draws", 128),
+        ("seed", 9),
+    ),
+)
+def test_manifest_rejects_effective_training_parameter_mismatch(
+    field: str,
+    value: object,
+) -> None:
+    payload = _manifest_with_inference_provenance()
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    config = predictor["config"]
+    assert isinstance(config, dict)
+    training = config["training"]
+    assert isinstance(training, dict)
+    parameters = training["parameters"]
+    assert isinstance(parameters, dict)
+    parameters[field] = value
+
+    with pytest.raises(
+        ValidationError,
+        match="training.parameters do not match",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
 @pytest.mark.parametrize("estimator_id", ("bayesian-ridge.v1", "horseshoe-linear.v1"))
 def test_numpyro_fit_produces_safe_draws_when_optional_runtime_is_installed(
     monkeypatch: pytest.MonkeyPatch,
@@ -717,6 +949,56 @@ def test_same_cohort_comparison_saves_explicit_adoption_and_interpretation_polic
     assert report["models"][0]["quality"]["targets"][0][
         "interval_coverage_90"
     ] == pytest.approx(0.9)
+
+
+def test_build_package_rejects_recipe_discriminator_override_before_export(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_export(*args: object, **kwargs: object) -> None:
+        pytest.fail("invalid recipe options must be rejected before dataset export")
+
+    monkeypatch.setattr(model_workflow, "export_dataset", unexpected_export)
+    output = tmp_path / "package"
+
+    with pytest.raises(ValueError, match="outer estimator_id"):
+        model_workflow.build_package(
+            "heat-treatment-tradeoff-v1",
+            ROOT / "data" / "source" / "heat-treatment-tradeoff-v1.xlsx",
+            output,
+            tmp_path / "feature-dataset.json",
+            package_id="invalid-recipe-package",
+            package_version="1.0.0",
+            replace=False,
+            estimator="bayesian-ridge.v1",
+            estimator_options={"estimator_id": "horseshoe-linear.v1"},
+        )
+
+    assert not output.exists()
+
+
+def test_compare_estimators_rejects_recipe_discriminator_override_before_build(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "comparison"
+
+    with pytest.raises(ValueError, match="outer estimator_id"):
+        model_workflow.compare_estimators(
+            "heat-treatment-tradeoff-v1",
+            ROOT / "data" / "source" / "heat-treatment-tradeoff-v1.xlsx",
+            output,
+            tmp_path / "feature-dataset.json",
+            estimators=("bayesian-ridge.v1", "ridge.v1"),
+            estimator_options={
+                "bayesian-ridge.v1": {
+                    "estimator_id": "horseshoe-linear.v1",
+                }
+            },
+            package_prefix="invalid-recipe-comparison",
+            package_version="1.0.0",
+        )
+
+    assert not output.exists()
 
 
 def test_comparison_serializes_typed_bayesian_failure_without_fallback(

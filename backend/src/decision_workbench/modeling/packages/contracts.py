@@ -352,6 +352,36 @@ class SourceLifecycleProvenance(PackageModel):
     row_count: Annotated[int, Field(ge=1)]
 
 
+def _parse_inference_provenance_recipe(
+    recipe_id: str,
+    recipe_parameters: dict[str, Any],
+) -> Any:
+    """Parse provenance through the standard training recipe authority.
+
+    ``modeling.training.recipe`` owns the discriminated recipe schema.  This
+    import is intentionally local: package contracts are imported by package
+    loaders and must remain importable while the training module is being
+    initialized.  Manifest validation happens after both modules are loaded,
+    so the persisted recipe cannot bypass the typed recipe authority.
+    """
+
+    declared_recipe_id = recipe_parameters.get("estimator_id")
+    if declared_recipe_id != recipe_id:
+        raise ValueError(
+            "inference provenance recipe_parameters.estimator_id does not "
+            "match recipe_id"
+        )
+    from decision_workbench.modeling.training.recipe import estimator_recipe
+
+    try:
+        return estimator_recipe(recipe_id, recipe_parameters)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "inference provenance recipe_parameters are not a valid typed "
+            f"recipe for {recipe_id}"
+        ) from exc
+
+
 class InferenceProvenanceSpec(PackageModel):
     """Strict predictor-scoped provenance for the effective inference run."""
 
@@ -365,15 +395,10 @@ class InferenceProvenanceSpec(PackageModel):
 
     @model_validator(mode="after")
     def recipe_parameters_match_recipe(self) -> InferenceProvenanceSpec:
-        declared_recipe_id = self.recipe_parameters.get("estimator_id")
-        if (
-            declared_recipe_id is not None
-            and declared_recipe_id != self.recipe_id
-        ):
-            raise ValueError(
-                "inference provenance recipe_parameters.estimator_id does not "
-                "match recipe_id"
-            )
+        _parse_inference_provenance_recipe(
+            self.recipe_id,
+            self.recipe_parameters,
+        )
         return self
 
 
@@ -413,6 +438,108 @@ class ProvenanceSpec(PackageModel):
                 "source lifecycle profile does not match dataset_profile_id"
             )
         return self
+
+
+def _validate_predictor_recipe_identity(
+    predictor: PredictorSpec,
+    provenance: InferenceProvenanceSpec,
+) -> None:
+    """Cross-check the typed recipe against the effective predictor identity."""
+
+    recipe = _parse_inference_provenance_recipe(
+        provenance.recipe_id,
+        provenance.recipe_parameters,
+    )
+    training = predictor.config.get("training")
+    if not isinstance(training, dict):
+        raise ValueError(
+            f"predictor {predictor.id} must declare config.training for "
+            "inference provenance validation"
+        )
+    if training.get("estimator_id") != recipe.estimator_id:
+        raise ValueError(
+            f"predictor {predictor.id} config.training.estimator_id does not "
+            "match inference provenance recipe"
+        )
+
+    recipe_parameterization = getattr(recipe, "parameterization", None)
+    recipe_policy = getattr(recipe, "regularization_policy", None)
+    training_parameters = training.get("parameters")
+    if recipe_parameterization is not None:
+        if predictor.inference_identity is None:
+            raise ValueError(
+                f"predictor {predictor.id} must declare inference_identity for "
+                "a parameterized inference recipe"
+            )
+        if predictor.inference_identity.parameterization != recipe_parameterization:
+            raise ValueError(
+                f"predictor {predictor.id} inference identity parameterization "
+                "does not match inference provenance recipe"
+            )
+        recipe_sampler = getattr(recipe, "sampler", None)
+        if (
+            recipe_sampler is not None
+            and predictor.inference_identity.algorithm_id != recipe_sampler
+        ):
+            raise ValueError(
+                f"predictor {predictor.id} inference algorithm does not match "
+                "the recipe sampler"
+            )
+        for setting in ("chains", "warmup", "draws"):
+            expected_setting = getattr(recipe, setting, None)
+            if (
+                expected_setting is not None
+                and getattr(predictor.inference_identity, setting, None)
+                != expected_setting
+            ):
+                raise ValueError(
+                    f"predictor {predictor.id} inference identity {setting} "
+                    "does not match inference provenance recipe"
+                )
+        expected_convergence_criteria = {
+            "max_r_hat": recipe.max_r_hat,
+            "min_ess": recipe.min_effective_sample_size,
+            "max_divergences": recipe.max_divergences,
+        }
+        if (
+            predictor.inference_identity.convergence_criteria
+            != expected_convergence_criteria
+        ):
+            raise ValueError(
+                f"predictor {predictor.id} inference convergence criteria do "
+                "not match inference provenance recipe"
+            )
+        if (
+            not isinstance(training_parameters, dict)
+            or training_parameters.get("parameterization")
+            != recipe_parameterization
+        ):
+            raise ValueError(
+                f"predictor {predictor.id} training parameterization does not "
+                "match inference provenance recipe"
+            )
+    if recipe_policy is not None and (
+        not isinstance(training_parameters, dict)
+        or training_parameters.get("regularization_policy") != recipe_policy
+    ):
+        raise ValueError(
+            f"predictor {predictor.id} effective regularization policy does not "
+            "match inference provenance recipe"
+        )
+    expected_training_parameters = recipe.model_dump(
+        mode="json",
+        exclude={
+            "estimator_id",
+            "validation_plan",
+            "validation_plans_by_target",
+        },
+        exclude_none=True,
+    )
+    if training_parameters != expected_training_parameters:
+        raise ValueError(
+            f"predictor {predictor.id} training.parameters do not match the "
+            "typed inference provenance recipe"
+        )
 
 
 class DeterministicTransformSpec(PackageModel):
@@ -522,10 +649,14 @@ class ModelPackageManifest(PackageModel):
         transform_ids = [transform.id for transform in self.deterministic_transforms]
         if len(transform_ids) != len(set(transform_ids)):
             raise ValueError("deterministic transform ids must be unique")
-        predictor_identities = {
-            predictor.id: predictor.inference_identity
+        predictors_with_identity = {
+            predictor.id: predictor
             for predictor in self.predictors
             if predictor.inference_identity is not None
+        }
+        predictor_identities = {
+            predictor_id: predictor.inference_identity
+            for predictor_id, predictor in predictors_with_identity.items()
         }
         identity_keys = set(self.provenance.inference_identities)
         provenance_keys = set(self.provenance.inference_provenance)
@@ -552,6 +683,10 @@ class ModelPackageManifest(PackageModel):
                     f"{predictor_id}"
                 )
             recorded_provenance = self.provenance.inference_provenance[predictor_id]
+            _validate_predictor_recipe_identity(
+                predictors_with_identity[predictor_id],
+                recorded_provenance,
+            )
             if (
                 recorded_provenance.inference_identity_digest
                 != predictor_identity.identity_digest
