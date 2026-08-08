@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from decision_workbench.contracts.inference_policy_contracts import InferenceIdentity
+from decision_workbench.contracts.inference_policy_contracts import (
+    InferenceDiagnostics,
+    InferenceIdentity,
+)
 from decision_workbench.contracts.missingness_contracts import (
     MissingnessOperationCapability,
 )
@@ -349,6 +352,31 @@ class SourceLifecycleProvenance(PackageModel):
     row_count: Annotated[int, Field(ge=1)]
 
 
+class InferenceProvenanceSpec(PackageModel):
+    """Strict predictor-scoped provenance for the effective inference run."""
+
+    recipe_id: Annotated[str, Field(min_length=1)]
+    recipe_parameters: dict[str, Any] = Field(default_factory=dict)
+    inference_identity_digest: Annotated[
+        str,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ]
+    diagnostics: InferenceDiagnostics
+
+    @model_validator(mode="after")
+    def recipe_parameters_match_recipe(self) -> InferenceProvenanceSpec:
+        declared_recipe_id = self.recipe_parameters.get("estimator_id")
+        if (
+            declared_recipe_id is not None
+            and declared_recipe_id != self.recipe_id
+        ):
+            raise ValueError(
+                "inference provenance recipe_parameters.estimator_id does not "
+                "match recipe_id"
+            )
+        return self
+
+
 class ProvenanceSpec(PackageModel):
     training_data_id: str
     feature_dataset_id: str
@@ -360,7 +388,9 @@ class ProvenanceSpec(PackageModel):
     capacity: dict[str, Any] | None = None
     source_lifecycle: SourceLifecycleProvenance | None = None
     inference_identities: dict[str, InferenceIdentity] = Field(default_factory=dict)
-    inference_provenance: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    inference_provenance: dict[str, InferenceProvenanceSpec] = Field(
+        default_factory=dict
+    )
 
     @model_validator(mode="after")
     def lifecycle_matches_training_asset(self) -> ProvenanceSpec:
@@ -492,6 +522,48 @@ class ModelPackageManifest(PackageModel):
         transform_ids = [transform.id for transform in self.deterministic_transforms]
         if len(transform_ids) != len(set(transform_ids)):
             raise ValueError("deterministic transform ids must be unique")
+        predictor_identities = {
+            predictor.id: predictor.inference_identity
+            for predictor in self.predictors
+            if predictor.inference_identity is not None
+        }
+        identity_keys = set(self.provenance.inference_identities)
+        provenance_keys = set(self.provenance.inference_provenance)
+        expected_identity_keys = set(predictor_identities)
+        if identity_keys != expected_identity_keys:
+            raise ValueError(
+                "provenance inference_identities must exactly match predictors "
+                "that declare inference_identity"
+            )
+        if provenance_keys != expected_identity_keys:
+            raise ValueError(
+                "provenance inference_provenance must exactly match predictors "
+                "that declare inference_identity"
+            )
+        for predictor_id, predictor_identity in predictor_identities.items():
+            if predictor_identity is None:
+                raise ValueError(
+                    f"predictor {predictor_id} has no inference identity"
+                )
+            recorded_identity = self.provenance.inference_identities[predictor_id]
+            if recorded_identity != predictor_identity:
+                raise ValueError(
+                    f"provenance inference identity does not match predictor "
+                    f"{predictor_id}"
+                )
+            recorded_provenance = self.provenance.inference_provenance[predictor_id]
+            if (
+                recorded_provenance.inference_identity_digest
+                != predictor_identity.identity_digest
+            ):
+                raise ValueError(
+                    f"provenance inference identity digest does not match predictor "
+                    f"{predictor_id}"
+                )
+            if recorded_provenance.diagnostics != predictor_identity.diagnostics:
+                raise ValueError(
+                    f"provenance diagnostics do not match predictor {predictor_id}"
+                )
         if self.feature_pipeline is not None:
             expected = self.feature_pipeline.output_features
             positions = {name: index for index, name in enumerate(expected)}

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
 from scipy.special import logsumexp
 from scipy.stats import norm
 
@@ -33,6 +34,8 @@ ARTIFACT_SUFFIX = ".npz"
 ARTIFACT_FORMAT = "bounded-npz"
 _MAX_FEATURES = 64
 _MAX_ROWS = 5_000
+_MAX_TREE_DEPTH = 13
+_DENSE_MASS = True
 _MAX_SEED = 2_147_483_647
 _Z90 = 1.6448536269514722
 
@@ -56,17 +59,69 @@ class BayesianTrainingError(RuntimeError):
         self.reason_code = reason_code
         self.findings = findings
         self.diagnostics = diagnostics
+        self.target: str | None = None
+
+    def bind_target(self, target: str) -> BayesianTrainingError:
+        self.target = target
+        return self
+
+    def quality_finding(
+        self,
+        *,
+        estimator_id: str,
+        target: str,
+    ) -> BayesianQualityFinding:
+        status: Literal["unavailable", "failed"] = (
+            "unavailable"
+            if self.reason_code == "unavailable_missing_dependency"
+            else "failed"
+        )
+        return BayesianQualityFinding(
+            estimator_id=estimator_id,
+            target=target,
+            status=status,
+            reason_code=self.reason_code,
+            message=str(self),
+            findings=tuple(self.findings) or (str(self),),
+            diagnostics=self.diagnostics,
+        )
+
+
+class BayesianQualityFinding(BaseModel):
+    """The typed, caller-facing record for a Bayesian build that cannot export."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["bayesian-quality-finding/v1"] = (
+        "bayesian-quality-finding/v1"
+    )
+    estimator_id: Annotated[str, Field(min_length=1)]
+    target: Annotated[str, Field(min_length=1)]
+    status: Literal["unavailable", "failed"]
+    reason_code: Literal[
+        "unavailable_missing_dependency",
+        "sampling_failed",
+        "sampling_quality_failed",
+    ]
+    message: Annotated[str, Field(min_length=1)]
+    findings: tuple[str, ...] = Field(min_length=1)
+    diagnostics: InferenceDiagnostics | None = None
 
 
 class BayesianTrainingUnavailableError(BayesianTrainingError):
     """The reviewed optional dependency is unavailable."""
 
     def __init__(self, dependency: str) -> None:
+        finding = f"optional dependency {dependency} is unavailable"
         super().__init__(
             "unavailable_missing_dependency",
             f"Bayesian shrinkage requires the {dependency} optional dependency; "
             "no fallback estimator was selected",
-            findings=(f"optional dependency {dependency} is unavailable",),
+            findings=(finding,),
+            diagnostics=InferenceDiagnostics(
+                status="not_applicable",
+                findings=(finding,),
+            ),
         )
 
 
@@ -74,7 +129,15 @@ class BayesianSamplingFailureError(BayesianTrainingError):
     """The requested sampler could not produce a posterior draw set."""
 
     def __init__(self, message: str, *, cause: Exception | None = None) -> None:
-        super().__init__("sampling_failed", message, findings=(message,))
+        super().__init__(
+            "sampling_failed",
+            message,
+            findings=(message,),
+            diagnostics=InferenceDiagnostics(
+                status="failed",
+                findings=(message,),
+            ),
+        )
         if cause is not None:
             self.__cause__ = cause
 
@@ -109,6 +172,7 @@ class _InferenceSettings:
 @dataclass(frozen=True)
 class _Fit:
     coefficients: np.ndarray
+    standardized_coefficients: np.ndarray
     intercepts: np.ndarray
     observation_scales: np.ndarray
     local_scales: np.ndarray | None
@@ -141,9 +205,10 @@ def _dependencies() -> tuple[Any, ...]:
         import numpyro.distributions as dist
         from numpyro.diagnostics import summary
         from numpyro.infer import MCMC, NUTS
+        from numpyro.infer.initialization import init_to_median
     except ImportError as exc:
         raise BayesianTrainingUnavailableError("numpyro") from exc
-    return jnp, random, numpyro, dist, summary, MCMC, NUTS
+    return jnp, random, numpyro, dist, summary, MCMC, NUTS, init_to_median
 
 
 def _fit_seed(seed: int, offset: int) -> int:
@@ -249,11 +314,20 @@ def _sampler_model(
             "local_scale",
             dist.HalfCauchy(1.0).expand((feature_count,)).to_event(1),
         )
-        slab_scale_squared = recipe.slab_scale**2
+        # The v1 slab is a fixed Student-t slab.  Its finite second moment is
+        # the c^2 cap in the regularized horseshoe; keeping that cap
+        # deterministic avoids a divergent auxiliary inverse-gamma funnel
+        # while preserving the declared slab scale and degrees of freedom.
+        slab_variance = numpyro.deterministic(
+            "slab_variance",
+            recipe.slab_scale**2
+            * recipe.slab_degrees_of_freedom
+            / (recipe.slab_degrees_of_freedom - 2.0),
+        )
         shrinkage = jnp.sqrt(
-            slab_scale_squared
+            slab_variance
             * local_scale**2
-            / (slab_scale_squared + global_scale**2 * local_scale**2)
+            / (slab_variance + global_scale**2 * local_scale**2)
         )
         coefficient_scale = numpyro.deterministic(
             "coefficient_scale",
@@ -261,7 +335,13 @@ def _sampler_model(
         )
         coefficient_raw = numpyro.sample(
             "coefficient_raw",
-            dist.Normal(0.0, 1.0).expand((feature_count,)).to_event(1),
+            dist.StudentT(
+                recipe.slab_degrees_of_freedom,
+                0.0,
+                1.0,
+            )
+            .expand((feature_count,))
+            .to_event(1),
         )
         coefficients = numpyro.deterministic(
             "coefficients",
@@ -310,7 +390,16 @@ def _fit(
     normalized_x = (values - x_mean) / x_scale
     normalized_y = (target - y_mean) / y_scale
     settings = _settings(recipe)
-    jnp, random, numpyro, dist, summarize, MCMC, NUTS = _dependencies()
+    (
+        jnp,
+        random,
+        numpyro,
+        dist,
+        summarize,
+        MCMC,
+        NUTS,
+        init_to_median,
+    ) = _dependencies()
     model = _sampler_model(
         recipe,
         feature_count=values.shape[1],
@@ -319,7 +408,13 @@ def _fit(
         dist=dist,
     )
     sampler = MCMC(
-        NUTS(model, target_accept_prob=recipe.target_accept_probability),
+        NUTS(
+            model,
+            target_accept_prob=recipe.target_accept_probability,
+            max_tree_depth=_MAX_TREE_DEPTH,
+            dense_mass=_DENSE_MASS,
+            init_strategy=init_to_median(num_samples=10),
+        ),
         num_warmup=settings.warmup,
         num_samples=settings.draws,
         num_chains=settings.chains,
@@ -385,6 +480,9 @@ def _fit(
             "max_rows": _MAX_ROWS,
             "max_features": _MAX_FEATURES,
             "chain_method": "sequential",
+            "max_tree_depth": _MAX_TREE_DEPTH,
+            "dense_mass": "enabled" if _DENSE_MASS else "disabled",
+            "init_strategy": "prior-median-10/v1",
         },
         convergence_criteria={
             "max_r_hat": settings.max_r_hat,
@@ -428,6 +526,7 @@ def _fit(
         )
     return _Fit(
         coefficients=coefficients,
+        standardized_coefficients=normalized_coefficients,
         intercepts=intercepts,
         observation_scales=observation_scales,
         local_scales=local_scales,
@@ -480,12 +579,15 @@ def _honest_predictions(
             fit_rows=train_rows,
             transform_rows=train_rows,
         )
-        fitted = _fit(
-            train_x,
-            data.y[train_rows],
-            recipe,
-            seed=_fit_seed(recipe.seed, int(fold)),
-        )
+        try:
+            fitted = _fit(
+                train_x,
+                data.y[train_rows],
+                recipe,
+                seed=_fit_seed(recipe.seed, int(fold)),
+            )
+        except BayesianTrainingError as exc:
+            raise exc.bind_target(data.target) from exc
         evaluate_x = prepared_feature_matrix(
             data,
             fit_rows=train_rows,
@@ -523,7 +625,7 @@ def _coefficient_summary(
 ) -> dict[str, Any]:
     rows: dict[str, Any] = {}
     for index, name in enumerate(feature_names):
-        values = fit.coefficients[:, index]
+        values = fit.standardized_coefficients[:, index]
         rows[name] = {
             "mean": float(np.mean(values)),
             "q05": float(np.quantile(values, 0.05)),
@@ -536,10 +638,16 @@ def _coefficient_summary(
         }
     return {
         "semantic": (
-            "posterior coefficient evidence for the fitted association; sign and "
-            "ROPE probabilities are not intervention claims or rankings"
+            "posterior coefficient evidence on standardized predictor and response "
+            "scales; sign and ROPE probabilities are not intervention claims or "
+            "rankings"
         ),
+        "coefficient_scale": "standardized_predictor_and_response",
         "rope_half_width": rope_half_width,
+        "rope_semantics": (
+            "unitless ROPE on standardized coefficients; positive unit conversion "
+            "does not change the evidence"
+        ),
         "features": rows,
     }
 
@@ -597,12 +705,15 @@ def train(
     absolute_residuals = np.abs(residuals)
     extreme_count = max(1, int(np.ceil(len(residuals) * 0.1)))
     extreme_rows = np.argsort(absolute_residuals)[-extreme_count:]
-    final = _fit(
-        prepared_feature_matrix(data),
-        data.y,
-        recipe,
-        seed=_fit_seed(recipe.seed, 1_000_000),
-    )
+    try:
+        final = _fit(
+            prepared_feature_matrix(data),
+            data.y,
+            recipe,
+            seed=_fit_seed(recipe.seed, 1_000_000),
+        )
+    except BayesianTrainingError as exc:
+        raise exc.bind_target(data.target) from exc
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     arrays: dict[str, np.ndarray] = {
         "beta_draws": final.coefficients,

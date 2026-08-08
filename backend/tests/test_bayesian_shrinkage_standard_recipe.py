@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 from backend.scripts.operations import model_workflow
+from pydantic import ValidationError
 
 from decision_workbench.contracts.inference_policy_contracts import (
     InferenceDiagnostics,
@@ -13,9 +15,11 @@ from decision_workbench.contracts.inference_policy_contracts import (
 )
 from decision_workbench.modeling.inference_policy import inference_policy
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.packages.contracts import ModelPackageManifest
 from decision_workbench.modeling.training.estimators import bayesian_linear
 from decision_workbench.modeling.training.estimators.bayesian_linear import (
     BayesianDiagnosticsQualityError,
+    BayesianSamplingFailureError,
     BayesianTrainingUnavailableError,
 )
 from decision_workbench.modeling.training.feature_dataset import TargetTrainingSet
@@ -122,6 +126,69 @@ def _training_set() -> TargetTrainingSet:
     )
 
 
+def _manifest_with_inference_provenance() -> dict[str, object]:
+    identity = _inference_identity()
+    predictor_id = "response-bayesian-ridge"
+    return {
+        "schema_version": "model-package/v1",
+        "package_id": "bayesian-contract-test",
+        "package_version": "1.0.0",
+        "task_id": "test-task",
+        "input_schema_version": "canonical-candidate/v1",
+        "feature_pipeline": {
+            "id": "test-pipeline",
+            "version": "1",
+            "spec": "feature-pipeline/pipeline.json",
+            "canonical_input_paths": ["input.x"],
+            "output_features": ["x"],
+            "artifacts": [],
+        },
+        "predictors": [
+            {
+                "id": predictor_id,
+                "target": "response",
+                "unit": "unit",
+                "target_kind": "continuous",
+                "runtime_type": "builtin.posterior_linear.v1",
+                "architecture_id": "posterior_linear_v1",
+                "artifact": "model-artifacts/response.npz",
+                "predictive_family": "normal",
+                "feature_names": ["x"],
+                "inference_identity": identity.model_dump(mode="json"),
+            }
+        ],
+        "provenance": {
+            "training_data_id": "sha256:" + "1" * 64,
+            "feature_dataset_id": "sha256:" + "2" * 64,
+            "training_code_revision": "standard-model-training/v1:test",
+            "inference_identities": {
+                predictor_id: identity.model_dump(mode="json"),
+            },
+            "inference_provenance": {
+                predictor_id: {
+                    "recipe_id": "bayesian-ridge.v1",
+                    "recipe_parameters": {
+                        "estimator_id": "bayesian-ridge.v1",
+                        "coefficient_prior_scale": 1.0,
+                    },
+                    "inference_identity_digest": identity.identity_digest,
+                    "diagnostics": identity.diagnostics.model_dump(mode="json"),
+                },
+            },
+        },
+        "artifacts": [
+            {
+                "path": "feature-pipeline/pipeline.json",
+                "sha256": "a" * 64,
+                "bytes": 1,
+            },
+            {
+                "path": "model-artifacts/response.npz",
+                "sha256": "b" * 64,
+                "bytes": 1,
+            },
+        ],
+    }
 def _fake_fit(
     recipe: BayesianRidgeEstimatorRecipe | HorseshoeLinearEstimatorRecipe,
     *,
@@ -139,6 +206,7 @@ def _fake_fit(
     )
     return bayesian_linear._Fit(
         coefficients=coefficients,
+        standardized_coefficients=coefficients,
         intercepts=np.asarray([1.0, 1.01, 0.99, 1.0]),
         observation_scales=np.asarray([0.2, 0.21, 0.19, 0.2]),
         local_scales=(
@@ -166,6 +234,46 @@ def test_shrinkage_recipe_ids_and_fixed_inference_policy_are_distinct() -> None:
     assert "coefficient_prior_scale" not in horseshoe.model_dump()
     assert "local_scale_prior" not in ridge.model_dump()
     assert set((ridge.estimator_id, horseshoe.estimator_id)) <= set(ESTIMATOR_IDS)
+
+
+def test_horseshoe_slab_degrees_of_freedom_is_bound_to_the_slab_prior() -> None:
+    numpyro = pytest.importorskip("numpyro")
+    import jax.numpy as jnp
+    from jax import random
+    from numpyro.handlers import seed, trace
+    import numpyro.distributions as dist
+
+    default = estimator_recipe("horseshoe-linear.v1")
+    sensitivity = estimator_recipe(
+        "horseshoe-linear.v1",
+        {"slab_degrees_of_freedom": 12.0},
+    )
+    default_model = bayesian_linear._sampler_model(
+        default,
+        feature_count=2,
+        jnp=jnp,
+        numpyro=numpyro,
+        dist=dist,
+    )
+    sensitivity_model = bayesian_linear._sampler_model(
+        sensitivity,
+        feature_count=2,
+        jnp=jnp,
+        numpyro=numpyro,
+        dist=dist,
+    )
+    default_trace = trace(seed(default_model, random.PRNGKey(3))).get_trace(
+        jnp.zeros((2, 2)),
+        None,
+    )
+    sensitivity_trace = trace(
+        seed(sensitivity_model, random.PRNGKey(3))
+    ).get_trace(jnp.zeros((2, 2)), None)
+
+    assert float(default_trace["slab_variance"]["value"]) == pytest.approx(8.0)
+    assert float(sensitivity_trace["slab_variance"]["value"]) == pytest.approx(
+        4.8
+    )
 
 
 def test_shrinkage_readiness_is_experimental_and_not_production_resolver_default() -> None:
@@ -294,6 +402,13 @@ def test_missing_dependency_is_typed_and_does_not_select_ridge(
         )
     assert error.value.reason_code == "unavailable_missing_dependency"
     assert "fallback" in str(error.value)
+    finding = error.value.quality_finding(
+        estimator_id="bayesian-ridge.v1",
+        target="response",
+    )
+    assert finding.status == "unavailable"
+    assert finding.diagnostics is not None
+    assert finding.diagnostics.status == "not_applicable"
 
 
 def test_divergence_and_ess_are_quality_findings() -> None:
@@ -326,6 +441,20 @@ def test_divergence_and_ess_are_quality_findings() -> None:
     assert error.reason_code == "sampling_quality_failed"
 
 
+def test_sampling_failure_serializes_a_typed_diagnostic_finding() -> None:
+    error = BayesianSamplingFailureError("sampler failed before draw export")
+    finding = error.quality_finding(
+        estimator_id="bayesian-ridge.v1",
+        target="response",
+    )
+
+    assert finding.status == "failed"
+    assert finding.reason_code == "sampling_failed"
+    assert finding.target == "response"
+    assert finding.diagnostics is not None
+    assert finding.diagnostics.status == "failed"
+
+
 def test_existing_hot_rolling_package_load_and_predict_regression() -> None:
     root = ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2"
     package = ModelPackageLoader().load(root)
@@ -342,6 +471,33 @@ def test_existing_hot_rolling_package_load_and_predict_regression() -> None:
     assert np.isfinite(
         summary.uncertainty_components["total_predictive_std"]
     )
+
+
+def test_rope_uses_standardized_coefficients_and_is_unit_conversion_invariant() -> None:
+    fit = _fake_fit(estimator_recipe("bayesian-ridge.v1"), local_scales=False)
+    scaled_raw_fit = replace(
+        fit,
+        coefficients=fit.coefficients / 100.0,
+        standardized_coefficients=fit.standardized_coefficients,
+    )
+
+    original = bayesian_linear._coefficient_summary(
+        fit,
+        ("signal", "correlated_signal"),
+        rope_half_width=0.1,
+    )
+    converted = bayesian_linear._coefficient_summary(
+        scaled_raw_fit,
+        ("signal", "correlated_signal"),
+        rope_half_width=0.1,
+    )
+
+    assert original["coefficient_scale"] == (
+        "standardized_predictor_and_response"
+    )
+    assert original["rope_semantics"]
+    assert original["features"] == converted["features"]
+    assert original["rope_half_width"] == converted["rope_half_width"]
 
 
 def test_package_provenance_contract_accepts_fixed_inference_identity() -> None:
@@ -366,9 +522,75 @@ def test_package_provenance_contract_accepts_fixed_inference_identity() -> None:
 
     provenance = ProvenanceSpec.model_validate(payload)
     assert provenance.inference_identities["response-bayesian-ridge"].draws == 4
-    assert provenance.inference_provenance["response-bayesian-ridge"]["recipe_id"] == (
-        "bayesian-ridge.v1"
+    assert (
+        provenance.inference_provenance["response-bayesian-ridge"].recipe_id
+        == "bayesian-ridge.v1"
     )
+
+
+def test_manifest_provenance_maps_are_cross_validated_against_predictors() -> None:
+    manifest = ModelPackageManifest.model_validate(
+        _manifest_with_inference_provenance()
+    )
+    predictor_id = manifest.predictors[0].id
+    assert set(manifest.provenance.inference_identities) == {predictor_id}
+    assert set(manifest.provenance.inference_provenance) == {predictor_id}
+
+
+def test_manifest_rejects_unknown_inference_provenance_key() -> None:
+    payload = _manifest_with_inference_provenance()
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    identities = provenance["inference_identities"]
+    inference_provenance = provenance["inference_provenance"]
+    assert isinstance(identities, dict)
+    assert isinstance(inference_provenance, dict)
+    identities["unknown-predictor"] = next(iter(identities.values()))
+    inference_provenance["unknown-predictor"] = next(
+        iter(inference_provenance.values())
+    )
+
+    with pytest.raises(ValidationError, match="exactly match predictors"):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_inference_provenance_digest_mismatch() -> None:
+    payload = _manifest_with_inference_provenance()
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    entry = provenance["inference_provenance"]["response-bayesian-ridge"]
+    assert isinstance(entry, dict)
+    entry["inference_identity_digest"] = "sha256:" + "c" * 64
+
+    with pytest.raises(
+        ValidationError,
+        match="provenance inference identity digest does not match",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_arbitrary_inference_provenance_fields() -> None:
+    payload = _manifest_with_inference_provenance()
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    entry = provenance["inference_provenance"]["response-bayesian-ridge"]
+    assert isinstance(entry, dict)
+    entry["unreviewed_field"] = "must not be accepted"
+
+    with pytest.raises(ValidationError):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_inference_provenance_recipe_id_mismatch() -> None:
+    payload = _manifest_with_inference_provenance()
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    entry = provenance["inference_provenance"]["response-bayesian-ridge"]
+    assert isinstance(entry, dict)
+    entry["recipe_id"] = "horseshoe-linear.v1"
+
+    with pytest.raises(ValidationError, match="recipe_parameters.estimator_id"):
+        ModelPackageManifest.model_validate(payload)
 
 
 @pytest.mark.parametrize("estimator_id", ("bayesian-ridge.v1", "horseshoe-linear.v1"))
@@ -399,7 +621,7 @@ def test_numpyro_fit_produces_safe_draws_when_optional_runtime_is_installed(
         values,
         target,
         estimator_recipe(estimator_id),
-        seed=11,
+        seed=13,
     )
     assert fit.coefficients.shape == (128, 2)
     assert fit.inference_identity.algorithm_id == "nuts"
@@ -430,7 +652,12 @@ def test_same_cohort_comparison_saves_explicit_adoption_and_interpretation_polic
         )
         return {
             "dataset": {"feature_dataset_id": feature_dataset_id},
-            "package": {"quality_report": "reports/quality-report.json"},
+            "package": {
+                "quality_report": {
+                    "schema_version": "model-quality-report/v1",
+                    "targets": [{"target": "response", "interval_coverage_90": 0.9}],
+                }
+            },
         }
 
     monkeypatch.setattr(model_workflow, "build_package", fake_build_package)
@@ -470,3 +697,76 @@ def test_same_cohort_comparison_saves_explicit_adoption_and_interpretation_polic
         )
     )
     assert saved["models"][1]["adoption_decision"] == "experimental"
+    assert report["models"][0]["quality"] is not None
+    assert report["models"][0]["quality"]["targets"][0][
+        "interval_coverage_90"
+    ] == pytest.approx(0.9)
+
+
+def test_comparison_serializes_typed_bayesian_failure_without_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    feature_dataset_id = "sha256:" + "9" * 64
+    failure = BayesianDiagnosticsQualityError(
+        "minimum ESS 2 is below 50",
+        diagnostics=InferenceDiagnostics(
+            status="failed",
+            max_r_hat=1.01,
+            min_effective_sample_size=2.0,
+            divergence_count=0,
+            findings=("minimum ESS 2 is below 50",),
+        ),
+    ).bind_target("response")
+
+    def fake_build_package(*args: object, **kwargs: object) -> dict[str, object]:
+        dataset_output = Path(args[3])
+        dataset_output.write_text("{}", encoding="utf-8")
+        if kwargs["estimator"] == "bayesian-ridge.v1":
+            raise failure
+        package_path = Path(args[2])
+        (package_path / "reference").mkdir(parents=True, exist_ok=True)
+        (package_path / "reference" / "training_stats.json").write_text(
+            json.dumps(
+                {
+                    "cohort_digests": {"response": "sha256:" + "a" * 64},
+                    "fold_digests": {"response": "sha256:" + "b" * 64},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "dataset": {"feature_dataset_id": feature_dataset_id},
+            "package": {
+                "quality_report": {
+                    "schema_version": "model-quality-report/v1",
+                    "targets": [{"target": "response", "interval_coverage_90": 0.8}],
+                }
+            },
+        }
+
+    monkeypatch.setattr(model_workflow, "build_package", fake_build_package)
+    monkeypatch.setattr(
+        model_workflow,
+        "canonical_training_dataset_digest",
+        lambda _payload: feature_dataset_id,
+    )
+    report = model_workflow.compare_estimators(
+        "heat-treatment-tradeoff-v1",
+        ROOT / "data" / "source" / "heat-treatment-tradeoff-v1.xlsx",
+        tmp_path / "comparison",
+        tmp_path / "feature-dataset.json",
+        estimators=("bayesian-ridge.v1", "ridge.v1"),
+        estimator_options=None,
+        package_prefix="failure-comparison",
+        package_version="1.0.0",
+    )
+
+    failed = report["models"][0]
+    assert failed["package"] is None
+    assert failed["adoption_decision"] == "sampling_quality_failed"
+    assert failed["quality_findings"][0]["schema_version"] == (
+        "bayesian-quality-finding/v1"
+    )
+    assert failed["quality_findings"][0]["diagnostics"]["status"] == "failed"
+    assert report["models"][1]["estimator_id"] == "ridge.v1"

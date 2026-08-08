@@ -870,7 +870,7 @@
           "chains": 2,
           "warmup": 256,
           "draws": 256,
-          "target_accept_probability": 0.9,
+          "target_accept_probability": 0.99,
           "max_r_hat": 1.05,
           "min_effective_sample_size": 50.0,
           "max_divergences": 0,

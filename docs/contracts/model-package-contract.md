@@ -200,6 +200,18 @@ sampler parameter、diagnostics digestを保存します。係数のsign／ROPE�
 不確かさ、runtimeのprediction intervalは新しい観測値のposterior predictive
 不確かさであり、同じ意味として扱いません。相関した入力では係数証拠を共同に
 読む注意を残し、recipeは係数の近さを理由に特徴量を削除しません。
+horseshoeの相関した特徴量に対するNUTSは、target acceptance `0.99`、最大tree depth
+`13`、dense mass、prior-median初期化（10 draw）を固定し、これらを
+`inference_identity.resource_limits`へ記録します。これは収束を隠すretryではなく、
+同じregularized-horseshoe priorと診断閾値を再現するためのsampler設定です。
+
+この2つのmapは任意のmetadata袋ではない。
+manifestのpredictor IDのうち`inference_identity`を持つものと、両mapのkey集合は
+完全一致し、map内のidentity本体・identity digest・diagnosticsは同じpredictorの
+宣言と一致しなければならない。
+`inference_provenance`のentryはrecipe ID、recipe parameters、identity digest、typed
+diagnosticsだけを許し、未知field、unknown predictor ID、digest不一致はfail-closedで
+拒否する。
 
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 

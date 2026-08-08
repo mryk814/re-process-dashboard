@@ -121,7 +121,7 @@ class BayesianLinearInferenceRecipe(ContractModel):
 
 class BayesianRidgeEstimatorRecipe(BayesianLinearInferenceRecipe):
     estimator_id: Literal["bayesian-ridge.v1"] = "bayesian-ridge.v1"
-    coefficient_prior_scale: Literal[1.0] = 1.0
+    coefficient_prior_scale: Annotated[float, Field(gt=0, le=100)] = 1.0
     intercept_prior_scale: Literal[2.0] = 2.0
     observation_scale_prior: Literal["half-normal-1"] = "half-normal-1"
     parameterization: Literal["standardized-linear-gaussian/v1"] = (
@@ -135,8 +135,9 @@ class HorseshoeLinearEstimatorRecipe(BayesianLinearInferenceRecipe):
     observation_scale_prior: Literal["half-normal-1"] = "half-normal-1"
     global_scale_prior: Literal["half-normal-1"] = "half-normal-1"
     local_scale_prior: Literal["half-cauchy-1"] = "half-cauchy-1"
-    slab_scale: Literal[2.0] = 2.0
-    slab_degrees_of_freedom: Literal[4.0] = 4.0
+    target_accept_probability: Literal[0.99] = 0.99
+    slab_scale: Annotated[float, Field(gt=0, le=100)] = 2.0
+    slab_degrees_of_freedom: Annotated[float, Field(gt=2, le=30)] = 4.0
     regularization_policy: Literal["regularized-horseshoe/v1"] = (
         "regularized-horseshoe/v1"
     )

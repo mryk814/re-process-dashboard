@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import tracemalloc
 from time import perf_counter
 from typing import Any
 
@@ -46,6 +47,9 @@ from decision_workbench.modeling.packages.contracts import (  # noqa: E402
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
 from decision_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
+from decision_workbench.modeling.training.estimators.bayesian_linear import (  # noqa: E402
+    BayesianTrainingError,
+)
 from decision_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
 from decision_workbench.data.profile_family_registry import (  # noqa: E402
     lifecycle_profile_for_data,
@@ -367,19 +371,75 @@ def compare_estimators(
         package_id = f"{package_prefix}-{estimator_id.replace('.', '-')}"
         package_path = output / package_id
         build_started = perf_counter()
-        result = build_package(
-            task_id,
-            source,
-            package_path,
-            dataset_output,
-            package_id=package_id,
-            package_version=package_version,
-            replace=False,
-            estimator=estimator_id,
-            estimator_options=options.get(estimator_id, {}),
-            profile=profile,
-        )
+        peak_traced_memory_bytes = 0
+        tracemalloc.start()
+        try:
+            result = build_package(
+                task_id,
+                source,
+                package_path,
+                dataset_output,
+                package_id=package_id,
+                package_version=package_version,
+                replace=False,
+                estimator=estimator_id,
+                estimator_options=options.get(estimator_id, {}),
+                profile=profile,
+            )
+        except BayesianTrainingError as error:
+            _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            build_seconds = perf_counter() - build_started
+            dataset_payload = json.loads(
+                dataset_output.read_text(encoding="utf-8")
+            )
+            feature_dataset_id = str(
+                canonical_training_dataset_digest(dataset_payload)
+            )
+            if common_feature_dataset_id is None:
+                common_feature_dataset_id = feature_dataset_id
+            elif feature_dataset_id != common_feature_dataset_id:
+                raise ValueError(
+                    "comparison estimators did not use the same FeatureDataset"
+                )
+            catalog_entry = next(
+                entry
+                for entry in standard_estimator_catalog().entries
+                if entry.estimator_id == estimator_id
+            )
+            finding = error.quality_finding(
+                estimator_id=estimator_id,
+                target=error.target or "package",
+            )
+            entries.append({
+                "estimator_id": estimator_id,
+                "package_id": package_id,
+                "package": None,
+                "quality_report": None,
+                "quality": None,
+                "quality_findings": [finding.model_dump(mode="json")],
+                "diagnostics": (
+                    finding.diagnostics.model_dump(mode="json")
+                    if finding.diagnostics is not None
+                    else None
+                ),
+                "cost": {
+                    "build_seconds": round(build_seconds, 6),
+                    "artifact_bytes": None,
+                    "peak_traced_memory_bytes": peak_traced_memory_bytes,
+                },
+                "evaluation": None,
+                "adoption_status": catalog_entry.adoption_status,
+                "adoption_decision": finding.reason_code,
+                "known_limitations": list(catalog_entry.known_limitations),
+            })
+            continue
+        finally:
+            if tracemalloc.is_tracing():
+                _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
         build_seconds = perf_counter() - build_started
+        peak_traced_memory_bytes = int(peak_traced_memory_bytes)
         feature_dataset_id = str(result["dataset"]["feature_dataset_id"])
         stats = json.loads(
             (package_path / "reference" / "training_stats.json").read_text(
@@ -396,25 +456,26 @@ def compare_estimators(
         if common_feature_dataset_id is None:
             common_feature_dataset_id = feature_dataset_id
             common_evaluation = evaluation
-        elif (
-            feature_dataset_id != common_feature_dataset_id
-            or evaluation != common_evaluation
-        ):
+        elif feature_dataset_id != common_feature_dataset_id:
             raise ValueError(
-                "comparison estimators did not use the same "
-                "FeatureDataset/cohort/fold plan"
+                "comparison estimators did not use the same FeatureDataset"
+            )
+        elif common_evaluation is None:
+            common_evaluation = evaluation
+        elif evaluation != common_evaluation:
+            raise ValueError(
+                "comparison estimators did not use the same cohort/fold plan"
             )
         catalog_entry = next(
             entry
             for entry in standard_estimator_catalog().entries
             if entry.estimator_id == estimator_id
         )
-        quality_report_ref = result["package"].get("quality_report")
-        quality_report = None
-        if isinstance(quality_report_ref, str):
-            quality_path = package_path / quality_report_ref
-            if quality_path.is_file():
-                quality_report = json.loads(quality_path.read_text(encoding="utf-8"))
+        quality_report = result["package"].get("quality_report")
+        if not isinstance(quality_report, dict):
+            raise ValueError(
+                "standard model verification must return a dict quality_report"
+            )
         diagnostics_path = package_path / "reports" / "training-diagnostics.json"
         diagnostics = (
             json.loads(diagnostics_path.read_text(encoding="utf-8"))
@@ -430,16 +491,23 @@ def compare_estimators(
                 for item in manifest.get("artifacts", [])
                 if isinstance(item, dict) and "bytes" in item
             )
+        quality_findings = [
+            finding
+            for target_diagnostics in (diagnostics or {}).get("targets", {}).values()
+            for finding in target_diagnostics.get("quality_findings", [])
+        ]
         entries.append({
             "estimator_id": estimator_id,
             "package_id": package_id,
             "package": str(package_path.resolve()),
-            "quality_report": result["package"]["quality_report"],
+            "quality_report": quality_report,
             "quality": quality_report,
+            "quality_findings": quality_findings,
             "diagnostics": diagnostics,
             "cost": {
                 "build_seconds": round(build_seconds, 6),
                 "artifact_bytes": artifact_bytes,
+                "peak_traced_memory_bytes": peak_traced_memory_bytes,
             },
             "evaluation": evaluation,
             "adoption_status": catalog_entry.adoption_status,
@@ -483,6 +551,20 @@ def compare_estimators(
                     "ROPE evidence without ranking or deletion"
                 ),
             },
+        },
+        "evidence_contract": {
+            "calibration": (
+                "quality.targets.interval_coverage_90 and "
+                "quality.targets.mean_interval_width"
+            ),
+            "memory": (
+                "cost.peak_traced_memory_bytes is peak Python allocation evidence; "
+                "native accelerator memory is not inferred"
+            ),
+            "failure_findings": (
+                "typed Bayesian unavailable/sampling/diagnostic findings are retained "
+                "per model without an implicit estimator fallback"
+            ),
         },
         "note": (
             "No automatic winner is selected. Compare target-level quality "
