@@ -53,12 +53,13 @@ class _Fit:
     zero_gate_logits: np.ndarray | None
     inference_identity: InferenceIdentity
 
-    def parameters(self, values: np.ndarray, exposure: np.ndarray | None) -> tuple[np.ndarray, np.ndarray | None]:
+    def parameters(self, values: np.ndarray, exposure: np.ndarray | None) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
         eta = values @ self.coefficients.T + self.intercepts
         if exposure is not None:
             eta = eta + np.log(exposure)[:, None]
         mean = np.exp(np.clip(eta, -30, 30))
-        return mean, None if self.dispersion is None else self.dispersion[None, :]
+        gates = None if self.zero_gate_logits is None else 1.0 / (1.0 + np.exp(-self.zero_gate_logits))[None, :]
+        return mean, None if self.dispersion is None else self.dispersion[None, :], gates
 
 
 def _dependencies():
@@ -156,7 +157,7 @@ def _fit(values: np.ndarray, target: np.ndarray, exposure: np.ndarray | None, re
 
 
 def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe: CountRecipe, *, seed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
-    means, dispersions = fit.parameters(values, exposure)
+    means, dispersions, gates = fit.parameters(values, exposure)
     rng = np.random.default_rng(seed)
     if recipe.estimator_id == "negative-binomial-regression.v1":
         assert dispersions is not None
@@ -164,11 +165,11 @@ def _predict(fit: _Fit, values: np.ndarray, exposure: np.ndarray | None, recipe:
         return means.mean(axis=1), samples, dispersions.mean(axis=1), np.zeros(len(values))
     # The second posterior output is deliberately a fixed gate intercept for v1;
     # its probability remains distinct from the expected count.
-    assert fit.zero_gate_logits is not None
-    gate = 1.0 / (1.0 + np.exp(-fit.zero_gate_logits))
+    assert gates is not None
+    gate = gates
     samples = rng.poisson(means)
     samples[rng.random(samples.shape) < gate[None, :]] = 0
-    return ((1.0 - gate[None, :]) * means).mean(axis=1), samples, None, np.full(len(values), 0.5)
+    return ((1.0 - gate) * means).mean(axis=1), samples, None, gate.mean(axis=1)
 
 
 def _log_score(observed: np.ndarray, expected: np.ndarray, recipe: CountRecipe, dispersion: np.ndarray | None, zero_probability: np.ndarray) -> float:
@@ -231,5 +232,5 @@ def train(data: TargetTrainingSet, recipe: CountRecipe, artifact_path: Path) -> 
     parameters = recipe.model_dump(mode="json", exclude={"estimator_id", "validation_plan", "validation_plans_by_target"}, exclude_none=True)
     quality = TargetQualityMetric(target=data.target, parent_conditions=len(set(data.validation_groups)), mae=float(np.mean(np.abs(observed - evaluated))), rmse=float(np.sqrt(np.mean((observed - evaluated) ** 2))), median_absolute_error=float(np.median(np.abs(observed - evaluated))), mean_log_predictive_density=_log_score(observed, evaluated, recipe, dispersions[quality_rows] if np.isfinite(dispersions[quality_rows]).all() else None, zero_probability[quality_rows]), extreme_residual_mae=float(np.mean(np.abs(observed[observed >= np.quantile(observed, 0.9)] - evaluated[observed >= np.quantile(observed, 0.9)]))), interval_coverage_90=float(np.mean((observed >= lower[quality_rows]) & (observed <= upper[quality_rows]))), interval_coverage_method="posterior-predictive-interval", interval_coverage_observations=int(quality_rows.sum()), mean_interval_width=float(np.mean(upper[quality_rows] - lower[quality_rows])))
     family = "negative_binomial_log" if recipe.estimator_id == "negative-binomial-regression.v1" else "zero_inflated_poisson_log"
-    predictor = {"id": f"{data.target.lower()}-{recipe.estimator_id.removesuffix('.v1')}", "target": data.target, "unit": data.unit, "target_kind": "count", "runtime_type": RUNTIME_TYPE, "architecture_id": "dense_mlp_v1", "artifact": artifact_path.as_posix(), "predictive_family": family, "feature_names": list(data.feature_names), "inference_identity": final.inference_identity.model_dump(mode="json"), "config": {"activation": "tanh", "interval_semantics": "q05-q95 posterior-predictive count interval", "exposure": ({"mode": "explicit_offset/v1", "input_path": data.exposure_input_path} if data.exposure_input_path is not None else {"mode": "not_applicable_unexposed_count/v1"}), "training": standard_training_metadata(data, estimator_id=recipe.estimator_id, uncertainty="NUTS posterior predictive count distribution", parameters=parameters, effective_inference_seed=effective_bayesian_final_inference_seed(recipe.seed))}}
+    predictor = {"id": f"{data.target.lower()}-{recipe.estimator_id.removesuffix('.v1')}", "target": data.target, "unit": data.unit, "target_kind": "count", "runtime_type": RUNTIME_TYPE, "architecture_id": "dense_mlp_v1", "artifact": artifact_path.as_posix(), "predictive_family": family, "feature_names": list(data.feature_names), "inference_identity": final.inference_identity.model_dump(mode="json"), "config": {"advanced_count_contract": "advanced-count-contract/v1", "activation": "tanh", "interval_semantics": "q05-q95 posterior-predictive count interval", "exposure": ({"mode": "explicit_offset/v1", "input_path": data.exposure_input_path} if data.exposure_input_path is not None else {"mode": "not_applicable_unexposed_count/v1"}), "training": standard_training_metadata(data, estimator_id=recipe.estimator_id, uncertainty="NUTS posterior predictive count distribution", parameters=parameters, effective_inference_seed=effective_bayesian_final_inference_seed(recipe.seed))}}
     return TrainedPredictor(predictor=predictor, artifact=artifact_path, quality=quality, diagnostics={"estimator_id": recipe.estimator_id, "folds": fold_diagnostics, "count_contract": {"target_eligibility": "nonnegative_integer", "observed_zero_rate": float(np.mean(data.y == 0)), "observed_mean": float(np.mean(data.y)), "observed_variance": float(np.var(data.y)), "exposure": predictor["config"]["exposure"]}, "count_quality": {"poisson_deviance_proxy": float(2 * np.mean(evaluated - observed + np.where(observed > 0, observed * np.log(observed / np.maximum(evaluated, 1e-15)), 0))), "zero_observed_rate": float(np.mean(observed == 0)), "zero_predicted_rate": float(np.mean(zero_probability[quality_rows] + (1 - zero_probability[quality_rows]) * np.exp(-evaluated))), "tail_count_observed_rate": float(np.mean(observed >= np.quantile(data.y, 0.9))), "exposure_stratified": "not_applicable" if data.exposure is None else "recorded_by_explicit_offset"}}, predict=lambda values: float(np.mean(_predict(final, values, None, recipe, seed=recipe.seed)[0])), evaluation_predictions=expected)

@@ -138,6 +138,11 @@ class _DensePosteriorPredictor:
         if expected_kind != self.spec.target_kind:
             raise PackageContractError(f"{family} requires target_kind={expected_kind}")
         exposure = self.spec.config.get("exposure")
+        advanced_contract = self.spec.config.get("advanced_count_contract")
+        if advanced_contract is not None and advanced_contract != "advanced-count-contract/v1":
+            raise PackageContractError("advanced count contract marker is unsupported")
+        if advanced_contract == "advanced-count-contract/v1" and exposure is None:
+            raise PackageContractError("advanced count posterior requires explicit exposure semantics")
         if family in {"negative_binomial_log", "zero_inflated_poisson_log"} and exposure is not None:
             if not isinstance(exposure, dict):
                 raise PackageContractError("advanced count exposure semantics must be an object")

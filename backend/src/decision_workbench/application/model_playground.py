@@ -77,6 +77,7 @@ from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
 from decision_workbench.modeling.training.readiness import (
+    buildable_standard_estimator_ids,
     compatible_standard_estimator_ids,
     resolve_estimator_contract_readiness,
     standard_estimator_catalog,
@@ -710,6 +711,11 @@ class ModelPlaygroundUseCases:
                 )
             )
         )
+        comparison_candidates = set(
+            authoring.allowed_estimator_ids(
+                buildable_standard_estimator_ids(contract.task_definition.outputs)
+            )
+        )
         selections: list[ModelExplorationRecipeSelection] = []
         for entry in standard_estimator_catalog().entries:
             reasons: list[str] = []
@@ -760,6 +766,7 @@ class ModelPlaygroundUseCases:
             if (
                 entry.builder_status == "standard_builder"
                 and entry.estimator_id not in compatible
+                and entry.estimator_id not in comparison_candidates
             ):
                 statuses.append("out_of_scope")
                 reasons.append(

@@ -102,10 +102,19 @@ def test_same_cohort_comparison_refuses_automatic_selection_and_identity_drift()
 def test_safe_runtime_distinguishes_expected_count_from_nb_and_zip_parameters(tmp_path: Path, family: str, arrays: dict[str, np.ndarray], expected_key: str) -> None:
     artifact = tmp_path / "posterior.npz"
     np.savez(artifact, **arrays)
-    spec = PredictorSpec.model_validate({"id": family, "target": "events", "unit": "events", "target_kind": "count", "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "posterior.npz", "predictive_family": family, "feature_names": ["x"], "config": {"exposure": {"mode": "explicit_offset/v1", "input_path": "process.exposure"}}})
+    spec = PredictorSpec.model_validate({"id": family, "target": "events", "unit": "events", "target_kind": "count", "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "posterior.npz", "predictive_family": family, "feature_names": ["x"], "config": {"advanced_count_contract": "advanced-count-contract/v1", "exposure": {"mode": "explicit_offset/v1", "input_path": "process.exposure"}}})
     summary = NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), spec).predict({"x": 0.0, "process.exposure": 2.0}, sampling_request=SamplingRequest.create(operation="package_verification", policy_id="advanced-count-test/v1", seed=792, requested_sample_count=3))
     assert summary.point_statistic == "rate"
     assert summary.point_estimate == pytest.approx(2.0 if family == "negative_binomial_log" else 1.0)
     assert summary.prediction_interval is not None
     assert summary.distribution["mean_semantics"] == "expected_count"
     assert expected_key in summary.distribution
+
+
+def test_new_advanced_artifact_rejects_missing_exposure_metadata(tmp_path: Path) -> None:
+    artifact = tmp_path / "posterior.npz"
+    np.savez(artifact, w0=np.asarray([[[0.0]], [[0.0]]]), b0=np.zeros((2, 1)), dispersion=np.asarray([2.0, 2.0]))
+    spec = PredictorSpec.model_validate({"id": "nb", "target": "events", "unit": "events", "target_kind": "count", "runtime_type": "numpyro.dense_posterior.v1", "architecture_id": "dense_mlp_v1", "artifact": "posterior.npz", "predictive_family": "negative_binomial_log", "feature_names": ["x"], "config": {"advanced_count_contract": "advanced-count-contract/v1"}})
+    predictor = NumpyroDensePosteriorAdapter().load(_Artifacts(artifact), spec)
+    with pytest.raises(ValueError, match="explicit exposure semantics"):
+        predictor.predict({"x": 0.0}, sampling_request=SamplingRequest.create(operation="package_verification", policy_id="advanced-count-contract/v1", seed=792, requested_sample_count=2))

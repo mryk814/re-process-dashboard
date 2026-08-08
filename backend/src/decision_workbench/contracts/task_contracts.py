@@ -217,11 +217,11 @@ class BinaryOutputSemantics(ContractModel):
 
 
 class CountOutputSemantics(ContractModel):
-    count_unit: Annotated[str, Field(min_length=1)]
+    count_unit: Annotated[str, Field(min_length=1, pattern=r".*\S.*")]
     exposure_label: Annotated[str, Field(min_length=1)] | None = None
     exposure_input_path: Annotated[str, Field(min_length=1)] | None = None
     exposure_unit: Annotated[str, Field(min_length=1)] | None = None
-    structural_zero_rationale: Annotated[str, Field(min_length=1)] | None = None
+    structural_zero_rationale: Annotated[str, Field(min_length=1, pattern=r".*\S.*")] | None = None
 
     @model_validator(mode="after")
     def exposure_contract_is_complete(self) -> "CountOutputSemantics":

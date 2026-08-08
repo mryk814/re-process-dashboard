@@ -27,4 +27,4 @@ NB の point estimate は expected count、`overdispersion` は別の distributi
 | varying exposure | explicit offset と exposure-stratified diagnostics |
 | grouped / temporal count | outer-fold feature fit と split identity |
 
-このPRの判定は **experimental** です。synthetic / contract evidence は recipe と safe runtime の実行可能性を支えるだけで、production claim、active Package の置換、自動 model selection は支持しません。production の個別 Task evidence が揃った場合だけ #781 へ接続します。
+このPRの判定は **experimental** です。今回ローカルで確認できたのは contract、safe runtime、fold identity の unit evidence です。NumPyro/JAX がこの環境にないため、表の real-NUTS synthetic fixture は fresh `backend-science` CI が merge 前に所有します。production claim、active Package の置換、自動 model selection は支持しません。production の個別 Task evidence が揃った場合だけ #781 へ接続します。
