@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+from time import perf_counter
 from typing import Any
 
 
@@ -53,7 +54,9 @@ from decision_workbench.data.profile_family_registry import (  # noqa: E402
 )
 from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from decision_workbench.modeling.training.readiness import (  # noqa: E402
+    buildable_standard_estimator_ids,
     compatible_standard_estimator_ids,
+    standard_estimator_catalog,
 )
 from decision_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
 from decision_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
@@ -244,7 +247,7 @@ def build_package(
             )
         contract = load_task_contracts()[task_id]
         allowed = authoring.allowed_estimator_ids(
-            compatible_standard_estimator_ids(
+            buildable_standard_estimator_ids(
                 contract.task_definition.outputs
             )
         )
@@ -333,7 +336,7 @@ def compare_estimators(
         )
     contract = load_task_contracts()[task_id]
     allowed = set(authoring.allowed_estimator_ids(
-        compatible_standard_estimator_ids(contract.task_definition.outputs)
+        buildable_standard_estimator_ids(contract.task_definition.outputs)
     ))
     unsupported = set(estimators) - allowed
     if unsupported:
@@ -363,6 +366,7 @@ def compare_estimators(
     for estimator_id in estimators:
         package_id = f"{package_prefix}-{estimator_id.replace('.', '-')}"
         package_path = output / package_id
+        build_started = perf_counter()
         result = build_package(
             task_id,
             source,
@@ -375,6 +379,7 @@ def compare_estimators(
             estimator_options=options.get(estimator_id, {}),
             profile=profile,
         )
+        build_seconds = perf_counter() - build_started
         feature_dataset_id = str(result["dataset"]["feature_dataset_id"])
         stats = json.loads(
             (package_path / "reference" / "training_stats.json").read_text(
@@ -399,12 +404,47 @@ def compare_estimators(
                 "comparison estimators did not use the same "
                 "FeatureDataset/cohort/fold plan"
             )
+        catalog_entry = next(
+            entry
+            for entry in standard_estimator_catalog().entries
+            if entry.estimator_id == estimator_id
+        )
+        quality_report_ref = result["package"].get("quality_report")
+        quality_report = None
+        if isinstance(quality_report_ref, str):
+            quality_path = package_path / quality_report_ref
+            if quality_path.is_file():
+                quality_report = json.loads(quality_path.read_text(encoding="utf-8"))
+        diagnostics_path = package_path / "reports" / "training-diagnostics.json"
+        diagnostics = (
+            json.loads(diagnostics_path.read_text(encoding="utf-8"))
+            if diagnostics_path.is_file()
+            else None
+        )
+        manifest_path = package_path / "manifest.json"
+        artifact_bytes = None
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            artifact_bytes = sum(
+                int(item["bytes"])
+                for item in manifest.get("artifacts", [])
+                if isinstance(item, dict) and "bytes" in item
+            )
         entries.append({
             "estimator_id": estimator_id,
             "package_id": package_id,
             "package": str(package_path.resolve()),
             "quality_report": result["package"]["quality_report"],
+            "quality": quality_report,
+            "diagnostics": diagnostics,
+            "cost": {
+                "build_seconds": round(build_seconds, 6),
+                "artifact_bytes": artifact_bytes,
+            },
             "evaluation": evaluation,
+            "adoption_status": catalog_entry.adoption_status,
+            "adoption_decision": catalog_entry.adoption_status,
+            "known_limitations": list(catalog_entry.known_limitations),
         })
 
     report = {
@@ -414,6 +454,36 @@ def compare_estimators(
         "evaluation": common_evaluation,
         "models": entries,
         "selection": None,
+        "adoption_policy": {
+            "production": "eligible only for explicit promotion review",
+            "experimental": "comparison evidence only; no automatic activation",
+            "no_adopt": "not a buildable comparison candidate",
+        },
+        "interpretation_contract": {
+            "coefficient_evidence": (
+                "sign and ROPE evidence is associational and correlation-sensitive"
+            ),
+            "prediction_uncertainty": (
+                "posterior-predictive uncertainty is separate from coefficient evidence"
+            ),
+            "feature_policy": "the recipe does not delete features",
+        },
+        "counterexample_protocol": {
+            "noisy_fixture": {
+                "status": "required_before_adoption",
+                "criterion": (
+                    "compare posterior-predictive coverage, width, and calibration "
+                    "under injected observation noise"
+                ),
+            },
+            "correlated_features": {
+                "status": "reported_per_model",
+                "criterion": (
+                    "retain all features and report correlation-sensitive sign and "
+                    "ROPE evidence without ranking or deletion"
+                ),
+            },
+        },
         "note": (
             "No automatic winner is selected. Compare target-level quality "
             "and scientific suitability before promotion."
