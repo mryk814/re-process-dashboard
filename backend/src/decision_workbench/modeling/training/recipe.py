@@ -138,11 +138,13 @@ class HorseshoeLinearEstimatorRecipe(BayesianLinearInferenceRecipe):
     target_accept_probability: Literal[0.99] = 0.99
     slab_scale: Annotated[float, Field(gt=0, le=100)] = 2.0
     slab_degrees_of_freedom: Annotated[float, Field(gt=2, le=30)] = 4.0
-    regularization_policy: Literal["regularized-horseshoe/v1"] = (
-        "regularized-horseshoe/v1"
+    regularization_policy: Literal["fixed-student-t-capped-horseshoe/v1"] = (
+        "fixed-student-t-capped-horseshoe/v1"
     )
-    parameterization: Literal["standardized-regularized-horseshoe/v1"] = (
-        "standardized-regularized-horseshoe/v1"
+    parameterization: Literal[
+        "standardized-fixed-student-t-capped-horseshoe/v1"
+    ] = (
+        "standardized-fixed-student-t-capped-horseshoe/v1"
     )
 
 

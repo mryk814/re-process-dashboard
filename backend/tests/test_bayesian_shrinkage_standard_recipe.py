@@ -15,7 +15,10 @@ from decision_workbench.contracts.inference_policy_contracts import (
 )
 from decision_workbench.modeling.inference_policy import inference_policy
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
-from decision_workbench.modeling.packages.contracts import ModelPackageManifest
+from decision_workbench.modeling.packages.contracts import (
+    MissingOptionalDependency,
+    ModelPackageManifest,
+)
 from decision_workbench.modeling.training.estimators import bayesian_linear
 from decision_workbench.modeling.training.estimators.bayesian_linear import (
     BayesianDiagnosticsQualityError,
@@ -230,10 +233,23 @@ def test_shrinkage_recipe_ids_and_fixed_inference_policy_are_distinct() -> None:
     assert (ridge.chains, ridge.warmup, ridge.draws) == (2, 256, 256)
     assert (horseshoe.chains, horseshoe.warmup, horseshoe.draws) == (2, 256, 256)
     assert ridge.observation_scale_prior == "half-normal-1"
-    assert horseshoe.regularization_policy == "regularized-horseshoe/v1"
+    assert horseshoe.regularization_policy == "fixed-student-t-capped-horseshoe/v1"
+    assert horseshoe.parameterization == (
+        "standardized-fixed-student-t-capped-horseshoe/v1"
+    )
     assert "coefficient_prior_scale" not in horseshoe.model_dump()
     assert "local_scale_prior" not in ridge.model_dump()
     assert set((ridge.estimator_id, horseshoe.estimator_id)) <= set(ESTIMATOR_IDS)
+
+
+def test_horseshoe_recipe_rejects_canonical_regularized_horseshoe_identity() -> None:
+    with pytest.raises(ValidationError):
+        estimator_recipe(
+            "horseshoe-linear.v1",
+            {
+                "regularization_policy": "regularized-horseshoe/v1",
+            },
+        )
 
 
 def test_horseshoe_slab_degrees_of_freedom_is_bound_to_the_slab_prior() -> None:
@@ -769,4 +785,66 @@ def test_comparison_serializes_typed_bayesian_failure_without_fallback(
         "bayesian-quality-finding/v1"
     )
     assert failed["quality_findings"][0]["diagnostics"]["status"] == "failed"
+    assert report["models"][1]["estimator_id"] == "ridge.v1"
+
+
+def test_comparison_serializes_missing_optional_dependency_without_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    feature_dataset_id = "sha256:" + "4" * 64
+
+    def fake_build_package(*args: object, **kwargs: object) -> dict[str, object]:
+        dataset_output = Path(args[3])
+        dataset_output.write_text("{}", encoding="utf-8")
+        if kwargs["estimator"] == "lightgbm-regression.v1":
+            raise MissingOptionalDependency(
+                "lightgbm estimator requires the allow-listed LightGBM dependency"
+            )
+        package_path = Path(args[2])
+        (package_path / "reference").mkdir(parents=True, exist_ok=True)
+        (package_path / "reference" / "training_stats.json").write_text(
+            json.dumps(
+                {
+                    "cohort_digests": {"response": "sha256:" + "c" * 64},
+                    "fold_digests": {"response": "sha256:" + "d" * 64},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "dataset": {"feature_dataset_id": feature_dataset_id},
+            "package": {
+                "quality_report": {
+                    "schema_version": "model-quality-report/v1",
+                    "targets": [{"target": "response", "interval_coverage_90": 0.8}],
+                }
+            },
+        }
+
+    monkeypatch.setattr(model_workflow, "build_package", fake_build_package)
+    monkeypatch.setattr(
+        model_workflow,
+        "canonical_training_dataset_digest",
+        lambda _payload: feature_dataset_id,
+    )
+    report = model_workflow.compare_estimators(
+        "heat-treatment-tradeoff-v1",
+        ROOT / "data" / "source" / "heat-treatment-tradeoff-v1.xlsx",
+        tmp_path / "comparison",
+        tmp_path / "feature-dataset.json",
+        estimators=("lightgbm-regression.v1", "ridge.v1"),
+        estimator_options=None,
+        package_prefix="dependency-comparison",
+        package_version="1.0.0",
+    )
+
+    unavailable = report["models"][0]
+    assert unavailable["package"] is None
+    assert unavailable["feature_dataset_id"] == feature_dataset_id
+    finding = unavailable["quality_findings"][0]
+    assert finding["schema_version"] == "standard-comparison-quality-finding/v1"
+    assert finding["status"] == "unavailable"
+    assert finding["reason_code"] == "unavailable_missing_dependency"
+    assert finding["diagnostics"]["status"] == "not_applicable"
     assert report["models"][1]["estimator_id"] == "ridge.v1"

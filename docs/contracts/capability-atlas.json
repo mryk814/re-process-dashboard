@@ -815,11 +815,12 @@
           "No feature is deleted from the recipe because a posterior coefficient is near zero.",
           "Prediction uncertainty is posterior-predictive uncertainty and must not be read as coefficient credible intervals.",
           "NUTS dependency, sampling failures, divergence, and insufficient ESS produce typed unavailable or quality findings with no Ridge fallback."
-        ]
+        ],
+        "capacity_policy": null
       },
       {
         "estimator_id": "horseshoe-linear.v1",
-        "label": "Regularized horseshoe linear shrinkage",
+        "label": "Fixed Student-t capped horseshoe linear shrinkage",
         "target_kinds": [
           "continuous"
         ],
@@ -883,17 +884,18 @@
           "local_scale_prior": "half-cauchy-1",
           "slab_scale": 2.0,
           "slab_degrees_of_freedom": 4.0,
-          "regularization_policy": "regularized-horseshoe/v1",
-          "parameterization": "standardized-regularized-horseshoe/v1"
+          "regularization_policy": "fixed-student-t-capped-horseshoe/v1",
+          "parameterization": "standardized-fixed-student-t-capped-horseshoe/v1"
         },
         "training_cost": "high",
         "known_limitations": [
-          "Regularized horseshoe is an experimental shrinkage candidate and is never an automatic replacement for Ridge.",
+          "This is an experimental fixed Student-t capped horseshoe variant, not the canonical regularized horseshoe prior, and is never an automatic replacement for Ridge.",
           "Global and local shrinkage remains associational evidence; correlated inputs can share or trade off posterior mass, so it is not an intervention claim or a ranking of explanatory value.",
           "No feature is deleted from the recipe because a posterior coefficient is near zero.",
           "Prediction uncertainty is posterior-predictive uncertainty and must not be read as coefficient credible intervals.",
           "NUTS dependency, sampling failures, divergence, and insufficient ESS produce typed unavailable or quality findings with no Ridge fallback."
-        ]
+        ],
+        "capacity_policy": null
       },
       {
         "estimator_id": "numpyro-lognormal-external.v1",

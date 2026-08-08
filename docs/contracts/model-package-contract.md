@@ -203,7 +203,10 @@ sampler parameter、diagnostics digestを保存します。係数のsign／ROPE�
 horseshoeの相関した特徴量に対するNUTSは、target acceptance `0.99`、最大tree depth
 `13`、dense mass、prior-median初期化（10 draw）を固定し、これらを
 `inference_identity.resource_limits`へ記録します。これは収束を隠すretryではなく、
-同じregularized-horseshoe priorと診断閾値を再現するためのsampler設定です。
+同じ`fixed-student-t-capped-horseshoe/v1` priorと診断閾値を再現するためのsampler設定です。
+このrecipeはcanonical regularized horseshoeではありません。`coefficient_raw`へ
+Student-tを置き、slab capを`E[c^2] = slab_scale^2 * df / (df - 2)`として固定する
+安定化variantであり、canonical priorのInverse-Gamma slab auxiliaryをサンプリングしません。
 
 この2つのmapは任意のmetadata袋ではない。
 manifestのpredictor IDのうち`inference_identity`を持つものと、両mapのkey集合は

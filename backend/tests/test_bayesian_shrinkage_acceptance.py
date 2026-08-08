@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 
 import numpy as np
@@ -47,24 +48,53 @@ def test_bundled_task_real_comparison_records_same_cohort_calibration_and_memory
             "ridge.v1",
             "bayesian-ridge.v1",
             "horseshoe-linear.v1",
+            "bayesian-additive-spline.v1",
+            "lightgbm-regression.v1",
         ),
         estimator_options={
             "ridge.v1": {"folds": 3},
             "bayesian-ridge.v1": {"folds": 3},
             "horseshoe-linear.v1": {"folds": 3},
+            "bayesian-additive-spline.v1": {"folds": 3},
+            "lightgbm-regression.v1": {
+                "folds": 3,
+                "num_boost_round": 30,
+            },
         },
         package_prefix="issue-789-bundled-comparison",
         package_version="1.0.0",
     )
 
     assert result["selection"] is None
-    assert len(result["models"]) == 3
+    assert [model["estimator_id"] for model in result["models"]] == [
+        "ridge.v1",
+        "bayesian-ridge.v1",
+        "horseshoe-linear.v1",
+        "bayesian-additive-spline.v1",
+        "lightgbm-regression.v1",
+    ]
     assert result["feature_dataset_id"].startswith("sha256:")
     for model in result["models"]:
+        assert model["feature_dataset_id"] == result["feature_dataset_id"]
+        assert model["cost"]["peak_traced_memory_bytes"] > 0
+        if (
+            model["estimator_id"] == "lightgbm-regression.v1"
+            and find_spec("lightgbm") is None
+        ):
+            assert model["package"] is None
+            assert model["quality_report"] is None
+            assert model["evaluation"] is None
+            finding = model["quality_findings"][0]
+            assert finding["schema_version"] == (
+                "standard-comparison-quality-finding/v1"
+            )
+            assert finding["status"] == "unavailable"
+            assert finding["reason_code"] == "unavailable_missing_dependency"
+            assert finding["diagnostics"]["status"] == "not_applicable"
+            continue
         assert model["quality_report"] == model["quality"]
         assert model["quality_findings"] == []
         assert model["evaluation"] == result["evaluation"]
-        assert model["cost"]["peak_traced_memory_bytes"] > 0
         assert model["quality"]["targets"]
         for metric in model["quality"]["targets"]:
             assert 0.0 <= metric["interval_coverage_90"] <= 1.0
@@ -72,6 +102,7 @@ def test_bundled_task_real_comparison_records_same_cohort_calibration_and_memory
                 assert metric["mean_interval_width"] >= 0.0
     assert result["evidence_contract"]["calibration"]
     assert result["evidence_contract"]["memory"]
+    assert result["evidence_contract"]["failure_findings"]
     saved = json.loads(
         (tmp_path / "comparison" / "comparison.json").read_text(
             encoding="utf-8"

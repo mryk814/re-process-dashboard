@@ -8,7 +8,9 @@ import shutil
 import sys
 import tracemalloc
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 BACKEND_SRC = Path(__file__).resolve().parents[2] / "src"
@@ -72,6 +74,23 @@ from decision_workbench.developer_experience.task_scaffolding import (  # noqa: 
 
 TASKS = tuple(registered_task_modules())
 DEFAULT_SOURCE = PRIMARY_DEFAULT_SOURCE
+
+
+class ComparisonQualityFinding(BaseModel):
+    """Typed non-package evidence retained by a same-cohort comparison."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["standard-comparison-quality-finding/v1"] = (
+        "standard-comparison-quality-finding/v1"
+    )
+    estimator_id: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+    status: Literal["unavailable", "failed"]
+    reason_code: Literal["unavailable_missing_dependency", "training_failed"]
+    message: str = Field(min_length=1)
+    findings: tuple[str, ...] = Field(min_length=1)
+    diagnostics: dict[str, Any] | None = None
 
 
 def _task_source(task_id: str, source: Path) -> Path:
@@ -386,7 +405,7 @@ def compare_estimators(
                 estimator_options=options.get(estimator_id, {}),
                 profile=profile,
             )
-        except BayesianTrainingError as error:
+        except (BayesianTrainingError, MissingOptionalDependency) as error:
             _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
             tracemalloc.stop()
             build_seconds = perf_counter() - build_started
@@ -407,22 +426,40 @@ def compare_estimators(
                 for entry in standard_estimator_catalog().entries
                 if entry.estimator_id == estimator_id
             )
-            finding = error.quality_finding(
-                estimator_id=estimator_id,
-                target=error.target or "package",
-            )
+            if isinstance(error, BayesianTrainingError):
+                finding = error.quality_finding(
+                    estimator_id=estimator_id,
+                    target=error.target or "package",
+                )
+                serialized_finding = finding.model_dump(mode="json")
+                diagnostics = (
+                    finding.diagnostics.model_dump(mode="json")
+                    if finding.diagnostics is not None
+                    else None
+                )
+            else:
+                serialized_finding = ComparisonQualityFinding(
+                    estimator_id=estimator_id,
+                    target="package",
+                    status="unavailable",
+                    reason_code="unavailable_missing_dependency",
+                    message=str(error),
+                    findings=(str(error),),
+                    diagnostics={
+                        "status": "not_applicable",
+                        "findings": [str(error)],
+                    },
+                ).model_dump(mode="json")
+                diagnostics = serialized_finding["diagnostics"]
             entries.append({
                 "estimator_id": estimator_id,
                 "package_id": package_id,
                 "package": None,
+                "feature_dataset_id": feature_dataset_id,
                 "quality_report": None,
                 "quality": None,
-                "quality_findings": [finding.model_dump(mode="json")],
-                "diagnostics": (
-                    finding.diagnostics.model_dump(mode="json")
-                    if finding.diagnostics is not None
-                    else None
-                ),
+                "quality_findings": [serialized_finding],
+                "diagnostics": diagnostics,
                 "cost": {
                     "build_seconds": round(build_seconds, 6),
                     "artifact_bytes": None,
@@ -430,7 +467,7 @@ def compare_estimators(
                 },
                 "evaluation": None,
                 "adoption_status": catalog_entry.adoption_status,
-                "adoption_decision": finding.reason_code,
+                "adoption_decision": serialized_finding["reason_code"],
                 "known_limitations": list(catalog_entry.known_limitations),
             })
             continue
@@ -500,6 +537,7 @@ def compare_estimators(
             "estimator_id": estimator_id,
             "package_id": package_id,
             "package": str(package_path.resolve()),
+            "feature_dataset_id": feature_dataset_id,
             "quality_report": quality_report,
             "quality": quality_report,
             "quality_findings": quality_findings,
@@ -562,8 +600,8 @@ def compare_estimators(
                 "native accelerator memory is not inferred"
             ),
             "failure_findings": (
-                "typed Bayesian unavailable/sampling/diagnostic findings are retained "
-                "per model without an implicit estimator fallback"
+                "typed Bayesian unavailable/sampling/diagnostic and optional-dependency "
+                "findings are retained per model without an implicit estimator fallback"
             ),
         },
         "note": (

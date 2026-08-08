@@ -314,10 +314,11 @@ def _sampler_model(
             "local_scale",
             dist.HalfCauchy(1.0).expand((feature_count,)).to_event(1),
         )
-        # The v1 slab is a fixed Student-t slab.  Its finite second moment is
-        # the c^2 cap in the regularized horseshoe; keeping that cap
-        # deterministic avoids a divergent auxiliary inverse-gamma funnel
-        # while preserving the declared slab scale and degrees of freedom.
+        # This v1 is a fixed Student-t capped horseshoe variant, not the
+        # canonical regularized horseshoe: the canonical prior samples a
+        # normal raw coefficient and an inverse-gamma slab auxiliary.  We use
+        # a Student-t raw coefficient and a deterministic E[c^2] cap instead,
+        # so the persisted recipe name must keep that distinction explicit.
         slab_variance = numpyro.deterministic(
             "slab_variance",
             recipe.slab_scale**2

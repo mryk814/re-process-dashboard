@@ -579,7 +579,7 @@ _CATALOG = StandardEstimatorCatalog(
         ),
         StandardEstimatorEntry(
             estimator_id="horseshoe-linear.v1",
-            label="Regularized horseshoe linear shrinkage",
+            label="Fixed Student-t capped horseshoe linear shrinkage",
             target_kinds=("continuous",),
             role="distribution_candidate",
             adoption_status="experimental",
@@ -626,8 +626,9 @@ _CATALOG = StandardEstimatorCatalog(
             fixed_parameters=_fixed_parameters("horseshoe-linear.v1"),
             training_cost="high",
             known_limitations=(
-                "Regularized horseshoe is an experimental shrinkage candidate and "
-                "is never an automatic replacement for Ridge.",
+                "This is an experimental fixed Student-t capped horseshoe variant, "
+                "not the canonical regularized horseshoe prior, and is never an "
+                "automatic replacement for Ridge.",
                 "Global and local shrinkage remains associational evidence; correlated "
                 "inputs can share or trade off posterior mass, so it is not an "
                 "intervention claim or a ranking of explanatory value.",
