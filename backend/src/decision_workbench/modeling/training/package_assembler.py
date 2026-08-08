@@ -813,6 +813,7 @@ def _build(
         predictor_id: {
             "recipe_id": recipe.estimator_id,
             "recipe_parameters": recipe_parameters,
+            "effective_inference_seed": identity.get("seed"),
             "inference_identity_digest": identity["identity_digest"],
             "diagnostics": identity["diagnostics"],
         }

@@ -22,8 +22,13 @@ from decision_workbench.modeling.training.feature_dataset import (
     prepared_feature_matrix,
 )
 from decision_workbench.modeling.training.recipe import (
+    BAYESIAN_MAX_FEATURES,
+    BAYESIAN_MAX_ROWS,
+    BAYESIAN_INFERENCE_SEED_MODULUS,
     BayesianRidgeEstimatorRecipe,
     HorseshoeLinearEstimatorRecipe,
+    bayesian_inference_resource_limits,
+    effective_bayesian_final_inference_seed,
 )
 
 from .types import TrainedPredictor, standard_training_metadata
@@ -32,11 +37,6 @@ from .types import TrainedPredictor, standard_training_metadata
 RUNTIME_TYPE = "builtin.posterior_linear.v1"
 ARTIFACT_SUFFIX = ".npz"
 ARTIFACT_FORMAT = "bounded-npz"
-_MAX_FEATURES = 64
-_MAX_ROWS = 5_000
-_MAX_TREE_DEPTH = 13
-_DENSE_MASS = True
-_MAX_SEED = 2_147_483_647
 _Z90 = 1.6448536269514722
 
 BayesianShrinkageRecipe = (
@@ -212,7 +212,7 @@ def _dependencies() -> tuple[Any, ...]:
 
 
 def _fit_seed(seed: int, offset: int) -> int:
-    return int((int(seed) + int(offset)) % _MAX_SEED)
+    return int((int(seed) + int(offset)) % BAYESIAN_INFERENCE_SEED_MODULUS)
 
 
 def _diagnostics_from_summary(
@@ -373,9 +373,10 @@ def _fit(
     *,
     seed: int,
 ) -> _Fit:
-    if values.ndim != 2 or values.shape[1] > _MAX_FEATURES:
+    if values.ndim != 2 or values.shape[1] > BAYESIAN_MAX_FEATURES:
         raise ValueError(
-            f"{recipe.estimator_id} supports at most {_MAX_FEATURES} prepared features"
+            f"{recipe.estimator_id} supports at most "
+            f"{BAYESIAN_MAX_FEATURES} prepared features"
         )
     if len(values) < 2:
         raise ValueError(f"{recipe.estimator_id} needs at least two training rows")
@@ -412,14 +413,14 @@ def _fit(
         NUTS(
             model,
             target_accept_prob=recipe.target_accept_probability,
-            max_tree_depth=_MAX_TREE_DEPTH,
-            dense_mass=_DENSE_MASS,
+            max_tree_depth=recipe.max_tree_depth,
+            dense_mass=recipe.dense_mass == "enabled",
             init_strategy=init_to_median(num_samples=10),
         ),
         num_warmup=settings.warmup,
         num_samples=settings.draws,
         num_chains=settings.chains,
-        chain_method="sequential",
+        chain_method=recipe.chain_method,
         progress_bar=False,
     )
     try:
@@ -477,14 +478,7 @@ def _fit(
         chains=settings.chains,
         warmup=settings.warmup,
         draws=settings.draws,
-        resource_limits={
-            "max_rows": _MAX_ROWS,
-            "max_features": _MAX_FEATURES,
-            "chain_method": "sequential",
-            "max_tree_depth": _MAX_TREE_DEPTH,
-            "dense_mass": "enabled" if _DENSE_MASS else "disabled",
-            "init_strategy": "prior-median-10/v1",
-        },
+        resource_limits=bayesian_inference_resource_limits(recipe),
         convergence_criteria={
             "max_r_hat": settings.max_r_hat,
             "min_ess": settings.min_ess,
@@ -688,11 +682,14 @@ def train(
         raise ValueError(
             "Bayesian shrinkage linear regression supports continuous targets only"
         )
-    if len(data.y) > _MAX_ROWS:
-        raise ValueError(f"{recipe.estimator_id} supports at most {_MAX_ROWS} rows")
-    if len(data.feature_names) > _MAX_FEATURES:
+    if len(data.y) > BAYESIAN_MAX_ROWS:
         raise ValueError(
-            f"{recipe.estimator_id} supports at most {_MAX_FEATURES} prepared features"
+            f"{recipe.estimator_id} supports at most {BAYESIAN_MAX_ROWS} rows"
+        )
+    if len(data.feature_names) > BAYESIAN_MAX_FEATURES:
+        raise ValueError(
+            f"{recipe.estimator_id} supports at most "
+            f"{BAYESIAN_MAX_FEATURES} prepared features"
         )
     (
         evaluation_points,
@@ -711,7 +708,7 @@ def train(
             prepared_feature_matrix(data),
             data.y,
             recipe,
-            seed=_fit_seed(recipe.seed, 1_000_000),
+            seed=effective_bayesian_final_inference_seed(recipe.seed),
         )
     except BayesianTrainingError as exc:
         raise exc.bind_target(data.target) from exc
@@ -790,6 +787,7 @@ def train(
                     "scale in the safe posterior-linear runtime"
                 ),
                 parameters=parameters,
+                effective_inference_seed=final.inference_identity.seed,
             ),
         },
     }

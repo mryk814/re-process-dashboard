@@ -30,7 +30,9 @@ from decision_workbench.modeling.training.recipe import (
     ESTIMATOR_IDS,
     BayesianRidgeEstimatorRecipe,
     HorseshoeLinearEstimatorRecipe,
+    bayesian_inference_resource_limits,
     estimator_recipe,
+    effective_bayesian_final_inference_seed,
     validate_recipe_capability,
 )
 from decision_workbench.modeling.training.readiness import (
@@ -63,9 +65,12 @@ def _continuous_context(estimator_id: str) -> EstimatorReadinessContext:
 def _inference_identity(
     *,
     parameterization: str = "test-standardized-linear/v1",
+    seed: int = 20260730,
     chains: int = 2,
     warmup: int = 8,
     draws: int = 4,
+    target_accept_probability: float = 0.9,
+    resource_limits: dict[str, int | float | str] | None = None,
 ) -> InferenceIdentity:
     diagnostics = InferenceDiagnostics(
         status="passed",
@@ -77,11 +82,17 @@ def _inference_identity(
         policy=inference_policy("nuts"),
         parameterization=parameterization,
         diagnostics=diagnostics,
-        seed=20260730,
+        seed=seed,
         chains=chains,
         warmup=warmup,
         draws=draws,
-        resource_limits={"chain_method": "sequential"},
+        resource_limits=resource_limits
+        or {
+            **bayesian_inference_resource_limits(
+                estimator_recipe("bayesian-ridge.v1")
+            ),
+            "target_accept_probability": target_accept_probability,
+        },
         convergence_criteria={
             "max_r_hat": 1.05,
             "min_ess": 50.0,
@@ -138,6 +149,7 @@ def _training_set() -> TargetTrainingSet:
 def _manifest_with_inference_provenance() -> dict[str, object]:
     identity = _inference_identity(
         parameterization="standardized-linear-gaussian/v1",
+        seed=effective_bayesian_final_inference_seed(20260730),
         warmup=256,
         draws=256,
     )
@@ -190,6 +202,7 @@ def _manifest_with_inference_provenance() -> dict[str, object]:
                     "training": {
                         "estimator_id": "bayesian-ridge.v1",
                         "parameters": training_parameters,
+                        "effective_inference_seed": identity.seed,
                     }
                 },
             }
@@ -205,6 +218,7 @@ def _manifest_with_inference_provenance() -> dict[str, object]:
                 predictor_id: {
                     "recipe_id": "bayesian-ridge.v1",
                     "recipe_parameters": recipe_parameters,
+                    "effective_inference_seed": identity.seed,
                     "inference_identity_digest": identity.identity_digest,
                     "diagnostics": identity.diagnostics.model_dump(mode="json"),
                 },
@@ -231,8 +245,10 @@ def _horseshoe_manifest_with_inference_provenance() -> dict[str, object]:
         parameterization=(
             "standardized-fixed-student-t-capped-horseshoe/v1"
         ),
+        seed=effective_bayesian_final_inference_seed(20260730),
         warmup=256,
         draws=256,
+        target_accept_probability=0.99,
     )
     recipe = estimator_recipe("horseshoe-linear.v1")
     predictor = payload["predictors"][0]
@@ -251,6 +267,7 @@ def _horseshoe_manifest_with_inference_provenance() -> dict[str, object]:
             },
             exclude_none=True,
         ),
+        "effective_inference_seed": identity.seed,
     }
     provenance = payload["provenance"]
     assert isinstance(provenance, dict)
@@ -266,6 +283,7 @@ def _horseshoe_manifest_with_inference_provenance() -> dict[str, object]:
                 exclude={"validation_plan", "validation_plans_by_target"},
                 exclude_none=True,
             ),
+            "effective_inference_seed": identity.seed,
             "inference_identity_digest": identity.identity_digest,
             "diagnostics": identity.diagnostics.model_dump(mode="json"),
         }
@@ -278,7 +296,12 @@ def _fake_fit(
     *,
     local_scales: bool,
 ) -> bayesian_linear._Fit:
-    identity = _inference_identity()
+    identity = _inference_identity(
+        parameterization=recipe.parameterization,
+        seed=effective_bayesian_final_inference_seed(recipe.seed),
+        target_accept_probability=recipe.target_accept_probability,
+        resource_limits=bayesian_inference_resource_limits(recipe),
+    )
     coefficients = np.asarray(
         [
             [1.0, -0.5],
@@ -479,6 +502,9 @@ def test_trainer_writes_existing_safe_posterior_linear_npz_and_keeps_all_feature
     assert trained.predictor["feature_names"] == list(data.feature_names)
     assert trained.predictor["inference_identity"]["algorithm_id"] == "nuts"
     assert trained.predictor["inference_identity"]["draws"] == 4
+    assert trained.predictor["config"]["training"]["effective_inference_seed"] == (
+        effective_bayesian_final_inference_seed(recipe.seed)
+    )
     assert trained.diagnostics["adoption_status"] == "experimental"
     assert set(trained.diagnostics["coefficient_summary"]["features"]) == set(
         data.feature_names
@@ -788,6 +814,7 @@ def test_manifest_rejects_inference_sampling_setting_mismatch() -> None:
     payload = _manifest_with_inference_provenance()
     identity = _inference_identity(
         parameterization="standardized-linear-gaussian/v1",
+        seed=effective_bayesian_final_inference_seed(20260730),
         warmup=256,
         draws=128,
     )
@@ -807,6 +834,119 @@ def test_manifest_rejects_inference_sampling_setting_mismatch() -> None:
     with pytest.raises(
         ValidationError,
         match="inference identity draws",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_recipe_and_training_seed_tampering_against_identity() -> None:
+    payload = _manifest_with_inference_provenance()
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    config = predictor["config"]
+    assert isinstance(config, dict)
+    training = config["training"]
+    assert isinstance(training, dict)
+    training_parameters = training["parameters"]
+    assert isinstance(training_parameters, dict)
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    entry = provenance["inference_provenance"][predictor["id"]]
+    assert isinstance(entry, dict)
+    recipe_parameters = entry["recipe_parameters"]
+    assert isinstance(recipe_parameters, dict)
+
+    # Mutate both persisted recipe/training roots while leaving the final NUTS
+    # identity untouched.  The contract must use the shared public seed
+    # authority rather than duplicate private trainer arithmetic.
+    recipe_parameters["seed"] = 9
+    training_parameters["seed"] = 9
+
+    with pytest.raises(ValidationError, match="effective inference seed"):
+        ModelPackageManifest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    (
+        ("chain_method", "parallel"),
+        ("target_accept_probability", 0.8),
+        ("max_tree_depth", 12),
+        ("dense_mass", "disabled"),
+        ("init_strategy", "other"),
+        ("max_rows", 4_999),
+        ("max_features", 63),
+        ("arbitrary", "must-reject"),
+    ),
+)
+def test_manifest_rejects_tampered_nuts_effective_resource_setting(
+    setting: str,
+    value: object,
+) -> None:
+    payload = _manifest_with_inference_provenance()
+    resource_limits = dict(
+        bayesian_inference_resource_limits(
+            estimator_recipe("bayesian-ridge.v1")
+        )
+    )
+    resource_limits[setting] = value  # type: ignore[assignment]
+    identity = _inference_identity(
+        parameterization="standardized-linear-gaussian/v1",
+        seed=effective_bayesian_final_inference_seed(20260730),
+        warmup=256,
+        draws=256,
+        resource_limits=resource_limits,
+    )
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    predictor["inference_identity"] = identity.model_dump(mode="json")
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["inference_identities"][predictor["id"]] = identity.model_dump(
+        mode="json"
+    )
+    entry = provenance["inference_provenance"][predictor["id"]]
+    assert isinstance(entry, dict)
+    entry["inference_identity_digest"] = identity.identity_digest
+    entry["diagnostics"] = identity.diagnostics.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="inference resource limits do not exactly match",
+    ):
+        ModelPackageManifest.model_validate(payload)
+
+
+def test_manifest_rejects_missing_nuts_effective_resource_setting() -> None:
+    payload = _manifest_with_inference_provenance()
+    resource_limits = dict(
+        bayesian_inference_resource_limits(
+            estimator_recipe("bayesian-ridge.v1")
+        )
+    )
+    del resource_limits["max_features"]
+    identity = _inference_identity(
+        parameterization="standardized-linear-gaussian/v1",
+        seed=effective_bayesian_final_inference_seed(20260730),
+        warmup=256,
+        draws=256,
+        resource_limits=resource_limits,
+    )
+    predictor = payload["predictors"][0]
+    assert isinstance(predictor, dict)
+    predictor["inference_identity"] = identity.model_dump(mode="json")
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["inference_identities"][predictor["id"]] = identity.model_dump(
+        mode="json"
+    )
+    entry = provenance["inference_provenance"][predictor["id"]]
+    assert isinstance(entry, dict)
+    entry["inference_identity_digest"] = identity.identity_digest
+    entry["diagnostics"] = identity.diagnostics.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="inference resource limits do not exactly match",
     ):
         ModelPackageManifest.model_validate(payload)
 

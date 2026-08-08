@@ -387,6 +387,10 @@ class InferenceProvenanceSpec(PackageModel):
 
     recipe_id: Annotated[str, Field(min_length=1)]
     recipe_parameters: dict[str, Any] = Field(default_factory=dict)
+    effective_inference_seed: Annotated[
+        int | None,
+        Field(ge=0, le=2_147_483_647),
+    ] = None
     inference_identity_digest: Annotated[
         str,
         Field(pattern=r"^sha256:[0-9a-f]{64}$"),
@@ -450,6 +454,11 @@ def _validate_predictor_recipe_identity(
         provenance.recipe_id,
         provenance.recipe_parameters,
     )
+    from decision_workbench.modeling.training.recipe import (
+        bayesian_inference_resource_limits,
+        effective_bayesian_final_inference_seed,
+    )
+
     training = predictor.config.get("training")
     if not isinstance(training, dict):
         raise ValueError(
@@ -517,6 +526,37 @@ def _validate_predictor_recipe_identity(
             raise ValueError(
                 f"predictor {predictor.id} training parameterization does not "
                 "match inference provenance recipe"
+            )
+        if provenance.effective_inference_seed is None:
+            raise ValueError(
+                f"predictor {predictor.id} inference provenance must persist "
+                "effective inference seed for a Bayesian recipe"
+            )
+        expected_effective_seed = effective_bayesian_final_inference_seed(
+            recipe.seed
+        )
+        if provenance.effective_inference_seed != expected_effective_seed:
+            raise ValueError(
+                f"predictor {predictor.id} effective inference seed does not "
+                "match the typed Bayesian recipe seed"
+            )
+        if predictor.inference_identity.seed != provenance.effective_inference_seed:
+            raise ValueError(
+                f"predictor {predictor.id} inference identity seed does not "
+                "match persisted effective inference seed"
+            )
+        if training.get("effective_inference_seed") != (
+            provenance.effective_inference_seed
+        ):
+            raise ValueError(
+                f"predictor {predictor.id} training effective_inference_seed "
+                "does not match persisted effective inference seed"
+            )
+        expected_resource_limits = bayesian_inference_resource_limits(recipe)
+        if predictor.inference_identity.resource_limits != expected_resource_limits:
+            raise ValueError(
+                f"predictor {predictor.id} inference resource limits do not "
+                "exactly match the typed inference provenance recipe"
             )
     if recipe_policy is not None and (
         not isinstance(training_parameters, dict)

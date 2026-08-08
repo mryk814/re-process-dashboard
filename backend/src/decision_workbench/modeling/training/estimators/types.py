@@ -27,6 +27,7 @@ def standard_training_metadata(
     uncertainty: str,
     parameters: dict[str, Any],
     capacity: dict[str, Any] | None = None,
+    effective_inference_seed: int | None = None,
 ) -> dict[str, Any]:
     """Reader-facing, estimator-independent training identity."""
 
@@ -45,4 +46,9 @@ def standard_training_metadata(
         "uncertainty": uncertainty,
         "parameters": parameters,
         **({"capacity": capacity} if capacity is not None else {}),
+        **(
+            {"effective_inference_seed": effective_inference_seed}
+            if effective_inference_seed is not None
+            else {}
+        ),
     }

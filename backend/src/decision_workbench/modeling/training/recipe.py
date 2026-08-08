@@ -105,10 +105,14 @@ class BayesianLinearInferenceRecipe(ContractModel):
 
     inference_preset: Literal["standard-evidence"] = "standard-evidence"
     sampler: Literal["nuts"] = "nuts"
+    chain_method: Literal["sequential"] = "sequential"
     chains: Literal[2] = 2
     warmup: Literal[256] = 256
     draws: Literal[256] = 256
     target_accept_probability: Literal[0.9] = 0.9
+    max_tree_depth: Literal[13] = 13
+    dense_mass: Literal["enabled"] = "enabled"
+    init_strategy: Literal["prior-median-10/v1"] = "prior-median-10/v1"
     max_r_hat: Literal[1.05] = 1.05
     min_effective_sample_size: Literal[50.0] = 50.0
     max_divergences: Literal[0] = 0
@@ -146,6 +150,32 @@ class HorseshoeLinearEstimatorRecipe(BayesianLinearInferenceRecipe):
     ] = (
         "standardized-fixed-student-t-capped-horseshoe/v1"
     )
+
+
+BAYESIAN_MAX_ROWS = 5_000
+BAYESIAN_MAX_FEATURES = 64
+
+
+def bayesian_inference_resource_limits(
+    recipe: BayesianLinearInferenceRecipe,
+) -> dict[str, int | float | str]:
+    """Return the complete persisted resource identity for Bayesian NUTS.
+
+    Capacity and effective sampler settings are one identity.  Keeping this
+    map in the typed recipe authority lets the trainer and package contract
+    validate the same persisted semantics without reimplementing private
+    trainer arithmetic in the loader.
+    """
+
+    return {
+        "max_rows": BAYESIAN_MAX_ROWS,
+        "max_features": BAYESIAN_MAX_FEATURES,
+        "chain_method": recipe.chain_method,
+        "target_accept_probability": recipe.target_accept_probability,
+        "max_tree_depth": recipe.max_tree_depth,
+        "dense_mass": recipe.dense_mass,
+        "init_strategy": recipe.init_strategy,
+    }
 
 
 class LightGBMRegressionEstimatorRecipe(ContractModel):
@@ -204,6 +234,24 @@ ConcreteEstimatorRecipe = (
     | LogisticEstimatorRecipe
     | PoissonEstimatorRecipe
 )
+
+BAYESIAN_FINAL_INFERENCE_SEED_OFFSET = 1_000_000
+BAYESIAN_INFERENCE_SEED_MODULUS = 2_147_483_647
+
+
+def effective_bayesian_final_inference_seed(seed: int) -> int:
+    """Return the persisted seed for the final Bayesian refit.
+
+    The base recipe seed remains the root for fold-local evaluation.  The
+    final refit has a distinct, deterministic stream so its effective NUTS
+    identity cannot be confused with an outer-fold predictive seed.
+    """
+
+    return (
+        int(seed) + BAYESIAN_FINAL_INFERENCE_SEED_OFFSET
+    ) % BAYESIAN_INFERENCE_SEED_MODULUS
+
+
 EstimatorRecipe = Annotated[
     ConcreteEstimatorRecipe,
     Field(discriminator="estimator_id"),
