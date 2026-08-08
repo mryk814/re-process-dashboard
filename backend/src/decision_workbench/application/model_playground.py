@@ -658,6 +658,11 @@ class ModelPlaygroundUseCases:
                 unit=outputs[target_key].unit,
                 target_kind=outputs[target_key].target_kind,
                 validation_plan=plan,
+                exposure_input_path=(
+                    outputs[target_key].count.exposure_input_path
+                    if outputs[target_key].count is not None
+                    else None
+                ),
             )
             compiled_targets[target_key] = compiled
             validation_plans[target_key] = plan

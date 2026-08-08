@@ -35,8 +35,10 @@ def standard_training_metadata(
         "schema_version": "standard-training-metadata/v1",
         "estimator_id": estimator_id,
         "training_unit": (
-            "replicate_context_category"
+        "replicate_context_category"
             if data.target_kind == "ordinal"
+            else "replicate_context_count"
+            if data.target_kind == "count"
             else "replicate_context_mean"
         ),
         "validation": {

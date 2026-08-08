@@ -517,6 +517,11 @@ def _build(
             validation_plan=selected_validation_plan,
             feature_recipe=feature_recipe,
             feature_recipe_state=feature_state,
+            exposure_input_path=(
+                output.count.exposure_input_path
+                if output.count is not None
+                else None
+            ),
         )
         training_sets[target] = training_set
         capacity_context = (
@@ -565,6 +570,13 @@ def _build(
             observed_target_min=float(np.min(training_set.y)),
             observed_targets_are_integers=bool(
                 np.all(training_set.y == np.floor(training_set.y))
+            ),
+            observed_zero_rate=float(np.mean(training_set.y == 0)),
+            observed_target_mean=float(np.mean(training_set.y)),
+            observed_target_variance=float(np.var(training_set.y)),
+            has_structural_zero_evidence=(
+                output.count is not None
+                and output.count.structural_zero_rationale is not None
             ),
             capacity=capacity_context,
         )
