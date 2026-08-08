@@ -11,6 +11,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
 )
 from decision_workbench.contracts.task_contracts import TaskContractFixture
 from decision_workbench.modeling.packages.contracts import (
+    PackageContractError,
     validate_task_definition_canonical_inputs,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
@@ -27,7 +28,11 @@ def _fixture(kind: str) -> TaskContractFixture:
     semantics: dict[str, object] = {
         "binary": {"binary": {"event_label": "fail", "non_event_label": "pass"}},
         "count": {"count": {"count_unit": "items"}},
-        "ordinal": {"ordinal": {"categories": ["low", "medium", "high"]}},
+        "ordinal": {
+            "ordinal": {
+                "categories": ["low", "medium", "high", "very_high"]
+            }
+        },
     }[kind]
     statistic = {"binary": "probability", "count": "rate", "ordinal": "expected_category"}[kind]
     return TaskContractFixture.model_validate({
@@ -102,3 +107,26 @@ def test_task_package_target_kind_mismatch_fails_closed() -> None:
     )
     with pytest.raises(Exception, match="target kinds"):
         validate_task_definition_canonical_inputs(fixture.task_definition, package.manifest)
+
+
+def test_ordinal_package_category_order_must_exactly_match_task() -> None:
+    fixture = _fixture("ordinal")
+    package = ModelPackageLoader().load(
+        ROOT / "examples" / "model-packages" / "numpyro" / "ordinal_logit"
+    )
+    predictor = package.manifest.predictors[0]
+    reordered = predictor.model_copy(
+        update={
+            "config": {
+                **predictor.config,
+                "categories": ["medium", "low", "high", "very_high"],
+            }
+        }
+    )
+    manifest = package.manifest.model_copy(update={"predictors": (reordered,)})
+
+    with pytest.raises(
+        PackageContractError,
+        match="do not exactly match TaskDefinition order",
+    ):
+        validate_task_definition_canonical_inputs(fixture.task_definition, manifest)

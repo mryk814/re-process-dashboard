@@ -812,6 +812,16 @@ def validate_task_definition_canonical_inputs(
             "model package target kinds do not match TaskDefinition: "
             f"{mismatched_kinds}"
         )
+    for key, output in task_outputs.items():
+        if output.target_kind != "ordinal":
+            continue
+        assert output.ordinal is not None
+        categories = package_outputs[key].config.get("categories")
+        if categories != list(output.ordinal.categories):
+            raise PackageContractError(
+                f"model package ordinal categories for {key} do not exactly "
+                "match TaskDefinition order"
+            )
 
 
 class ConformalIntervalCalibration(PackageModel):
@@ -1006,6 +1016,33 @@ def validate_predictive_summary(
         categories = summary.distribution.get("categories")
         if not isinstance(categories, list) or len(categories) < 2 or len(categories) != len(set(categories)):
             raise PackageContractError(f"predictor {spec.id!r} returned invalid ordinal category metadata")
+        probabilities = summary.distribution.get("probabilities")
+        if (
+            not isinstance(probabilities, list)
+            or len(probabilities) != len(categories)
+            or not all(
+                isinstance(value, (int, float))
+                and math.isfinite(value)
+                and value >= 0
+                for value in probabilities
+            )
+            or not math.isclose(sum(probabilities), 1.0, rel_tol=0, abs_tol=1e-12)
+        ):
+            raise PackageContractError(
+                f"predictor {spec.id!r} returned invalid ordered category probabilities"
+            )
+        expected_category = sum(
+            index * value for index, value in enumerate(probabilities)
+        )
+        if not math.isclose(
+            summary.point_estimate,
+            expected_category,
+            rel_tol=0,
+            abs_tol=1e-12,
+        ):
+            raise PackageContractError(
+                f"predictor {spec.id!r} expected category does not match probabilities"
+            )
         if not 0 <= summary.point_estimate <= len(categories) - 1 or any(
             value < 0 or value > len(categories) - 1 for _, value in ordered_quantiles
         ):

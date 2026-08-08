@@ -4,7 +4,7 @@
     "target_kind": "ordinal",
     "unit": "1",
     "point_statistic": "expected_category",
-    "point_estimate": 0.3454642902960188,
+    "point_estimate": 1.381857161184075,
     "quantiles": {
       "0.05": 0.0,
       "0.50": 1.0,
@@ -19,6 +19,12 @@
         "medium",
         "high",
         "very_high"
+      ],
+      "probabilities": [
+        0.33400226645192216,
+        0.21781207427518404,
+        0.1805118909097901,
+        0.2676737683631036
       ]
     },
     "uncertainty_components": null,

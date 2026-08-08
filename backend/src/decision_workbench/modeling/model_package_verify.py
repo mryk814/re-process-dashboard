@@ -18,6 +18,7 @@ from decision_workbench.modeling.packages.contracts import (
     MissingOptionalDependency,
     PackageContractError,
     PredictiveSummary,
+    validate_task_definition_canonical_inputs,
     validate_predictive_summary,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
@@ -299,6 +300,10 @@ def verify_model_package(
         raise ModelPackageVerificationError(
             f"task_id mismatch: expected {task_id}, package declares {package.manifest.task_id}"
         )
+    validate_task_definition_canonical_inputs(
+        contracts[task_id].task_definition,
+        package.manifest,
+    )
     module = task_module(task_id)
     selected_profile = (
         load_profile_document(profile)

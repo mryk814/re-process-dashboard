@@ -52,6 +52,9 @@ from decision_workbench.modeling.training.package_assembler import build_standar
 from decision_workbench.modeling.training.estimators.bayesian_linear import (  # noqa: E402
     BayesianTrainingError,
 )
+from decision_workbench.modeling.training.estimators.ordered_logit import (  # noqa: E402
+    OrderedLogitTrainingError,
+)
 from decision_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
 from decision_workbench.data.profile_family_registry import (  # noqa: E402
     lifecycle_profile_for_data,
@@ -405,7 +408,11 @@ def compare_estimators(
                 estimator_options=options.get(estimator_id, {}),
                 profile=profile,
             )
-        except (BayesianTrainingError, MissingOptionalDependency) as error:
+        except (
+            BayesianTrainingError,
+            OrderedLogitTrainingError,
+            MissingOptionalDependency,
+        ) as error:
             _, peak_traced_memory_bytes = tracemalloc.get_traced_memory()
             tracemalloc.stop()
             build_seconds = perf_counter() - build_started
@@ -437,6 +444,25 @@ def compare_estimators(
                     if finding.diagnostics is not None
                     else None
                 )
+            elif isinstance(error, OrderedLogitTrainingError):
+                unavailable = error.reason_code == "unavailable_missing_dependency"
+                serialized_finding = ComparisonQualityFinding(
+                    estimator_id=estimator_id,
+                    target=error.target or "package",
+                    status="unavailable" if unavailable else "failed",
+                    reason_code=(
+                        "unavailable_missing_dependency"
+                        if unavailable
+                        else "training_failed"
+                    ),
+                    message=str(error),
+                    findings=(str(error),),
+                    diagnostics={
+                        "status": "not_applicable" if unavailable else "failed",
+                        "findings": [str(error)],
+                    },
+                ).model_dump(mode="json")
+                diagnostics = serialized_finding["diagnostics"]
             else:
                 serialized_finding = ComparisonQualityFinding(
                     estimator_id=estimator_id,
