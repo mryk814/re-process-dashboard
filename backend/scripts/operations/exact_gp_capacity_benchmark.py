@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from ctypes import wintypes
 import json
 import os
 import platform
@@ -201,14 +202,25 @@ def _process_peak_working_set_bytes() -> int:
     if os.name == "nt":
         counters = _ProcessMemoryCounters()
         counters.cb = ctypes.sizeof(counters)
-        process = ctypes.windll.kernel32.GetCurrentProcess()
-        success = ctypes.windll.psapi.GetProcessMemoryInfo(
-            process,
+        kernel32 = ctypes.WinDLL("kernel32.dll", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi.dll", use_last_error=True)
+        get_current_process = kernel32.GetCurrentProcess
+        get_current_process.argtypes = []
+        get_current_process.restype = wintypes.HANDLE
+        get_process_memory_info = psapi.GetProcessMemoryInfo
+        get_process_memory_info.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(_ProcessMemoryCounters),
+            wintypes.DWORD,
+        ]
+        get_process_memory_info.restype = wintypes.BOOL
+        success = get_process_memory_info(
+            get_current_process(),
             ctypes.byref(counters),
             counters.cb,
         )
         if not success:
-            raise OSError("GetProcessMemoryInfo failed")
+            raise ctypes.WinError(ctypes.get_last_error())
         return int(counters.PeakWorkingSetSize)
     import resource
 
