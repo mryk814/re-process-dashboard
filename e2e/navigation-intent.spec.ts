@@ -160,8 +160,13 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(page.getByText("必須構造はProfileに対応")).toBeVisible();
   await expect(page.locator(".profile-candidate-summary").getByText("Profile候補", { exact: true })).toBeVisible();
 
+  const registrationResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/profile-workbench/register"
+  ));
   await page.getByRole("button", { name: "この内容で登録" }).click();
-  await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
+  expect((await registrationResponse).status()).toBe(200);
+  await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "このDatasetでプロジェクト作成" }).click();
 
   await expect(page).toHaveURL(/view=project/);

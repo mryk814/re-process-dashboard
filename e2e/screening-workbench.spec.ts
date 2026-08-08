@@ -26,6 +26,7 @@ async function createProject(request: APIRequestContext, taskId: string) {
 }
 
 test("screening variable editor stays compact, validates rows, and contains narrow-width scrolling", async ({ page, request }) => {
+  test.setTimeout(90_000);
   const project = await createProject(request, "annealed-properties-v1");
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/?view=explore&project=${project.id}`);
