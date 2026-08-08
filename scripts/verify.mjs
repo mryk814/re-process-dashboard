@@ -70,8 +70,10 @@ function receiptInputPaths(plan) {
     .filter((value) => !String(value).startsWith("-"))
     .map((value) => String(value).split("::", 1)[0])
     .filter((value) => /(?:^|[\\/])tests?(?:[\\/]|$)|\.(?:py|mjs|cjs|js|jsx|ts|tsx)$/i.test(value));
+  const focusedNodePaths = (plan.focusedNodeTests ?? [])
+    .map((value) => String(value).split("::", 1)[0]);
   const repoRoot = resolve(".");
-  return [...new Set([...plan.changedPaths, ...focusedPaths])].flatMap((value) => {
+  return [...new Set([...plan.changedPaths, ...focusedPaths, ...focusedNodePaths])].flatMap((value) => {
     try {
       return [normalizeReceiptRelativePath(value)];
     } catch {
@@ -244,6 +246,7 @@ function printPlan(value, asJson) {
     }
   }
   process.stdout.write(`Focused tests: ${value.focusedTests.tests.join(", ") || "none"} (${value.focusedTests.source})\n`);
+  process.stdout.write(`Focused Node tests: ${(value.focusedNodeTests ?? []).join(", ") || "none"}\n`);
   process.stdout.write(`Full suite owner: ${value.fullSuiteOwner.owner} @ ${value.fullSuiteOwner.commitSha ?? "unknown"}\n`);
   process.stdout.write("Selected gates:\n");
   for (const gate of value.requiredGates) process.stdout.write(`- ${gate.id}: ${gate.reasons.join("; ")}\n`);
@@ -281,6 +284,7 @@ for (const gateId of plan.selectedGateIds) {
   const gate = catalog.gates[gateId];
   const resolvedRunner = resolveRunner(gate, {
     focusedArgs: plan.focusedTests.tests,
+    focusedNodeArgs: plan.focusedNodeTests ?? [],
     changedPaths: plan.changedPaths,
     baseRef: plan.baseRef,
   });

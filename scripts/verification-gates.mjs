@@ -91,6 +91,11 @@ export function validateVerificationCatalog(catalog) {
       throw new Error("focused test authority needs tests");
     }
   }
+  for (const rule of catalog.planning.focusedNodeTestAuthority ?? []) {
+    if (!Array.isArray(rule.tests) || rule.tests.length === 0) {
+      throw new Error("focused Node test authority needs tests");
+    }
+  }
   return catalog;
 }
 
@@ -102,13 +107,19 @@ export function getVerificationLevel(catalog, levelId) {
 
 export function resolveRunner(
   gate,
-  { focusedArgs = [], changedPaths = [], baseRef = "origin/main" } = {},
+  {
+    focusedArgs = [],
+    focusedNodeArgs = [],
+    changedPaths = [],
+    baseRef = "origin/main",
+  } = {},
 ) {
   if (gate.manual) throw new Error(`manual gate cannot be executed: ${gate.command}`);
   const args = gate.runner.args.flatMap((argument) =>
     argument === "$BASE...HEAD" ? [`${baseRef}...HEAD`] : [argument],
   );
   if (gate.runner.appendFocusedArgs) args.push(...focusedArgs);
+  if (gate.runner.appendFocusedNodeArgs) args.push(...focusedNodeArgs);
   if (gate.runner.appendChangedPaths) {
     args.push(...changedPaths.filter((path) => /\.spec\.(?:[cm]?js|jsx|ts|tsx)$/i.test(path)));
   }
@@ -491,6 +502,19 @@ export function resolveFocusedTests({
   };
 }
 
+export function resolveFocusedNodeTests({ catalog, changedPaths }) {
+  const normalizedPaths = changedPaths.map((path) => path.replaceAll("\\", "/"));
+  const tests = new Set();
+  for (const authority of catalog.planning.focusedNodeTestAuthority ?? []) {
+    if (normalizedPaths.some((path) => authority.matches.some((matcher) => pathMatches(path, matcher)))) {
+      authority.tests
+        .filter((path) => /\.(?:[cm]?js|jsx|ts|tsx)$/i.test(path))
+        .forEach((path) => tests.add(path));
+    }
+  }
+  return [...tests].sort();
+}
+
 export function buildVerificationPlan({
   catalog,
   requestedLevel,
@@ -521,6 +545,7 @@ export function buildVerificationPlan({
   const focused = backendRiskDetected || focusedArgs.length > 0
     ? resolveFocusedTests({ catalog, changedPaths, focusedArgs, semanticClassifications: classifications })
     : { tests: [], source: "not-needed", fallback: false, classificationRequired: false };
+  const focusedNodeTests = resolveFocusedNodeTests({ catalog, changedPaths });
   const unresolvedClassificationPaths = classifications.filter(
     (item) => item.classification === "classification-required",
   );
@@ -642,6 +667,9 @@ export function buildVerificationPlan({
         select(gateId, `checkpoint evidence for ${risk}`);
       }
     }
+  }
+  if (focusedNodeTests.length > 0) {
+    select("focused-node", `Node authority: ${focusedNodeTests.join(", ")}`);
   }
   const ciOwnsBackendFullSuite = ci
     && backendRiskDetected
@@ -806,6 +834,7 @@ export function buildVerificationPlan({
     classifications,
     classificationRequired,
     classificationRequirements,
+    focusedNodeTests,
     manualOverrides: manualRiskOverrides.map((risk) => ({ risk, reason: manualOverrideReason })),
     focusedTests: focused,
     requiredGates: selectedGates,

@@ -24,6 +24,8 @@ import {
   parseVerificationArguments,
   requiresBackendPytest,
   resolveExecutable,
+  resolveFocusedNodeTests,
+  resolveRunner,
   verificationEvidenceMarkdown,
   verificationCatalogSha256,
   verificationGateEnvironment,
@@ -349,6 +351,46 @@ test("Node verification tests stay out of focused pytest and keep their owning g
     requestedLevel: "edit",
   });
   assert.ok(selectedIds(editPlan).includes("verification-policy-tests"));
+});
+
+test("skill inventory authority paths stay classified and select the focused Node checker test", () => {
+  const inventory = classifyChangedPathSemantically(".agents/skill-inventory.json", catalog);
+  assert.equal(inventory.classification, "instruction-only");
+  assert.equal(inventory.risk, "instruction-only");
+
+  const reference = classifyChangedPathSemantically(".agents/references/skills/domain-modeling/SKILL.md", catalog);
+  assert.equal(reference.classification, "instruction-only");
+  assert.equal(reference.risk, "instruction-only");
+
+  for (const path of ["scripts/check-skill-inventory.mjs", "scripts/check-skill-inventory.test.mjs"]) {
+    const classification = classifyChangedPathSemantically(path, catalog);
+    assert.equal(classification.classification, "verification-tooling");
+    assert.equal(classification.risk, "verification-tooling");
+  }
+
+  assert.deepEqual(
+    resolveFocusedNodeTests({
+      catalog,
+      changedPaths: ["scripts/check-skill-inventory.mjs"],
+    }),
+    ["scripts/check-skill-inventory.test.mjs"],
+  );
+  assert.deepEqual(
+    resolveRunner(catalog.gates["focused-node"], {
+      focusedNodeArgs: ["scripts/check-skill-inventory.test.mjs"],
+    }),
+    {
+      executable: "node",
+      args: ["--test", "scripts/check-skill-inventory.test.mjs"],
+    },
+  );
+  const checkerPlan = planFor(["scripts/check-skill-inventory.mjs"]);
+  assert.deepEqual(checkerPlan.riskCategories, ["verification-tooling"]);
+  assert.deepEqual(checkerPlan.focusedNodeTests, ["scripts/check-skill-inventory.test.mjs"]);
+  assert.ok(selectedIds(checkerPlan).includes("verification-policy-tests"));
+  assert.ok(selectedIds(checkerPlan).includes("focused-node"));
+  assert.equal(checkerPlan.classificationRequired, false);
+  assert.notEqual(checkerPlan.completion, "classification_required");
 });
 
 test("unresolved backend authority is classification-required, never an accidental full-suite default", () => {

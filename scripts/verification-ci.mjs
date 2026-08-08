@@ -55,6 +55,7 @@ const shardOrder = [
 ];
 const shardByGate = new Map([
   ["focused-pytest", "backend-science"],
+  ["focused-node", "contract-build"],
   ["full-pytest", "backend-science"],
   ["security-boundary-tests", "backend-science"],
   ["model-package-contract-tests", "backend-science"],
@@ -796,6 +797,7 @@ function runGateIds({
     const gate = catalog.gates[gateId];
     const resolvedRunner = resolveRunner(gate, {
       focusedArgs: plan.focusedTests.tests,
+      focusedNodeArgs: plan.focusedNodeTests ?? [],
       changedPaths: plan.changedPaths,
       baseRef: plan.baseRef,
     });

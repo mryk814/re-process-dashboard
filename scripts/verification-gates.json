@@ -86,6 +86,14 @@
       "riskCategories": ["backend", "persistence", "model-package"],
       "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest"], "appendFocusedArgs": true}
     },
+    "focused-node": {
+      "command": "node --test <focused-node-tests>",
+      "purpose": "変更されたNode toolingのauthority testだけを検証する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["verification-tooling"],
+      "runner": {"executable": "node", "args": ["--test"], "appendFocusedNodeArgs": true}
+    },
     "dependency-audit-policy": {
       "command": "npm run security:audit:test",
       "purpose": "依存脆弱性allow-listの判定規則を検証する。",
@@ -375,6 +383,7 @@
     "pathRules": [
       {"risk": "evidence", "matches": ["prefix:docs/reports/", "prefix:artifacts/"]},
       {"risk": "textbook-edition", "matches": ["prefix:docs/learning/"]},
+      {"risk": "instruction-only", "matches": ["exact:.agents/skill-inventory.json", "prefix:.agents/references/"]},
       {"risk": "pure-docs", "matches": ["prefix:docs/", "exact:README.md"]},
       {"risk": "security", "matches": ["exact:backend/src/decision_workbench/api/security.py", "prefix:backend/tests/test_launch_token.py", "contains:/security/"]},
       {"risk": "migration-workspace", "matches": ["prefix:backend/src/decision_workbench/persistence/", "contains:migration", "contains:workspace_bundle", "contains:workspace-backup"]},
@@ -387,7 +396,7 @@
       {"risk": "chain-degraded-test-infrastructure", "matches": ["exact:playwright.chain-degraded.config.ts", "exact:e2e/chain-degraded.spec.ts", "prefix:e2e/fixtures/"]},
       {"risk": "browser-standard-orchestration", "matches": ["exact:scripts/run-isolated-e2e.mjs", "exact:scripts/run-isolated-e2e.test.mjs"]},
       {"risk": "e2e-test-infrastructure", "matches": ["exact:playwright.config.ts", "exact:playwright.startup-diagnostic.config.ts", "exact:e2e/api-offline.spec.ts", "exact:e2e/accessibility-smoke.spec.ts", "exact:e2e/degraded-task.spec.ts", "exact:e2e/startup-diagnostic.spec.ts", "exact:e2e/global-teardown.mjs", "exact:e2e/helpers.ts", "exact:e2e/helpers/seed-degraded-task.py", "exact:e2e/owned-database-cleanup.mjs", "exact:e2e/owned-database-cleanup.test.mjs", "exact:scripts/run-isolated-e2e.mjs", "exact:scripts/run-isolated-e2e.test.mjs", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
-      {"risk": "verification-tooling", "matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:e2e/suite-inventory.mjs", "exact:e2e/suite-inventory.test.mjs", "exact:scripts/verify.mjs", "exact:scripts/verification-ci.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/verification-process.mjs", "exact:scripts/verification-process.test.mjs", "exact:scripts/verification-receipts.mjs", "exact:scripts/verification-receipts.test.mjs", "exact:scripts/observe-process-tree.ps1", "exact:scripts/run-observed-ci-shard.mjs", "exact:scripts/run-observed-ci-shard.test.mjs", "exact:scripts/run-main-acceptance.ps1", "exact:scripts/run-main-acceptance.test.mjs", "exact:scripts/run-parallel-e2e.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"]},
+      {"risk": "verification-tooling", "matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:e2e/suite-inventory.mjs", "exact:e2e/suite-inventory.test.mjs", "exact:scripts/verify.mjs", "exact:scripts/verification-ci.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/verification-process.mjs", "exact:scripts/verification-process.test.mjs", "exact:scripts/verification-receipts.mjs", "exact:scripts/verification-receipts.test.mjs", "exact:scripts/check-skill-inventory.mjs", "exact:scripts/check-skill-inventory.test.mjs", "exact:scripts/observe-process-tree.ps1", "exact:scripts/run-observed-ci-shard.mjs", "exact:scripts/run-observed-ci-shard.test.mjs", "exact:scripts/run-main-acceptance.ps1", "exact:scripts/run-main-acceptance.test.mjs", "exact:scripts/run-parallel-e2e.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"]},
       {"risk": "compose-shared-lab", "matches": ["prefix:compose.", "prefix:infrastructure/compose/", "contains:/shared_lab/", "contains:run-shared-lab", "contains:run-compose"]},
       {"risk": "backend-test-only", "matches": ["prefix:backend/tests/"]},
       {"risk": "web-test-only", "matches": ["prefix:apps/web/tests/"]},
@@ -401,9 +410,12 @@
       {"matches": ["prefix:backend/src/decision_workbench/api/", "contains:openapi"], "tests": ["backend/tests/test_api.py", "backend/tests/test_openapi_contract.py"]},
       {"matches": ["prefix:backend/src/decision_workbench/contracts/"], "tests": ["backend/tests/test_task_contracts.py"]}
     ],
+    "focusedNodeTestAuthority": [
+      {"matches": ["exact:scripts/check-skill-inventory.mjs", "exact:scripts/check-skill-inventory.test.mjs"], "tests": ["scripts/check-skill-inventory.test.mjs"]}
+    ],
     "unresolvedBackendFallback": {"tests": [], "reason": "No authority-map entry matched a backend-risk path; classification-required or an explicit --test is required. Broad backend fallback is disabled."},
     "semanticClassification": {
-      "instructionOnly": ["exact:AGENTS.md", "prefix:.agents/"],
+      "instructionOnly": ["exact:AGENTS.md", "exact:.agents/skill-inventory.json", "prefix:.agents/references/", "prefix:.agents/"],
       "docsOnly": ["prefix:docs/", "exact:README.md"],
       "backendTestOnly": ["prefix:backend/tests/"],
       "webTestOnly": ["prefix:apps/web/tests/"],
