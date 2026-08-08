@@ -35,6 +35,9 @@ def test_bounded_capacity_evidence_covers_the_declared_matrix() -> None:
     assert report["policy"]["memory_measurement"]["metric"] == (
         "process_peak_working_set_bytes"
     )
+    assert report["policy"]["memory_measurement"]["process_isolation"] == (
+        "one fresh child process per measured case"
+    )
     assert sum(
         item["metrics"]["measurement_status"].startswith("measured")
         for item in report["cases"]
@@ -54,6 +57,21 @@ def test_bounded_capacity_evidence_covers_the_declared_matrix() -> None:
         or "estimated_peak_memory_bytes" in item["metrics"]
         for item in report["cases"]
     )
+    measured = [
+        item["metrics"]
+        for item in report["cases"]
+        if item["metrics"]["measurement_status"].startswith("measured")
+    ]
+    assert all(
+        {
+            "memory_baseline_working_set_bytes",
+            "current_working_set_bytes_at_measurement",
+            "peak_working_set_bytes",
+            "peak_working_set_delta_bytes",
+        }.issubset(item)
+        for item in measured
+    )
+    assert all(item["peak_working_set_delta_bytes"] >= 0 for item in measured)
     comparison = report["same_cohort_comparison"]
     assert comparison["adoption_decision"] == "no_adopt"
     assert comparison["cohort_digest"]

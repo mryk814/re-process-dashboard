@@ -55,10 +55,16 @@ BENCHMARK_SEED = 20260808
 BASELINE = (100, 8, 3, 1)
 MEMORY_MEASUREMENT = {
     "metric": "process_peak_working_set_bytes",
-    "scope": "benchmark process high-water mark; not an isolated per-case process",
+    "scope": (
+        "isolated child-process high-water mark for one measured case; "
+        "baseline current working set is recorded after import"
+    ),
     "source": "Windows psapi.GetProcessMemoryInfo.PeakWorkingSetSize",
     "includes_native_allocations": True,
-    "policy_use": "evidence only; capacity policy decisions use estimated_peak_memory_bytes",
+    "process_isolation": "one fresh child process per measured case",
+    "policy_use": (
+        "evidence only; capacity policy decisions use estimated_peak_memory_bytes"
+    ),
 }
 MEASUREMENT_DESIGN = (
     ("baseline", BASELINE),
@@ -196,8 +202,8 @@ class _ProcessMemoryCounters(ctypes.Structure):
     ]
 
 
-def _process_peak_working_set_bytes() -> int:
-    """Read process peak working set, including native NumPy allocations."""
+def _process_working_set_snapshot() -> tuple[int, int]:
+    """Read current and peak working set, including native NumPy allocations."""
 
     if os.name == "nt":
         counters = _ProcessMemoryCounters()
@@ -221,17 +227,39 @@ def _process_peak_working_set_bytes() -> int:
         )
         if not success:
             raise ctypes.WinError(ctypes.get_last_error())
-        return int(counters.PeakWorkingSetSize)
+        return int(counters.WorkingSetSize), int(counters.PeakWorkingSetSize)
     import resource
 
     value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(value * (1024 if sys.platform != "darwin" else 1))
+    value_bytes = int(value * (1024 if sys.platform != "darwin" else 1))
+    return value_bytes, value_bytes
 
 
-def _measure_case(
+def _process_peak_working_set_bytes() -> int:
+    """Read isolated process peak working set for compatibility with focused tests."""
+
+    return _process_working_set_snapshot()[1]
+
+
+def _memory_evidence(*, baseline_working_set_bytes: int) -> dict[str, Any]:
+    current, peak = _process_working_set_snapshot()
+    return {
+        "peak_working_set_bytes": int(peak),
+        "memory_baseline_working_set_bytes": int(baseline_working_set_bytes),
+        "current_working_set_bytes_at_measurement": int(current),
+        "peak_working_set_delta_bytes": max(
+            0,
+            int(peak) - int(baseline_working_set_bytes),
+        ),
+        "memory_measurement": MEMORY_MEASUREMENT,
+    }
+
+
+def _measure_case_in_process(
     case: tuple[int, int, int, int],
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     effective_rows, feature_count, folds, restarts = case
+    memory_baseline = _process_working_set_snapshot()[0]
     preflight_context = _capacity_context(
         effective_rows=effective_rows,
         feature_count=feature_count,
@@ -243,15 +271,14 @@ def _measure_case(
         started = time.perf_counter()
         preflight = resolve_exact_gp_capacity(preflight_context)
         wall = time.perf_counter() - started
-        peak = _process_peak_working_set_bytes()
+        memory = _memory_evidence(baseline_working_set_bytes=memory_baseline)
         return (
             {
                 "capacity_resolution": preflight.model_dump(mode="json"),
                 "metrics": {
                     "measurement_status": "measured_preflight",
                     "build_wall_seconds": round(wall, 6),
-                    "peak_working_set_bytes": int(peak),
-                    "memory_measurement": MEMORY_MEASUREMENT,
+                    **memory,
                     "convergence": {
                         "status": "not_started",
                         "reason": "hard capacity boundary stopped the build before an exact fit",
@@ -284,7 +311,7 @@ def _measure_case(
         started = time.perf_counter()
         trained = exact_gp.train(data, recipe, artifact)
         wall = time.perf_counter() - started
-        peak = _process_peak_working_set_bytes()
+        memory = _memory_evidence(baseline_working_set_bytes=memory_baseline)
         latency_started = time.perf_counter()
         for _ in range(20):
             trained.predict(data.x[0])
@@ -294,8 +321,7 @@ def _measure_case(
             "metrics": {
                 "measurement_status": "measured_full_fit",
                 "build_wall_seconds": round(wall, 6),
-                "peak_working_set_bytes": int(peak),
-                "memory_measurement": MEMORY_MEASUREMENT,
+                **memory,
                 "convergence": {
                     "converged_restarts": trained.diagnostics.get("converged_restarts"),
                     "restarts": trained.diagnostics.get("restarts"),
@@ -354,6 +380,38 @@ def _measure_case(
                 },
             }
         return measured, comparison
+
+
+def _measure_case(
+    case: tuple[int, int, int, int],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Measure one case in a fresh child process so peaks cannot accumulate."""
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            "--measure-case",
+            *(str(value) for value in case),
+        ],
+        cwd=REPOSITORY_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"isolated benchmark child failed for case={case}: "
+            f"{completed.stderr[-4000:]}"
+        )
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"isolated benchmark child returned invalid JSON for case={case}: "
+            f"{completed.stdout[-4000:]}"
+        ) from error
+    return payload["measured"], payload["comparison"]
 
 
 def _case(
@@ -508,7 +566,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--commit", default=None)
+    parser.add_argument("--measure-case", nargs=4, type=int, default=None)
     args = parser.parse_args()
+    if args.measure_case is not None:
+        measured, comparison = _measure_case_in_process(tuple(args.measure_case))
+        print(
+            json.dumps(
+                {"measured": measured, "comparison": comparison},
+                ensure_ascii=False,
+            )
+        )
+        return 0
     report = build_report(commit_identity=_commit_identity(args.commit))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

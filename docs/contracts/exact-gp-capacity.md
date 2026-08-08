@@ -34,7 +34,8 @@ decision は次の三つです。
 
 benchmark の実測 memory は `process_peak_working_set_bytes` です。
 Windows では `GetProcessMemoryInfo(...PeakWorkingSetSize)` を使うため、Python の `tracemalloc` だけでは見えない NumPy native allocation を含みます。
-これは bounded benchmark process 全体の高水位であり、caseごとに分離したRSSではありません。
+各実測caseは同一environmentのfresh child processで実行し、childのcase内高水位を記録します。
+各caseにはimport後の開始時 `memory_baseline_working_set_bytes`、測定時current working set、`peak_working_set_delta_bytes`も併記します。
 未実測 cross-combination の `estimated_peak_memory_bytes` は versioned policy のモデル値で、実測 working set と混同しません。
 capacity policy の hard判断には後者の versioned estimate を使い、working set は evidence として保存します。
 
