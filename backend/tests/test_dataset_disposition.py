@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sqlite3
 
@@ -30,10 +31,16 @@ from decision_workbench.application.material_lineage_candidates import (
     lineage_candidate_options,
 )
 from decision_workbench.modeling.feature_pipeline import candidate_from_observation
-from decision_workbench.application.dataset_registration import register_dataset_records
+from decision_workbench.application.dataset_registration import (
+    DatasetRegistrationResult,
+    register_dataset_records,
+)
 from decision_workbench.persistence.dataset_disposition_migration import (
+    MIGRATION_CHECKSUM,
+    MIGRATION_ID,
     migrate_dataset_disposition_storage,
 )
+from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.persistence.workspace_catalog_migration import (
     migrate_workspace_catalog,
@@ -42,6 +49,48 @@ from decision_workbench.persistence.workspace_catalog_migration import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE_PATH = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-process-v1.json"
+
+
+def test_store_support_inventory_includes_dataset_disposition_migration(tmp_path: Path) -> None:
+    database = tmp_path / "workbench.db"
+    Store(database)
+
+    with sqlite3.connect(database) as connection:
+        applied = connection.execute(
+            "SELECT checksum FROM schema_migrations WHERE id=?",
+            (MIGRATION_ID,),
+        ).fetchone()
+
+    assert applied == (MIGRATION_CHECKSUM,)
+
+
+def test_dataset_registration_result_serializes_recorded_disposition() -> None:
+    disposition = build_count_disposition(
+        source_sha256="a" * 64,
+        profile_digest="sha256:" + "b" * 64,
+        canonicalization_contract_digest="sha256:" + "c" * 64,
+        task_ids=("task",),
+        entities=1,
+        observations_by_task={"task": 1},
+    )
+    result = DatasetRegistrationResult(
+        data_asset_id="asset",
+        profile_revision_id="profile-revision",
+        dataset_revision_id="dataset-revision",
+        dataset_view_revision_id="view-revision",
+        source_sha256="a" * 64,
+        locator="managed://asset",
+        profile_id="profile",
+        task_ids=("task",),
+        disposition_status="recorded",
+        disposition_digest=disposition_digest(disposition),
+        disposition=disposition,
+    )
+
+    serialized = result.as_dict()
+
+    assert serialized["disposition"] == disposition.model_dump(mode="json")
+    json.dumps(serialized)
 
 
 def test_disposition_keeps_parent_observation_and_excludes_only_series_operations() -> None:

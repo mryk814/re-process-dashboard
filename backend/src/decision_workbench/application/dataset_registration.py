@@ -59,7 +59,13 @@ class DatasetRegistrationResult:
     disposition: DatasetDisposition | None
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result = asdict(self)
+        result["disposition"] = (
+            self.disposition.model_dump(mode="json")
+            if self.disposition is not None
+            else None
+        )
+        return result
 
 
 @dataclass(frozen=True)
