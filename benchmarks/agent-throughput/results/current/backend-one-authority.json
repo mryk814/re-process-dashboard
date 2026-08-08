@@ -4,13 +4,13 @@
   "observation_kind": "context_only",
   "case": {
     "id": "backend-one-authority",
-    "version": 1,
+    "version": 2,
     "prompt_digest": "56aefc42ecc040debec91af4b2d1685f29ced807bd2fcf2237844a9ec6fbedaa",
     "prompt_bytes": 227,
     "prompt_lines": 1,
-    "fixture_digest": "84048b29566520956fcc62dc755a50b9a5ae5d3db39839e816818abaf9836f29",
+    "fixture_digest": "640ce4730f535cf0593c18de7ea9d8f6aacf527cc2265ea462a0e36a5c5c3d80",
     "success_criteria_digest": "c50080e52fe567c608fa22ec694b65a9a0d1580d4e08a887bf999456c463eeea",
-    "catalog_digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+    "catalog_digest": "303210da36db984b903e1a306ca939a2eba026c52adb3434e5f6a83749c89d87"
   },
   "profile": {
     "id": "router-receipts-skill-visibility",
@@ -25,8 +25,10 @@
       "root_instruction_digest": "f14ca33a383ffbdd39ec92c10a56a9313ccafcfd04af1cd812a78b3fab946b25"
     },
     "skill_inventory_identity": {
-      "inventory_id": "re-process-dashboard/skill-inventory",
-      "inventory_digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4",
+      "source_ref": "dd2e9a02de1fdec21e3a8f450ed9628ddda51d36",
+      "discovery_root": ".agents/skills",
+      "tree_digest": "cab3a07faf97eca17acd87fedfa90a6e9a1184ecdf001f09d0068ad9e5bd989d",
+      "typed_inventory_digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4",
       "visible_skill_count": 6,
       "visible_skill_names": [
         "data-contributor",
@@ -45,7 +47,8 @@
     "fresh_session": null,
     "fresh_workspace": null,
     "session_identity": null,
-    "workspace_identity": null
+    "workspace_identity": null,
+    "environment_identity_digest": null
   },
   "metrics": {
     "first_edit_elapsed_ms": null,
@@ -73,17 +76,26 @@
       }
     }
   },
+  "run_receipt": {
+    "status": "not_available",
+    "locator": null,
+    "digest": null
+  },
   "verification": {
     "status": "not_run",
     "duration_ms": null,
-    "receipt_digest": null,
-    "receipt_locator": null,
+    "receipts": [],
     "note": "No agent task was run; a verification receipt is not claimed."
   },
   "quality": {
     "status": "not_evaluated",
     "success_criteria_met": null,
-    "human_review_status": "not_run",
+    "human_review": {
+      "status": "not_run",
+      "reviewer_kind": null,
+      "completed_at": null,
+      "provenance": null
+    },
     "findings": [],
     "note": "Context metrics alone cannot approve the fast/deep profile."
   },
@@ -91,7 +103,7 @@
     {
       "kind": "case_catalog",
       "locator": "benchmarks/agent-throughput/cases.json",
-      "digest": "345c162ecf56c6e96618f993023ffd076d48340ff44ba9544de99f1c92b2cc11"
+      "digest": "303210da36db984b903e1a306ca939a2eba026c52adb3434e5f6a83749c89d87"
     },
     {
       "kind": "git_object",
@@ -99,9 +111,9 @@
       "digest": "f14ca33a383ffbdd39ec92c10a56a9313ccafcfd04af1cd812a78b3fab946b25"
     },
     {
-      "kind": "skill_inventory",
-      "locator": ".agents/skill-inventory.json",
-      "digest": "83a96e092a9d5bf067f6f97e3a4286f64ff782ec8130df058a143c46cf4d3fd4"
+      "kind": "git_tree",
+      "locator": "git:dd2e9a02de1fdec21e3a8f450ed9628ddda51d36:.agents/skills",
+      "digest": "cab3a07faf97eca17acd87fedfa90a6e9a1184ecdf001f09d0068ad9e5bd989d"
     },
     {
       "kind": "verification_policy",

@@ -16,92 +16,112 @@
       "fresh_workspace"
     ],
     "quality_precedes_resources": true,
+    "maximum_regression_ratio": {
+      "total_elapsed_ms": 1.25,
+      "total_tool_call_count": 1.25,
+      "duplicate_command_count": 1.25,
+      "local_verification_duration_ms": 1.25,
+      "input_tokens": 1.25,
+      "output_tokens": 1.25
+    },
+    "minimum_regression_delta": {
+      "total_elapsed_ms": 1000,
+      "total_tool_call_count": 2,
+      "duplicate_command_count": 2,
+      "local_verification_duration_ms": 1000,
+      "input_tokens": 1000,
+      "output_tokens": 500
+    },
+    "external_authentication": {
+      "status": "unsupported",
+      "required_for_adoption": true
+    },
     "incomparable_candidate_action": "rollback_candidate_profile"
   },
   "cases": [
     {
       "id": "docs-typo",
-      "version": 1,
+      "version": 2,
       "category": "pure_docs_typo",
       "expected_lane": "fast",
       "prompt": "docs/developer/agent-throughput.md に用意された単一の綴り誤りだけを直し、文書の意味や command contract を変えずに最寄りの docs check で証明してください。",
       "allowed_starting_context": ["AGENTS.md", "docs/AGENTS.md", "docs/developer/agent-throughput.md"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "docs-typo"]},
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/docs-typo.patch", "patch_digest": "1d611c86515bf9737ddfe80e88c4e952a9797f250c6bc9247e141c2f1e680a69", "materialized_diff_digest": "68b865dbf11cf3125f5d9b093bb7b9b84b3786ee4527695038e8a008f17d54ac", "changed_paths": ["docs/developer/agent-throughput.md"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "docs-typo", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "docs-typo", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["単一の typo だけが修正される", "docs check が成功する", "application suite を実行しない"],
-      "required_focused_evidence": ["npm.cmd run docs:check", "git diff --check"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-docs-check", "command_argv": ["npm.cmd", "run", "docs:check"]}, {"gate_id": "agent-eval-diff-check", "command_argv": ["git", "diff", "--check"]}],
       "forbidden_changes": ["application code", "generated contracts", "user HOME config"],
       "review_checklist": ["意味変更がない", "差分が対象文書内だけ"],
-      "resource_ceiling": {"elapsed_minutes": 10, "tool_calls": 12}
+      "resource_ceiling": {"elapsed_minutes": 10, "tool_calls": 12, "input_tokens": 20000, "output_tokens": 8000}
     },
     {
       "id": "backend-one-authority",
-      "version": 1,
+      "version": 2,
       "category": "backend_one_authority_bug",
       "expected_lane": "fast",
       "prompt": "単一 backend authority の status 集約fixtureで、最終statusではなく中間statusを返す回帰を修正し、最寄りpytestだけで反証してください。API、persistence、model artifactは変えません。",
-      "allowed_starting_context": ["AGENTS.md", "backend/AGENTS.md", "対象module", "最寄りtest"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "backend-one-authority"]},
+      "allowed_starting_context": ["AGENTS.md", "backend/AGENTS.md", "backend/src/decision_workbench/application/model_playground.py", "backend/tests/test_model_playground_execution.py"],
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/backend-one-authority.patch", "patch_digest": "3ad00befef605ef0fa7109c2b21302146eb91198753b6e837fbeed56fb17f3e4", "materialized_diff_digest": "3701dd8845cfbaeb226cfe61aecc46cd2362dc1af3b5ba17133c1a45e735e7e1", "changed_paths": ["backend/src/decision_workbench/application/model_playground.py"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "backend-one-authority", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "backend-one-authority", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["最終statusが集約される", "既存ready statusを維持する", "focused pytestが成功する"],
-      "required_focused_evidence": ["uv run --extra dev python -m pytest <focused-test> -q"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-backend-focused", "command_argv": ["uv", "run", "--extra", "dev", "python", "-m", "pytest", "backend/tests/test_model_playground_execution.py::test_ridge_and_additive_attempts_share_snapshot_evidence_and_identity", "-q"]}],
       "forbidden_changes": ["public API", "database schema", "data/source"],
       "review_checklist": ["authorityが一つ", "fallbackを追加していない"],
-      "resource_ceiling": {"elapsed_minutes": 20, "tool_calls": 24}
+      "resource_ceiling": {"elapsed_minutes": 20, "tool_calls": 24, "input_tokens": 40000, "output_tokens": 16000}
     },
     {
       "id": "web-local-interaction",
-      "version": 1,
+      "version": 2,
       "category": "web_local_interaction",
       "expected_lane": "fast",
-      "prompt": "既存Web componentの局所interaction fixtureで、keyboard操作時だけselectionが更新されない回帰を直してください。情報構造やnavigationは変えず、unit testと対象interaction 1本だけで証明してください。",
-      "allowed_starting_context": ["AGENTS.md", "apps/web/AGENTS.md", "apps/web/src/AGENTS.md", "対象component", "最寄りtest"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "web-local-interaction"]},
+      "prompt": "既存Web componentの局所interaction fixtureで、keyboard操作時だけselectionが更新されない回帰を直してください。情報構造やnavigationは変えず、typecheckとcandidate comparison interaction 1本だけで証明してください。",
+      "allowed_starting_context": ["AGENTS.md", "apps/web/AGENTS.md", "apps/web/src/AGENTS.md", "apps/web/src/features/candidates/CandidateUi.tsx", "e2e/candidate-comparison-accessibility.spec.ts"],
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/web-local-interaction.patch", "patch_digest": "406874d4ba268513f6c1ba395d68e7c3ca2375c9ce2fe7774d649b9debd8eaba", "materialized_diff_digest": "bde216a45140a530b2f7b2bcf6eff5a49fed0d115d724ced16c662041311f3ec", "changed_paths": ["apps/web/src/features/candidates/CandidateUi.tsx"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "web-local-interaction", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "web-local-interaction", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["pointerとkeyboardで同じselectionになる", "scroll位置を変えない", "対象interactionがfresh環境で成功する"],
-      "required_focused_evidence": ["npm.cmd run test -w apps/web -- <focused-test>", "npx playwright test <focused-spec>"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-web-typecheck", "command_argv": ["npm.cmd", "run", "typecheck", "-w", "apps/web"]}, {"gate_id": "agent-eval-web-keyboard", "command_argv": ["npx", "playwright", "test", "e2e/candidate-comparison-accessibility.spec.ts", "--grep", "candidate-comparison-keyboard"]}],
       "forbidden_changes": ["navigation structure", "API contract", "desktop shell"],
       "review_checklist": ["keyboard accessibility", "stale responseを隠していない"],
-      "resource_ceiling": {"elapsed_minutes": 30, "tool_calls": 36}
+      "resource_ceiling": {"elapsed_minutes": 30, "tool_calls": 36, "input_tokens": 60000, "output_tokens": 24000}
     },
     {
       "id": "test-only-regression",
-      "version": 1,
+      "version": 2,
       "category": "test_only_regression",
       "expected_lane": "fast",
-      "prompt": "production behaviorは正しいまま、移動済みauthorityを古いpathで参照するtest-only fixtureを現在の正本へ更新してください。production codeは変更せず、対象testだけを実行してください。",
-      "allowed_starting_context": ["AGENTS.md", "対象test directoryのAGENTS.md", "対象test", "current authority"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "test-only-regression"]},
+      "prompt": "production behaviorは正しいまま、Skill inventoryのhistorical baseline件数を誤って13件とするtest-only fixtureを、固定git treeの正本12件へ戻してください。production codeは変更せず、対象testだけを実行してください。",
+      "allowed_starting_context": ["AGENTS.md", "scripts/AGENTS.md", "scripts/check-skill-inventory.test.mjs", ".agents/skill-inventory.json"],
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/test-only-regression.patch", "patch_digest": "c12a4ea5325b35cf0842b572e25463cc937de6ee8bc4adafcc5b54eaf453563d", "materialized_diff_digest": "8631af2e92122962320b40a304f96d6a3197cc36668779ecbfaa7d1d9bc776ac", "changed_paths": ["scripts/check-skill-inventory.test.mjs"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "test-only-regression", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "test-only-regression", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["testがcurrent authorityを参照する", "production code差分がない", "対象testが成功する"],
-      "required_focused_evidence": ["最寄りの単一test command", "git diff --check"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-skill-inventory", "command_argv": ["node", "--test", "scripts/check-skill-inventory.test.mjs"]}, {"gate_id": "agent-eval-diff-check", "command_argv": ["git", "diff", "--check"]}],
       "forbidden_changes": ["production source", "test削除", "failure skip"],
       "review_checklist": ["期待値を弱めていない", "実回帰保護を維持する"],
-      "resource_ceiling": {"elapsed_minutes": 15, "tool_calls": 18}
+      "resource_ceiling": {"elapsed_minutes": 15, "tool_calls": 18, "input_tokens": 30000, "output_tokens": 12000}
     },
     {
       "id": "api-field-addition",
-      "version": 1,
+      "version": 2,
       "category": "api_field_addition",
       "expected_lane": "deep",
       "prompt": "既存responseへoptional provenance fieldを追加するfixtureを、backend contract、generated OpenAPI、Web client型まで一貫して実装してください。保存済みidentityを再計算せず、旧response読込を壊しません。",
       "allowed_starting_context": ["AGENTS.md", "backend/AGENTS.md", "apps/web/AGENTS.md", "API owner", "generated contract check"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "api-field-addition"]},
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/api-field-addition.patch", "patch_digest": "23648063fc3d07f2a744be2dd57df7a695c7390be2326a6de20510540d865b26", "materialized_diff_digest": "65d855b19b8c321c1a11985393f5f839feb9c7bb72da18cf9847d0ffd9cb3ca1", "changed_paths": ["backend/tests/test_openapi_contract.py"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "api-field-addition", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "api-field-addition", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["fieldがoptionalでtyped", "OpenAPIとWeb型が一致する", "既存response contractを維持する"],
-      "required_focused_evidence": ["focused backend contract test", "npm.cmd run api:check", "npm.cmd run typecheck -w apps/web"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-api-focused", "command_argv": ["uv", "run", "--extra", "dev", "python", "-m", "pytest", "backend/tests/test_openapi_contract.py::test_tracked_openapi_schema_matches_fastapi_contract", "-q"]}, {"gate_id": "agent-eval-api-check", "command_argv": ["npm.cmd", "run", "api:check"]}, {"gate_id": "agent-eval-web-typecheck", "command_argv": ["npm.cmd", "run", "typecheck", "-w", "apps/web"]}],
       "forbidden_changes": ["persisted identity recomputation", "unrelated endpoint", "compatibility shim"],
       "review_checklist": ["provenanceの意味がpredictionと混同されない", "generated artifact driftがない"],
-      "resource_ceiling": {"elapsed_minutes": 45, "tool_calls": 50}
+      "resource_ceiling": {"elapsed_minutes": 45, "tool_calls": 50, "input_tokens": 100000, "output_tokens": 40000}
     },
     {
       "id": "model-runtime-scientific-contract",
-      "version": 1,
+      "version": 2,
       "category": "model_runtime_scientific_contract",
       "expected_lane": "deep",
       "prompt": "safeなdata-only Model Package fixtureへ新しいuncertainty metadataを追加し、mean-function credible intervalとobservation prediction intervalを区別したままruntimeへ通してください。arbitrary code/pickleは追加せず、artifact digestとfocused scientific testで証明してください。",
       "allowed_starting_context": ["AGENTS.md", "backend/AGENTS.md", "Model Package contract", "runtime adapter", "focused scientific tests"],
-      "fixture": {"kind": "versioned_task_contract", "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "show-case", "--case", "model-runtime-scientific-contract"]},
+      "fixture": {"kind": "git_apply_patch", "patch_path": "benchmarks/agent-throughput/fixtures/model-runtime-scientific-contract.patch", "patch_digest": "21d9eac801f1d8463db3e833f96e15648d8cd57db139347e6713e9d1f8b144d8", "materialized_diff_digest": "1ee0d713ec82f4e9820ad4b3c63196c86fbfa140e5895d64ea5203bc540aa70b", "changed_paths": ["backend/tests/test_model_packages.py"], "setup_command": ["node", "scripts/agent-throughput-eval.mjs", "setup", "--case", "model-runtime-scientific-contract", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"], "reset_command": ["node", "scripts/agent-throughput-eval.mjs", "reset", "--case", "model-runtime-scientific-contract", "--workspace", "$AGENT_THROUGHPUT_WORKTREE"]},
       "success_criteria": ["credibleとprediction intervalがtypedに分離される", "packageはdata-only allow-listを維持する", "artifact digestとfocused scientific testが成功する"],
-      "required_focused_evidence": ["focused package contract pytest", "focused runtime semantics pytest", "generated catalog check"],
+      "required_focused_evidence": [{"gate_id": "agent-eval-package-contract", "command_argv": ["uv", "run", "--extra", "dev", "python", "-m", "pytest", "backend/tests/test_model_packages.py::test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic", "-q"]}, {"gate_id": "agent-eval-runtime-semantics", "command_argv": ["uv", "run", "--extra", "dev", "python", "-m", "pytest", "backend/tests/test_model_packages.py::test_checked_in_individual_observation_packages_expose_distinct_uncertainty_components", "-q"]}, {"gate_id": "agent-eval-package-catalog", "command_argv": ["npm.cmd", "run", "estimator:readiness:check"]}],
       "forbidden_changes": ["pickle", "joblib", "arbitrary Python loader", "saved prediction identity mutation"],
       "review_checklist": ["scientific meaningを誤表示しない", "supportとuncertaintyを混同しない", "rollback可能なartifact identity"],
-      "resource_ceiling": {"elapsed_minutes": 90, "tool_calls": 80}
+      "resource_ceiling": {"elapsed_minutes": 90, "tool_calls": 80, "input_tokens": 180000, "output_tokens": 72000}
     }
   ]
 }

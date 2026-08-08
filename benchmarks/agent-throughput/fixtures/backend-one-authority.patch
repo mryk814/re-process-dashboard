@@ -1,0 +1,12 @@
+diff --git a/backend/src/decision_workbench/application/model_playground.py b/backend/src/decision_workbench/application/model_playground.py
+--- a/backend/src/decision_workbench/application/model_playground.py
++++ b/backend/src/decision_workbench/application/model_playground.py
+@@ -842,7 +842,7 @@ class ModelPlaygroundUseCases:
+                         and entry.training_cost == "high"
+                     ):
+                         target_status = "ready_expensive"
+-                    statuses.append(target_status)
++                    statuses.append(resolution.status)
+                     capacity_resolution = resolution.capacity
+                     planned_quality_fit_count = (
+                         capacity_resolution.context.planned_quality_fit_count

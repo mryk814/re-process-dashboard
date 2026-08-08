@@ -8,14 +8,25 @@
     "reasons": [
       "model_family:unknown",
       "reasoning_setting:unknown",
+      "environment_identity_digest:unknown",
       "fresh_session:not_proven",
       "fresh_workspace:not_proven",
       "agent_run:not_observed",
       "baseline_quality:not_evaluated",
-      "baseline_verification:not_run"
+      "baseline_verification:not_run",
+      "authenticated_external_receipt:unsupported"
     ]
   },
+  "external_authentication": {
+    "status": "unsupported",
+    "required_for_adoption": true,
+    "note": "Content digests prove integrity only; no authenticated external recorder or signature verifier is configured."
+  },
   "quality_regression": null,
+  "resource_regression": {
+    "status": "within_budget",
+    "reasons": []
+  },
   "resource_deltas": {
     "first_edit_elapsed_ms": null,
     "total_tool_call_count": null,
@@ -33,14 +44,50 @@
     "reasons": [
       "model_family:unknown",
       "reasoning_setting:unknown",
+      "environment_identity_digest:unknown",
       "fresh_session:not_proven",
       "fresh_workspace:not_proven",
       "agent_run:not_observed",
       "baseline_quality:not_evaluated",
       "baseline_verification:not_run",
+      "authenticated_external_receipt:unsupported",
       "quality:not_evaluated",
       "success_criteria:not_met",
-      "verification:not_run"
+      "verification:not_run",
+      "baseline_agent_run:not_observed",
+      "baseline_metric:first_edit_elapsed_ms:unmeasured",
+      "baseline_metric:first_edit_read_file_count:unmeasured",
+      "baseline_metric:first_edit_tool_call_count:unmeasured",
+      "baseline_metric:total_tool_call_count:unmeasured",
+      "baseline_metric:duplicate_command_count:unmeasured",
+      "baseline_metric:local_verification_duration_ms:unmeasured",
+      "baseline_metric:total_elapsed_ms:unmeasured",
+      "baseline_metric:edit_to_pass_iteration_count:unmeasured",
+      "baseline_metric:changed_file_count:unmeasured",
+      "baseline_metric:changed_line_count:unmeasured",
+      "baseline_metric:input_tokens:unmeasured",
+      "baseline_metric:output_tokens:unmeasured",
+      "baseline_commands:unmeasured",
+      "baseline_run_receipt:not_verified",
+      "baseline_receipt:not_passed",
+      "baseline_human_review:not_completed",
+      "candidate_agent_run:not_observed",
+      "candidate_metric:first_edit_elapsed_ms:unmeasured",
+      "candidate_metric:first_edit_read_file_count:unmeasured",
+      "candidate_metric:first_edit_tool_call_count:unmeasured",
+      "candidate_metric:total_tool_call_count:unmeasured",
+      "candidate_metric:duplicate_command_count:unmeasured",
+      "candidate_metric:local_verification_duration_ms:unmeasured",
+      "candidate_metric:total_elapsed_ms:unmeasured",
+      "candidate_metric:edit_to_pass_iteration_count:unmeasured",
+      "candidate_metric:changed_file_count:unmeasured",
+      "candidate_metric:changed_line_count:unmeasured",
+      "candidate_metric:input_tokens:unmeasured",
+      "candidate_metric:output_tokens:unmeasured",
+      "candidate_commands:unmeasured",
+      "candidate_run_receipt:not_verified",
+      "candidate_receipt:not_passed",
+      "candidate_human_review:not_completed"
     ],
     "note": "This decision never mutates repository guidance or user configuration automatically."
   }

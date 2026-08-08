@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-throughput-run-receipt/v1",
+  "description": "Content-addressed integrity receipt. It is not an authenticated provider or human signature and cannot authorize adoption.",
+  "type": "object",
+  "required": ["schema_version", "source_kind", "run_id", "case_id", "case_version", "catalog_digest", "repository_commit", "prompt_digest", "fixture", "profile", "session", "metrics", "provider_usage", "human_review", "recorded_at", "content_digest"],
+  "properties": {
+    "schema_version": {"const": "agent-throughput-run-receipt/v1"},
+    "source_kind": {"const": "codex_session_receipt"},
+    "run_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "case_version": {"type": "integer", "minimum": 1},
+    "catalog_digest": {"$ref": "#/$defs/sha256"},
+    "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "prompt_digest": {"$ref": "#/$defs/sha256"},
+    "fixture": {
+      "type": "object",
+      "required": ["patch_digest", "materialized_diff_digest"],
+      "properties": {
+        "patch_digest": {"$ref": "#/$defs/sha256"},
+        "materialized_diff_digest": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["profile_id", "model_family", "reasoning_setting", "guidance_source_ref", "guidance_digest", "skill_tree_digest"],
+      "properties": {
+        "profile_id": {"type": "string", "minLength": 1},
+        "model_family": {"type": "string", "minLength": 1},
+        "reasoning_setting": {"type": "string", "minLength": 1},
+        "guidance_source_ref": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "guidance_digest": {"$ref": "#/$defs/sha256"},
+        "skill_tree_digest": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "required": ["session_identity", "workspace_identity", "fresh_session", "fresh_workspace"],
+      "properties": {
+        "session_identity": {"type": "string", "minLength": 1},
+        "workspace_identity": {"type": "string", "minLength": 1},
+        "fresh_session": {"const": true},
+        "fresh_workspace": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["first_edit_elapsed_ms", "first_edit_read_file_count", "first_edit_tool_call_count", "total_tool_call_count", "duplicate_command_count", "local_verification_duration_ms", "total_elapsed_ms", "edit_to_pass_iteration_count", "changed_file_count", "changed_line_count", "input_tokens", "output_tokens", "command_observations"],
+      "properties": {
+        "first_edit_elapsed_ms": {"$ref": "#/$defs/nullable_number"},
+        "first_edit_read_file_count": {"$ref": "#/$defs/nullable_integer"},
+        "first_edit_tool_call_count": {"$ref": "#/$defs/nullable_integer"},
+        "total_tool_call_count": {"$ref": "#/$defs/nullable_integer"},
+        "duplicate_command_count": {"$ref": "#/$defs/nullable_integer"},
+        "local_verification_duration_ms": {"$ref": "#/$defs/nullable_number"},
+        "total_elapsed_ms": {"$ref": "#/$defs/nullable_number"},
+        "edit_to_pass_iteration_count": {"$ref": "#/$defs/nullable_integer"},
+        "changed_file_count": {"$ref": "#/$defs/nullable_integer"},
+        "changed_line_count": {"$ref": "#/$defs/nullable_integer"},
+        "input_tokens": {"$ref": "#/$defs/nullable_integer"},
+        "output_tokens": {"$ref": "#/$defs/nullable_integer"},
+        "command_observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["command_digest", "count", "duration_ms"],
+            "properties": {
+              "command_digest": {"$ref": "#/$defs/sha256"},
+              "count": {"type": "integer", "minimum": 1},
+              "duration_ms": {"$ref": "#/$defs/nullable_number"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "provider_usage": {
+      "type": "object",
+      "required": ["status", "input_tokens", "output_tokens", "provenance"],
+      "properties": {
+        "status": {"enum": ["measured", "not_available"]},
+        "input_tokens": {"$ref": "#/$defs/nullable_integer"},
+        "output_tokens": {"$ref": "#/$defs/nullable_integer"},
+        "provenance": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": ["kind", "locator", "digest"],
+              "properties": {
+                "kind": {"const": "codex_session_usage"},
+                "locator": {"type": "string", "minLength": 1},
+                "digest": {"$ref": "#/$defs/sha256"}
+              },
+              "additionalProperties": false
+            },
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "human_review": {
+      "type": "object",
+      "required": ["reviewer_kind", "completed_at", "artifact_digest"],
+      "properties": {
+        "reviewer_kind": {"enum": ["independent_human", null]},
+        "completed_at": {"type": ["string", "null"], "format": "date-time"},
+        "artifact_digest": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "content_digest": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"provider_usage": {"properties": {"status": {"const": "measured"}}}}},
+      "then": {
+        "properties": {
+          "provider_usage": {
+            "properties": {
+              "input_tokens": {"type": "integer", "minimum": 0},
+              "output_tokens": {"type": "integer", "minimum": 0},
+              "provenance": {"type": "object"}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "provider_usage": {
+            "anyOf": [
+              {"properties": {"input_tokens": {"type": "null"}}},
+              {"properties": {"output_tokens": {"type": "null"}}}
+            ],
+            "properties": {
+              "provenance": {"type": "null"}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nullable_number": {"type": ["number", "null"], "minimum": 0},
+    "nullable_integer": {"type": ["integer", "null"], "minimum": 0}
+  },
+  "additionalProperties": false
+}

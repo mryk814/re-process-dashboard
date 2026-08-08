@@ -1,0 +1,12 @@
+diff --git a/scripts/check-skill-inventory.test.mjs b/scripts/check-skill-inventory.test.mjs
+--- a/scripts/check-skill-inventory.test.mjs
++++ b/scripts/check-skill-inventory.test.mjs
+@@ -115,7 +115,7 @@ function cleanup(root) {
+ test("repository inventory exposes six public entries and a historical twelve-entry baseline", () => {
+   const report = checkSkillInventory({ repoRoot: repositoryRoot, strictTarget: true });
+   assert.equal(report.ok, true, JSON.stringify(report.findings, null, 2));
+-  assert.equal(report.discovery.baseline_count, 12);
++  assert.equal(report.discovery.baseline_count, 13);
+   assert.equal(report.discovery.observed_count, 6);
+   assert.equal(report.discovery.target_count, 6);
+   assert.equal(report.discovery.legacy_visible_internal_count, 0);
