@@ -112,6 +112,9 @@ def test_inspect_auto_detects_profile_without_exposing_server_paths(client: Test
     assert body["auto_detected"] is True
     assert body["validation"]["registration_ready"] is True
     assert body["validation"]["observations"] > 0
+    assert body["validation"]["disposition"]["status"] == "recorded"
+    assert "entity_key" not in body["validation"]["entity_preview"][0]
+    assert "values" not in body["validation"]["entity_preview"][0]
     assert body["sheets"]
     assert "source" not in body
     assert "profile" not in body
@@ -248,11 +251,19 @@ def test_register_update_preserves_source_lineage(client: TestClient) -> None:
     body = response.json()
     assert body["previous_dataset_revision_id"] == base["dataset_revision"]["id"]
     assert body["previous_source_sha256"] == base["data_asset"]["sha256"]
+    disposition_diff = body["previous_disposition_diff"]
+    assert disposition_diff["comparable"] is True
+    assert disposition_diff["changed"] is True
+    assert disposition_diff["source_changed"] is True
+    assert disposition_diff["profile_changed"] is False
+    assert disposition_diff["previous_source_sha256"] == base["data_asset"]["sha256"]
+    assert disposition_diff["current_source_sha256"] == body["source_sha256"]
     updated = next(
         item
         for item in client.get("/api/data-library/datasets").json()
         if item["dataset_revision"]["id"] == body["dataset_revision_id"]
     )
+    assert updated["disposition"]["previous_diff"]["source_changed"] is True
     provenance = updated["dataset_views"][0]["members"][0]["provenance_json"]
     assert provenance == {
         "lineage_kind": "dataset_revision_update",

@@ -6,6 +6,13 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    DatasetDisposition,
+    DatasetDispositionDiff,
+    DatasetDispositionProjection,
+    DatasetDispositionStatus,
+)
+
 class DataAssetCreateInput(BaseModel):
     original_filename: Annotated[str, Field(min_length=1, max_length=255)]
     sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -56,9 +63,30 @@ class ProfileRevision(ProfileRevisionCreateInput):
 
 
 class DatasetRevisionCreateInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     data_asset_id: Annotated[str, Field(min_length=1)]
     profile_revision_id: Annotated[str, Field(min_length=1)]
     canonicalization_contract_digest: Annotated[str, Field(min_length=1)]
+    disposition_digest: str | None = None
+    disposition_json: DatasetDisposition | None = None
+    disposition_status: DatasetDispositionStatus = "unknown_legacy"
+
+    @model_validator(mode="after")
+    def disposition_fields_match_status(self) -> "DatasetRevisionCreateInput":
+        if self.disposition_status == "recorded" and (
+            not self.disposition_digest or self.disposition_json is None
+        ):
+            raise ValueError(
+                "recorded Dataset dispositionにはdigestとartifactが必要です"
+            )
+        if self.disposition_status == "unknown_legacy" and (
+            self.disposition_digest is not None or self.disposition_json is not None
+        ):
+            raise ValueError(
+                "unknown_legacy Dataset dispositionにはartifactを指定できません"
+            )
+        return self
 
 
 class DatasetRevisionUpdateInput(BaseModel):
@@ -234,6 +262,7 @@ class DataLibraryDataset(BaseModel):
     profile_available: bool = False
     supported_task_ids: list[str]
     dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
+    disposition: DatasetDispositionProjection
 
 
 class SampleGalleryItem(BaseModel):
@@ -308,6 +337,7 @@ class ProfileWorkbenchValidation(BaseModel):
     unresolved_heat_series_by_task: dict[str, Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     rejected_by_policy: dict[str, int]
     entity_preview: list[dict[str, Any]]
+    disposition: DatasetDispositionProjection | None = None
 
 
 class ProfileWorkbenchBindingCandidate(BaseModel):
@@ -386,3 +416,5 @@ class ProfileWorkbenchRegistration(BaseModel):
     task_ids: list[str]
     previous_dataset_revision_id: str | None = None
     previous_source_sha256: str | None = None
+    disposition: DatasetDispositionProjection
+    previous_disposition_diff: DatasetDispositionDiff | None = None

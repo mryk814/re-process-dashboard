@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    compare_dispositions,
+    disposition_projection,
+)
 from decision_workbench.contracts.data_library_contracts import (
     DataAsset,
     DataLibraryDataAsset,
@@ -98,6 +102,42 @@ def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
     ]
 
 
+def _dataset_disposition(catalog: WorkspaceCatalog, dataset, views):
+    previous = None
+    previous_status = "recorded"
+    current_views = [
+        view
+        for view in views
+        if any(member.dataset_revision_id == dataset.id for member in view.members)
+    ]
+    for view in current_views:
+        member = next(
+            member for member in view.members if member.dataset_revision_id == dataset.id
+        )
+        previous_id = member.provenance_json.get("previous_dataset_revision_id")
+        if not isinstance(previous_id, str):
+            continue
+        previous = catalog.get_dataset_revision(previous_id, include_archived=True)
+        if previous is not None:
+            previous_status = previous.disposition_status
+        break
+    diff = (
+        compare_dispositions(
+            previous.disposition_json if previous is not None else None,
+            dataset.disposition_json,
+            previous_status=previous_status,
+        )
+        if dataset.disposition_json is not None and previous is not None
+        else None
+    )
+    return disposition_projection(
+        status=dataset.disposition_status,
+        digest=dataset.disposition_digest,
+        disposition=dataset.disposition_json,
+        previous_diff=diff,
+    )
+
+
 def _datasets(
     catalog: WorkspaceCatalog,
     *,
@@ -127,6 +167,7 @@ def _datasets(
                 view for view in views
                 if any(member.dataset_revision_id == dataset.id for member in view.members)
             ],
+            disposition=_dataset_disposition(catalog, dataset, views),
         ))
     return result
 

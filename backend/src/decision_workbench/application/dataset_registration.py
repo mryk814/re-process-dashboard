@@ -14,6 +14,12 @@ from decision_workbench.contracts.data_library_contracts import (
     DatasetRevisionCreateInput,
     ProfileRevisionCreateInput,
 )
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+    DatasetDisposition,
+    DatasetDispositionStatus,
+    disposition_digest,
+)
 from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.data.profile_family_registry import (
     load_profile_document,
@@ -27,7 +33,7 @@ from decision_workbench.persistence.workspace_catalog import (
 )
 
 CANONICAL_DATASET_CONTRACT_DIGEST = semantic_digest({"id": "canonical-dataset/v1"})
-CANONICALIZATION_CONTRACT_DIGEST = semantic_digest({"id": "workbook-canonicalizer/v1"})
+CANONICALIZATION_CONTRACT_DIGEST = DATASET_CANONICALIZATION_CONTRACT_DIGEST
 EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _MANAGED_DATASET_REGISTRATION_LOCK = RLock()
 
@@ -48,6 +54,9 @@ class DatasetRegistrationResult:
     locator: str
     profile_id: str
     task_ids: tuple[str, ...]
+    disposition_status: DatasetDispositionStatus
+    disposition_digest: str | None
+    disposition: DatasetDisposition | None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -236,6 +245,7 @@ def register_dataset_records(
     locator: Path,
     name: str,
     member_provenance: dict[str, Any] | None = None,
+    disposition: DatasetDisposition | None = None,
 ) -> DatasetRegistrationResult:
     """Create the same content-addressed identities for startup and developer imports."""
 
@@ -245,6 +255,16 @@ def register_dataset_records(
     profile_id = metadata.profile_id
     effective_profile = metadata.effective_profile
     effective_digest = dataset_profile_digest(profile_path)
+    if disposition is None:
+        from decision_workbench.data.profile_workbench import validate_source_profile
+
+        report = validate_source_profile(source_path, profile_path)
+        raw_disposition = report.get("disposition")
+        if not isinstance(raw_disposition, dict):
+            raise CatalogConflictError(
+                "Profile validation did not produce a Dataset disposition"
+            )
+        disposition = DatasetDisposition.model_validate(raw_disposition)
     asset = catalog.upsert_data_asset(DataAssetCreateInput(
         original_filename=source_path.name,
         sha256=source_sha256,
@@ -270,6 +290,9 @@ def register_dataset_records(
         data_asset_id=asset.id,
         profile_revision_id=profile_revision.id,
         canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
+        disposition_digest=disposition_digest(disposition),
+        disposition_json=disposition,
+        disposition_status="recorded",
     ))
     canonical_view_id = f"single-{dataset.id}"
     existing_view = next((
@@ -306,6 +329,9 @@ def register_dataset_records(
         locator=str(locator.resolve()),
         profile_id=profile_id,
         task_ids=task_ids,
+        disposition_status=dataset.disposition_status,
+        disposition_digest=dataset.disposition_digest,
+        disposition=dataset.disposition_json,
     )
 
 
@@ -386,6 +412,7 @@ def register_managed_dataset(
                 locator=locator,
                 name=name or source.stem,
                 member_provenance=member_provenance,
+                disposition=DatasetDisposition.model_validate(report["disposition"]),
             )
         except Exception:
             _rollback_failed_managed_registration(

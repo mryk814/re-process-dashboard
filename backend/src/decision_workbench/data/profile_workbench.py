@@ -13,6 +13,11 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+    build_count_disposition,
+    build_dataset_disposition,
+)
 from decision_workbench.data.evidence_images import technical_field_is_optional
 from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.data.importer import detect_dataset_profile_path
@@ -707,11 +712,28 @@ def _stage_b_validation(source: Path, profile: Any, profile_path: Path) -> dict[
     )
     observations = training.data.observations
     usable = [row for row in observations if row["eligible"]]
+    source_sha256 = file_sha256(source)
+    rejected_by_policy = {
+        reason: sum(reason in row["exclusion_reasons"] for row in observations)
+        for reason in sorted({
+            reason for row in observations for reason in row["exclusion_reasons"]
+        })
+    }
+    disposition = build_count_disposition(
+        source_sha256=source_sha256,
+        profile_digest=training.profile_digest,
+        canonicalization_contract_digest=DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+        task_ids=[profile.task_id],
+        entities=len(observations),
+        observations_by_task={profile.task_id: len(observations)},
+        usable_observations_by_task={profile.task_id: len(usable)},
+        rejected_by_policy=rejected_by_policy,
+    )
     return {
         "ok": True,
         "registration_ready": bool(usable),
         "source": str(source),
-        "source_sha256": file_sha256(source),
+        "source_sha256": source_sha256,
         "profile": str(profile_path),
         "profile_id": profile.id,
         "profile_digest": training.profile_digest,
@@ -722,20 +744,16 @@ def _stage_b_validation(source: Path, profile: Any, profile_path: Path) -> dict[
         "observations_by_task": {profile.task_id: len(usable)},
         "heat_series_parents": 0,
         "unresolved_heat_series_by_task": {},
-        "rejected_by_policy": {
-            reason: sum(reason in row["exclusion_reasons"] for row in observations)
-            for reason in sorted({
-                reason for row in observations for reason in row["exclusion_reasons"]
-            })
-        },
+        "rejected_by_policy": rejected_by_policy,
         "entity_preview": [
             {
                 "entity_type": "weld_metal",
-                "entity_key": row["id"],
-                "values": {"weld_run": row["parent_key"], "eligible": row["eligible"]},
+                "field_count": len(row),
+                "eligible": bool(row["eligible"]),
             }
             for row in observations[:5]
         ],
+        "disposition": disposition.model_dump(mode="json"),
     }
 
 
@@ -763,41 +781,42 @@ def _validate_dataset_input_workbook(source: Path, profile_path: Path) -> dict[s
         for policy, accepted in item.policy_results.items()
         if not accepted
     )
-    unresolved_heat_series_by_task: dict[str, int] = {}
-    for task_id, task in profile.tasks.items():
-        mappings = [
-            mapping for mapping in task.mappings
-            if mapping.kind == "ordered_heat_series"
-        ]
-        if not mappings:
-            continue
-        parent_types = {
-            mapping.parent_entity_type or "annealing"
-            for mapping in mappings
-        }
-        unresolved = sum(
-            1
-            for identity in canonical.entities
-            if identity[0] in parent_types and identity not in canonical.heat_series
-        )
-        if unresolved:
-            unresolved_heat_series_by_task[task_id] = unresolved
+    source_sha256 = file_sha256(source)
+    profile_digest = dataset_profile_digest(profile_path)
+    disposition = build_dataset_disposition(
+        canonical,
+        source_sha256=source_sha256,
+        profile_digest=profile_digest,
+        canonicalization_contract_digest=DATASET_CANONICALIZATION_CONTRACT_DIGEST,
+    )
+    unresolved_heat_series_by_task = {
+        task_id: item.unresolved_heat_series_parent_count
+        for task_id, item in disposition.task_dispositions.items()
+        if item.unresolved_heat_series_parent_count
+    }
     entity_preview = [
         {
             "entity_type": identity[0],
-            "entity_key": identity[1],
-            "values": dict(entity.values),
+            "task_count": len(entity.values),
+            "field_count": sum(
+                len(fields)
+                for fields in entity.values.values()
+                if isinstance(fields, dict)
+            ),
         }
         for identity, entity in list(canonical.entities.items())[:5]
     ]
     return {
         "ok": True,
-        "registration_ready": True,
+        "registration_ready": any(
+            item.usable_observation_count > 0
+            for item in disposition.task_dispositions.values()
+        ),
         "source": str(source),
-        "source_sha256": file_sha256(source),
+        "source_sha256": source_sha256,
         "profile": str(profile_path),
         "profile_id": profile.profile_id,
-        "profile_digest": dataset_profile_digest(profile_path),
+        "profile_digest": profile_digest,
         "task_ids": sorted(profile.tasks),
         "entities": len(canonical.entities),
         "relations": len(canonical.relations),
@@ -807,4 +826,5 @@ def _validate_dataset_input_workbook(source: Path, profile_path: Path) -> dict[s
         "unresolved_heat_series_by_task": unresolved_heat_series_by_task,
         "rejected_by_policy": dict(sorted(rejected_by_policy.items())),
         "entity_preview": entity_preview,
+        "disposition": disposition.model_dump(mode="json"),
     }

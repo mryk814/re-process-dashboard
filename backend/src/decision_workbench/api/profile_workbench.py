@@ -15,6 +15,12 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 
 from decision_workbench.application.dataset_registration import register_managed_dataset
+from decision_workbench.contracts.dataset_disposition_contracts import (
+    DatasetDisposition,
+    compare_dispositions,
+    disposition_digest,
+    disposition_projection,
+)
 from decision_workbench.contracts.evidence_contracts import ApiError
 from decision_workbench.contracts.data_library_contracts import (
     ProfileWorkbenchBindingDraft,
@@ -155,6 +161,15 @@ async def _uploaded_workbook(file: UploadFile) -> AsyncIterator[Path]:
 def _validation(raw: object) -> ProfileWorkbenchValidation | None:
     if not isinstance(raw, dict):
         return None
+    raw_disposition = raw.get("disposition")
+    disposition = None
+    if isinstance(raw_disposition, dict):
+        artifact = DatasetDisposition.model_validate(raw_disposition)
+        disposition = disposition_projection(
+            status="recorded",
+            digest=disposition_digest(artifact),
+            disposition=artifact,
+        )
     return ProfileWorkbenchValidation(
         registration_ready=bool(raw.get("registration_ready")),
         profile_id=str(raw["profile_id"]),
@@ -171,6 +186,7 @@ def _validation(raw: object) -> ProfileWorkbenchValidation | None:
         },
         rejected_by_policy={str(key): int(value) for key, value in dict(raw.get("rejected_by_policy", {})).items()},
         entity_preview=[dict(item) for item in raw.get("entity_preview", []) if isinstance(item, dict)],
+        disposition=disposition,
     )
 
 
@@ -465,6 +481,22 @@ async def register_uploaded_workbook(
             raise HTTPException(409, str(exc) or "同じDatasetの登録内容が競合しました") from exc
         except (DatasetProfileError, BadZipFile, InvalidFileException, OSError, ValueError) as exc:
             raise _validation_error(exc) from exc
+    current_disposition = result.disposition
+    if current_disposition is None:
+        raise HTTPException(500, "登録済みDatasetのdispositionを読み込めません")
+    previous_diff = (
+        compare_dispositions(
+            previous_dataset.disposition_json if previous_dataset is not None else None,
+            current_disposition,
+            previous_status=(
+                previous_dataset.disposition_status
+                if previous_dataset is not None
+                else "recorded"
+            ),
+        )
+        if previous_dataset is not None
+        else None
+    )
     return ProfileWorkbenchRegistration(
         reused_existing=result.dataset_revision_id in before,
         data_asset_id=result.data_asset_id,
@@ -480,4 +512,11 @@ async def register_uploaded_workbook(
         previous_source_sha256=(
             previous_asset.sha256 if previous_asset is not None else None
         ),
+        disposition=disposition_projection(
+            status=result.disposition_status,
+            digest=result.disposition_digest,
+            disposition=current_disposition,
+            previous_diff=previous_diff,
+        ),
+        previous_disposition_diff=previous_diff,
     )

@@ -34,6 +34,10 @@ from decision_workbench.contracts.data_library_contracts import (
     ProjectSeriesCreateInput,
     ProjectSeriesUpdateInput,
 )
+from decision_workbench.contracts.dataset_disposition_contracts import disposition_digest
+from decision_workbench.persistence.dataset_disposition_migration import (
+    migrate_dataset_disposition_storage,
+)
 from decision_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
 from decision_workbench.persistence.workspace_maintenance_migration import (
     migrate_workspace_maintenance_events,
@@ -146,6 +150,7 @@ class WorkspaceCatalog:
         self.path = str(database)
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         migrate_workspace_catalog(self.path)
+        migrate_dataset_disposition_storage(self.path)
         migrate_workspace_maintenance_events(self.path)
 
     def _connect(self):
@@ -165,7 +170,14 @@ class WorkspaceCatalog:
 
     @staticmethod
     def _dataset(row: sqlite3.Row) -> DatasetRevision:
-        return DatasetRevision(**dict(row))
+        values = dict(row)
+        raw_disposition = values.get("disposition_json")
+        if raw_disposition is not None:
+            values["disposition_json"] = _loads_object(
+                raw_disposition,
+                label=f"Dataset Revision {values['id']} disposition",
+            )
+        return DatasetRevision(**values)
 
     @staticmethod
     def _package(row: sqlite3.Row) -> ModelPackageRef:
@@ -334,6 +346,24 @@ class WorkspaceCatalog:
                 raise CatalogReferenceError(
                     f"利用可能なProfile Revisionが見つかりません: {payload.profile_revision_id}"
                 )
+            if payload.disposition_status == "recorded":
+                assert payload.disposition_json is not None
+                if payload.disposition_digest != disposition_digest(payload.disposition_json):
+                    raise CatalogConflictError(
+                        "Dataset dispositionのdigestがartifactと一致しません"
+                    )
+                if payload.disposition_json.source_sha256 != asset["sha256"]:
+                    raise CatalogConflictError(
+                        "Dataset dispositionのSource identityが一致しません"
+                    )
+                if payload.disposition_json.profile_digest != profile["profile_digest"]:
+                    raise CatalogConflictError(
+                        "Dataset dispositionのProfile identityが一致しません"
+                    )
+                if payload.disposition_json.canonicalization_contract_digest != payload.canonicalization_contract_digest:
+                    raise CatalogConflictError(
+                        "Dataset dispositionのcanonicalization contractが一致しません"
+                    )
             identity = {
                 "data_asset_sha256": asset["sha256"],
                 "profile_digest": profile["profile_digest"],
@@ -358,12 +388,33 @@ class WorkspaceCatalog:
                 )
                 if stored != expected:
                     raise CatalogConflictError("Dataset Revisionのidentityが既存レコードと一致しません")
+                stored_status = row["disposition_status"] or "unknown_legacy"
+                if stored_status != payload.disposition_status:
+                    raise CatalogConflictError(
+                        "既存Dataset Revisionのdisposition statusを上書きできません"
+                    )
+                if (
+                    stored_status == "recorded"
+                    and row["disposition_digest"] != payload.disposition_digest
+                ):
+                    raise CatalogConflictError(
+                        "既存Dataset Revisionのdisposition digestが一致しません"
+                    )
             else:
                 conn.execute(
                     "INSERT INTO dataset_revisions(id,data_asset_id,profile_revision_id,"
-                    "canonicalization_contract_digest,dataset_digest,created_at) VALUES (?,?,?,?,?,?)",
+                    "canonicalization_contract_digest,dataset_digest,disposition_digest,"
+                    "disposition_json,disposition_status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
                     (revision_id, payload.data_asset_id, payload.profile_revision_id,
-                     payload.canonicalization_contract_digest, dataset_digest, _now()),
+                     payload.canonicalization_contract_digest, dataset_digest,
+                     payload.disposition_digest,
+                     (
+                         _canonical_json(payload.disposition_json)
+                         if payload.disposition_json is not None
+                         else None
+                     ),
+                     payload.disposition_status,
+                     _now()),
                 )
                 row = conn.execute("SELECT * FROM dataset_revisions WHERE id=?", (revision_id,)).fetchone()
         assert row is not None
